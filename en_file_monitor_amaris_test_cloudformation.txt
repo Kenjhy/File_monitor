@@ -1,0 +1,1046 @@
+// Last update transaction car: 2025-03-28 00:30:42.841011
+// Total files: 6
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\cloudformation\backend-build-fixed.ps1
+/===============================================================================
+
+# PowerShell script para empaquetar backend usando Docker para la compatibilidad con Lambda
+# Crear directorios para el paquete
+New-Item -ItemType Directory -Force -Path ..\deployment\backend | Out-Null
+New-Item -ItemType Directory -Force -Path ..\deployment\layers | Out-Null
+
+# Entrar al directorio del backend
+Push-Location -Path ..\backend
+
+# Limpiar directorio de paquete si existe
+if (Test-Path .\package) {
+    Remove-Item -Recurse -Force .\package
+}
+New-Item -ItemType Directory -Force -Path .\package | Out-Null
+
+# Crear archivo temporal con versiones flexibles de las dependencias
+$flexibleRequirements = @"
+annotated-types>=0.7.0
+anyio>=4.9.0
+boto3>=1.37.21
+botocore>=1.37.21
+certifi>=2025.1.31
+click>=8.1.8
+colorama>=0.4.6
+dnspython>=2.7.0
+ecdsa>=0.19.1
+email_validator>=2.2.0
+fastapi>=0.115.12
+h11>=0.14.0
+httpcore>=1.0.7
+httpx>=0.28.1
+idna>=3.10
+iniconfig>=2.1.0
+jmespath>=1.0.1
+packaging>=24.2
+pluggy>=1.5.0
+pyasn1>=0.4.8
+pydantic>=2.10.6
+pydantic-settings>=2.8.1
+pydantic_core>=2.27.2
+pytest>=8.3.5
+pytest-asyncio>=0.26.0
+python-dateutil>=2.9.0
+python-dotenv>=1.1.0
+python-jose>=3.4.0
+rsa>=4.9
+s3transfer>=0.11.4
+six>=1.17.0
+sniffio>=1.3.1
+starlette>=0.46.1
+typing_extensions>=4.13.0
+urllib3>=1.25.4,<1.27
+uvicorn>=0.34.0
+"@
+
+# Guardar el archivo temporal
+Set-Content -Path .\flexible-requirements.txt -Value $flexibleRequirements
+
+# Crear una imagen Docker para compilar las dependencias en un entorno Linux compatible con Lambda
+$dockerFileContent = @"
+FROM public.ecr.aws/lambda/python:3.9
+
+# Instalar zip
+RUN yum install -y zip
+
+# Copiar requirements flexibles
+COPY flexible-requirements.txt .
+
+# Instalar dependencias
+RUN pip install --no-cache-dir -t /python -r flexible-requirements.txt
+RUN pip install --no-cache-dir -t /python mangum==0.19.0
+
+# Comprimir las dependencias
+RUN mkdir -p /output/python
+RUN cp -r /python/* /output/python/
+RUN cd /output && zip -r layer.zip python
+"@
+
+# Crear archivo Dockerfile
+Set-Content -Path .\Dockerfile -Value $dockerFileContent
+
+# Construir imagen Docker y ejecutar contenedor para crear layer
+Write-Host "Construyendo imagen Docker para crear layer compatible con Lambda..."
+docker build -t lambda-layer-builder .
+docker run --name lambda-layer-container lambda-layer-builder
+docker cp lambda-layer-container:/output/layer.zip ..\deployment\layers\python-dependencies.zip
+docker rm lambda-layer-container
+
+# Crear archivo lambda_handler.py con logging para debugging
+$lambdaHandlerContent = @"
+from mangum import Mangum
+from app.main import app
+import logging
+import sys
+
+# Configurar logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+# Informar sobre el entorno
+logger.info(f"Python version: {sys.version}")
+logger.info(f"Python path: {sys.path}")
+
+# Crear manejador para Lambda
+handler = Mangum(app, lifespan="off")
+"@
+Set-Content -Path .\package\lambda_handler.py -Value $lambdaHandlerContent
+
+# Copiar código de la aplicación
+Write-Host "Copiando código de la aplicación..."
+Copy-Item -Path .\app -Destination .\package -Recurse
+
+# Limpiar archivos innecesarios para reducir tamaño
+Write-Host "Limpiando archivos innecesarios..."
+Get-ChildItem -Path .\package -Include __pycache__ -Recurse -Directory | Remove-Item -Recurse -Force
+
+# Crear archivo ZIP del código de la aplicación (sin dependencias)
+Write-Host "Creando archivo ZIP..."
+$deploymentPath = (Resolve-Path ..\deployment\backend).Path
+Push-Location -Path .\package
+Compress-Archive -Path * -DestinationPath "$deploymentPath\lambda-package.zip" -Force
+Pop-Location
+
+# Limpiar archivos temporales
+Remove-Item -Force .\flexible-requirements.txt -ErrorAction SilentlyContinue
+Remove-Item -Force .\Dockerfile -ErrorAction SilentlyContinue
+
+# Volver al directorio original
+Pop-Location
+
+Write-Host "Backend package creado en deployment/backend/lambda-package.zip"
+Write-Host "Layer de dependencias creado en deployment/layers/python-dependencies.zip"
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\cloudformation\backend-build.ps1
+/===============================================================================
+
+# PowerShell script para empaquetar backend
+# Crear directorios para el paquete
+New-Item -ItemType Directory -Force -Path ..\deployment\backend | Out-Null
+
+# Entrar al directorio del backend
+Push-Location -Path ..\backend
+
+# Limpiar directorio de paquete si existe
+if (Test-Path .\package) {
+    Remove-Item -Recurse -Force .\package
+}
+New-Item -ItemType Directory -Force -Path .\package | Out-Null
+
+# Usar un entorno de Python limpio
+if (Test-Path .\venv) {
+    Remove-Item -Recurse -Force .\venv
+}
+
+Write-Host "Creando y activando entorno virtual..."
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+
+# Instalar dependencias
+Write-Host "Instalando dependencias..."
+pip install --upgrade pip
+pip install -r requirements.txt
+pip install mangum
+
+# Crear archivo lambda_handler.py con logging para debugging
+$lambdaHandlerContent = @"
+from mangum import Mangum
+from app.main import app
+import logging
+import sys
+
+# Configurar logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+# Informar sobre el entorno
+logger.info(f"Python version: {sys.version}")
+logger.info(f"Python path: {sys.path}")
+
+# Crear manejador para Lambda
+handler = Mangum(app, lifespan="off")
+"@
+Set-Content -Path .\package\lambda_handler.py -Value $lambdaHandlerContent
+
+# Copiar código de la aplicación
+Write-Host "Copiando código de la aplicación..."
+Copy-Item -Path .\app -Destination .\package -Recurse
+
+# Instalar todas las dependencias directamente en el directorio del paquete
+# Este es un enfoque más directo que evita problemas de dependencias
+Write-Host "Instalando dependencias en el paquete..."
+pip install -t .\package\ --no-deps mangum
+pip install -t .\package\ -r requirements.txt
+pip install -t .\package\ email-validator==2.2.0 dnspython==2.7.0
+
+# Dependencias específicas que a menudo causan problemas
+Write-Host "Instalando dependencias críticas..."
+pip install -t .\package\ pydantic==2.10.6 pydantic-core==2.27.2 typing-extensions==4.13.0
+
+# Limpiar archivos innecesarios para reducir tamaño
+Write-Host "Limpiando archivos innecesarios..."
+Get-ChildItem -Path .\package -Include __pycache__ -Recurse -Directory | Remove-Item -Recurse -Force
+Get-ChildItem -Path .\package -Include *.dist-info -Recurse -Directory | Remove-Item -Recurse -Force
+Get-ChildItem -Path .\package -Include *.egg-info -Recurse -Directory | Remove-Item -Recurse -Force
+Get-ChildItem -Path .\package -Include tests -Recurse -Directory | Remove-Item -Recurse -Force
+
+# Crear archivo ZIP
+Write-Host "Creando archivo ZIP..."
+$deploymentPath = (Resolve-Path ..\deployment\backend).Path
+Push-Location -Path .\package
+Compress-Archive -Path * -DestinationPath "$deploymentPath\lambda-package.zip" -Force
+Pop-Location
+
+# Desactivar entorno virtual
+deactivate
+
+# Volver al directorio original
+Pop-Location
+
+Write-Host "Backend package creado en deployment/backend/lambda-package.zip"
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\cloudformation\deploy.ps1
+/===============================================================================
+
+# Script PowerShell para despliegue en AWS CloudFormation
+
+# Variables configurables
+$STACK_NAME = "ElCliente-Stack"
+$REGION = "us-east-1"  # Cambia según tu región preferida
+$STAGE = "prod"
+
+# Colores para mensajes
+function Write-ColorOutput($ForegroundColor) {
+    $fc = $host.UI.RawUI.ForegroundColor
+    $host.UI.RawUI.ForegroundColor = $ForegroundColor
+    if ($args) {
+        Write-Output $args
+    }
+    else {
+        $input | Write-Output
+    }
+    $host.UI.RawUI.ForegroundColor = $fc
+}
+
+Write-ColorOutput Yellow "Iniciando despliegue de la aplicación El Cliente - Fondos"
+
+# Verificar AWS CLI
+try {
+    aws --version
+}
+catch {
+    Write-ColorOutput Red "Error: AWS CLI no está instalado"
+    Write-Output "Instala AWS CLI siguiendo las instrucciones en: https://aws.amazon.com/cli/"
+    exit 1
+}
+
+# Verificar credenciales
+Write-ColorOutput Yellow "Verificando credenciales de AWS..."
+try {
+    $identity = aws sts get-caller-identity
+    if (-not $identity) {
+        throw "No se pudieron obtener las credenciales"
+    }
+}
+catch {
+    Write-ColorOutput Red "Error: No se pudieron verificar las credenciales de AWS"
+    Write-Output "Configura tus credenciales con 'aws configure' o asegúrate de que estén correctamente configuradas"
+    exit 1
+}
+
+# Verificar permisos CloudFormation
+Write-ColorOutput Yellow "Verificando permisos para CloudFormation..."
+try {
+    aws cloudformation list-stacks --max-items 1
+}
+catch {
+    Write-ColorOutput Red "Error: No tienes permisos suficientes para CloudFormation"
+    Write-Output "Asegúrate de tener los permisos necesarios para CloudFormation"
+    exit 1
+}
+
+# Eliminar el stack si está en estado ROLLBACK_COMPLETE
+try {
+    $stack = aws cloudformation describe-stacks --stack-name $STACK_NAME 2>$null | ConvertFrom-Json
+    $stackStatus = $stack.Stacks[0].StackStatus
+    
+    if ($stackStatus -eq "ROLLBACK_COMPLETE") {
+        Write-ColorOutput Yellow "El stack está en estado ROLLBACK_COMPLETE. Eliminando stack..."
+        aws cloudformation delete-stack --stack-name $STACK_NAME
+        Write-ColorOutput Yellow "Esperando a que se elimine el stack..."
+        aws cloudformation wait stack-delete-complete --stack-name $STACK_NAME
+        Write-ColorOutput Green "Stack eliminado correctamente."
+    } else {
+        Write-ColorOutput Yellow "Stack existente en estado: $stackStatus"
+    }
+} catch {
+    Write-ColorOutput Yellow "No se encontró stack existente o hubo un error al verificar el estado."
+}
+
+# Crear directorio de despliegue si no existe
+New-Item -ItemType Directory -Force -Path ..\deployment\backend | Out-Null
+New-Item -ItemType Directory -Force -Path ..\deployment\frontend | Out-Null
+New-Item -ItemType Directory -Force -Path ..\deployment\layers | Out-Null
+
+# Paso 1: Verificando bucket de despliegue...
+Write-ColorOutput Yellow "Paso 1: Verificando bucket de despliegue..."
+
+$ACCOUNT_ID = (aws sts get-caller-identity --query Account --output text)
+$DEPLOYMENT_BUCKET = "elcliente-deployment-${ACCOUNT_ID}-${REGION}"
+
+# Verificar si el bucket existe
+$bucketExists = $false
+try {
+    aws s3api head-bucket --bucket $DEPLOYMENT_BUCKET 2>$null
+    Write-Output "El bucket de despliegue $DEPLOYMENT_BUCKET ya existe."
+    $bucketExists = $true
+}
+catch {
+    # Solicitar al usuario que cree el bucket manualmente
+    Write-ColorOutput Red "Error: El bucket $DEPLOYMENT_BUCKET no existe."
+    Write-ColorOutput Yellow "Por favor, crea el bucket manualmente desde la consola AWS:"
+    Write-ColorOutput Yellow "1. Ve a https://s3.console.aws.amazon.com/s3/"
+    Write-ColorOutput Yellow "2. Haz clic en 'Create bucket'"
+    Write-ColorOutput Yellow "3. Nombre: $DEPLOYMENT_BUCKET"
+    Write-ColorOutput Yellow "4. Desmarca todas las opciones de 'Block Public Access'"
+    Write-ColorOutput Yellow "5. Asegúrate de habilitar el versionamiento (opcional)"
+    Write-ColorOutput Yellow "6. Completa la creación del bucket"
+    
+    $confirmation = Read-Host "¿Has creado manualmente el bucket? (s/n)"
+    if ($confirmation -ne "s") {
+        Write-ColorOutput Red "Despliegue cancelado. Crea el bucket y vuelve a ejecutar el script."
+        exit 1
+    }
+    
+    # Verificar nuevamente si el bucket ahora existe
+    try {
+        aws s3api head-bucket --bucket $DEPLOYMENT_BUCKET 2>$null
+        Write-Output "Bucket verificado correctamente."
+        $bucketExists = $true
+    }
+    catch {
+        Write-ColorOutput Red "El bucket $DEPLOYMENT_BUCKET sigue sin estar disponible. Verifica que lo hayas creado correctamente."
+        exit 1
+    }
+}
+
+# Paso 2: Empaquetar el backend usando el nuevo script que genera la layer
+Write-ColorOutput Yellow "Paso 2: Empaquetando backend..."
+& .\backend-build-fixed.ps1
+
+# Paso 3: Empaquetar el frontend
+Write-ColorOutput Yellow "Paso 3: Construyendo frontend..."
+& .\frontend-build.ps1
+
+# Paso 4: Subir paquetes al bucket S3
+Write-ColorOutput Yellow "Paso 4: Subiendo paquetes a S3..."
+$backendPackagePath = "..\deployment\backend\lambda-package.zip"
+$layerPackagePath = "..\deployment\layers\python-dependencies.zip"
+
+if (Test-Path $backendPackagePath) {
+    Write-Output "Subiendo paquete Lambda..."
+    try {
+        aws s3 cp $backendPackagePath s3://$DEPLOYMENT_BUCKET/backend/lambda-package.zip
+        Write-ColorOutput Green "Paquete Lambda subido correctamente."
+    }
+    catch {
+        Write-ColorOutput Red "Error al subir paquete Lambda: $_"
+        Write-ColorOutput Yellow "Verificando permisos del bucket..."
+        aws s3api get-bucket-acl --bucket $DEPLOYMENT_BUCKET
+        Write-ColorOutput Red "Por favor verifica los permisos de tu usuario para acceder al bucket."
+        exit 1
+    }
+}
+else {
+    Write-ColorOutput Red "Error: No se encuentra el archivo $backendPackagePath"
+    exit 1
+}
+
+if (Test-Path $layerPackagePath) {
+    Write-Output "Subiendo Layer de dependencias..."
+    try {
+        aws s3 cp $layerPackagePath s3://$DEPLOYMENT_BUCKET/layers/python-dependencies.zip
+        Write-ColorOutput Green "Layer de dependencias subido correctamente."
+    }
+    catch {
+        Write-ColorOutput Red "Error al subir layer de dependencias: $_"
+        exit 1
+    }
+}
+else {
+    Write-ColorOutput Red "Error: No se encuentra el archivo $layerPackagePath"
+    exit 1
+}
+
+# Paso 5: Desplegar stack de CloudFormation con el parámetro correcto para el bucket
+Write-ColorOutput Yellow "Paso 5: Desplegando stack de CloudFormation..."
+try {
+    # Pasamos el parámetro CreateDeploymentBucket como "false" ya que el bucket existe
+    aws cloudformation deploy `
+        --template-file .\template.yaml `
+        --stack-name $STACK_NAME `
+        --parameter-overrides Stage=$STAGE CreateDeploymentBucket="false" `
+        --capabilities CAPABILITY_IAM `
+        --region $REGION `
+        --no-fail-on-empty-changeset
+    
+    if ($LASTEXITCODE -ne 0) {
+        throw "Error en el despliegue de CloudFormation"
+    }
+    
+    Write-ColorOutput Green "Stack desplegado correctamente."
+}
+catch {
+    Write-ColorOutput Red "Error: Falló el despliegue de CloudFormation: $_"
+    Write-ColorOutput Yellow "Para más detalles, ejecuta: aws cloudformation describe-stack-events --stack-name $STACK_NAME"
+    exit 1
+}
+
+# Obtener outputs del stack
+Write-ColorOutput Yellow "Obteniendo información del despliegue..."
+try {
+    $stackOutputs = aws cloudformation describe-stacks --stack-name $STACK_NAME --region $REGION | ConvertFrom-Json
+    $FRONTEND_BUCKET = ($stackOutputs.Stacks[0].Outputs | Where-Object { $_.ExportName -eq "$STACK_NAME-FrontendBucket" }).OutputValue
+    $API_ENDPOINT = ($stackOutputs.Stacks[0].Outputs | Where-Object { $_.ExportName -eq "$STACK_NAME-ApiEndpoint" }).OutputValue
+    $CLOUDFRONT_DOMAIN = ($stackOutputs.Stacks[0].Outputs | Where-Object { $_.ExportName -eq "$STACK_NAME-CloudFrontDomain" }).OutputValue
+    
+    Write-ColorOutput Green "Información obtenida correctamente."
+    if ($FRONTEND_BUCKET) { Write-ColorOutput Yellow "Frontend Bucket: $FRONTEND_BUCKET" }
+    if ($API_ENDPOINT) { Write-ColorOutput Yellow "API Endpoint: $API_ENDPOINT" }
+    if ($CLOUDFRONT_DOMAIN) { Write-ColorOutput Yellow "CloudFront Domain: $CLOUDFRONT_DOMAIN" }
+}
+catch {
+    Write-ColorOutput Yellow "Aviso: No se pudieron obtener todos los outputs del stack. Continuando..."
+}
+
+# Paso 6: Actualizar configuración del frontend con la URL de API correcta
+if ($API_ENDPOINT) {
+    Write-ColorOutput Yellow "Paso 6: Actualizando configuración del frontend..."
+    try {
+        Set-Content -Path ..\frontend\.env.production -Value "REACT_APP_API_URL=$API_ENDPOINT/api/v1"
+        Push-Location -Path ..\frontend
+        npm run build
+        Pop-Location
+        Write-ColorOutput Green "Frontend configurado y construido correctamente."
+    }
+    catch {
+        Write-ColorOutput Red "Error al configurar o construir el frontend: $_"
+    }
+}
+
+# Paso 7: Subir frontend a S3
+if ($FRONTEND_BUCKET) {
+    Write-ColorOutput Yellow "Paso 7: Desplegando frontend a S3..."
+    $frontendBuildPath = "..\frontend\build\"
+    if (Test-Path $frontendBuildPath) {
+        try {
+            aws s3 sync $frontendBuildPath s3://$FRONTEND_BUCKET/ --delete
+            Write-ColorOutput Green "Frontend desplegado correctamente en S3."
+        }
+        catch {
+            Write-ColorOutput Red "Error al desplegar frontend en S3: $_"
+        }
+    }
+    else {
+        Write-ColorOutput Yellow "Aviso: No se encuentra el directorio de build del frontend: $frontendBuildPath"
+    }
+}
+
+# Paso 8: Invalidar caché de CloudFront (si es necesario)
+if ($CLOUDFRONT_DOMAIN) {
+    Write-ColorOutput Yellow "Paso 8: Invalidando caché de CloudFront..."
+    try {
+        $DISTRIBUTION_ID = (aws cloudfront list-distributions --query "DistributionList.Items[?DomainName=='$CLOUDFRONT_DOMAIN'].Id" --output text)
+        if ($DISTRIBUTION_ID) {
+            aws cloudfront create-invalidation --distribution-id $DISTRIBUTION_ID --paths "/*"
+            Write-ColorOutput Green "Caché de CloudFront invalidada correctamente."
+        }
+        else {
+            Write-ColorOutput Yellow "No se encontró la distribución de CloudFront para el dominio $CLOUDFRONT_DOMAIN"
+        }
+    }
+    catch {
+        Write-ColorOutput Yellow "No se pudo invalidar la caché de CloudFront: $_"
+    }
+}
+
+Write-ColorOutput Green "¡Despliegue completado con éxito!"
+if ($API_ENDPOINT) {
+    Write-ColorOutput Green "URL de la API: $API_ENDPOINT"
+}
+if ($CLOUDFRONT_DOMAIN) {
+    Write-ColorOutput Green "URL de la aplicación: https://$CLOUDFRONT_DOMAIN"
+}
+Write-ColorOutput Yellow "Si encuentras algún problema, verifica los logs en CloudWatch y el estado del stack en CloudFormation."
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\cloudformation\cleanup-bucket.ps1
+/===============================================================================
+
+# Script para limpiar un bucket de S3 que está bloqueando la eliminación de un stack
+# Este script vacía el bucket para que pueda ser eliminado por CloudFormation
+
+param (
+    [string]$BucketName = "elcliente-frontend-891377403177-prod"
+)
+
+Write-Host "Vacíando el bucket $BucketName..." -ForegroundColor Yellow
+
+# Vaciar todos los objetos del bucket
+Write-Host "Eliminando todos los objetos..."
+aws s3 rm s3://$BucketName --recursive
+
+# Eliminar todas las versiones de objetos si está habilitado el versionamiento
+Write-Host "Comprobando si el bucket tiene versionamiento..."
+$versioning = aws s3api get-bucket-versioning --bucket $BucketName | ConvertFrom-Json
+
+if ($versioning.Status -eq "Enabled" -or $versioning.Status -eq "Suspended") {
+    Write-Host "Eliminando todas las versiones de objetos..."
+    $versions = aws s3api list-object-versions --bucket $BucketName | ConvertFrom-Json
+    
+    # Eliminar versiones
+    if ($versions.Versions -and $versions.Versions.Count -gt 0) {
+        foreach ($version in $versions.Versions) {
+            Write-Host "Eliminando $($version.Key) versión $($version.VersionId)"
+            aws s3api delete-object --bucket $BucketName --key $version.Key --version-id $version.VersionId
+        }
+    }
+    
+    # Eliminar marcadores de eliminación
+    if ($versions.DeleteMarkers -and $versions.DeleteMarkers.Count -gt 0) {
+        foreach ($marker in $versions.DeleteMarkers) {
+            Write-Host "Eliminando marcador de eliminación $($marker.Key) versión $($marker.VersionId)"
+            aws s3api delete-object --bucket $BucketName --key $marker.Key --version-id $marker.VersionId
+        }
+    }
+}
+
+Write-Host "Bucket $BucketName vacíado correctamente." -ForegroundColor Green
+Write-Host "Ahora puedes intentar eliminar el stack de nuevo." -ForegroundColor Green
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\cloudformation\frontend-build.ps1
+/===============================================================================
+
+# PowerShell script para construir frontend
+# Crear directorio para el paquete
+New-Item -ItemType Directory -Force -Path ..\deployment\frontend | Out-Null
+
+# Entrar al directorio del frontend
+Push-Location -Path ..\frontend
+
+# Instalar dependencias
+Write-Host "Instalando dependencias NPM..."
+npm install
+
+# Agregar configuración para apuntar a la API en producción
+$envContent = @"
+# Este archivo será usado cuando ejecutes 'npm run build'
+REACT_APP_API_URL=https://YOUR_API_ID.execute-api.YOUR_REGION.amazonaws.com/prod/api/v1
+"@
+Set-Content -Path .\.env.production -Value $envContent
+
+# Construir la aplicación
+Write-Host "Construyendo la aplicación..."
+npm run build
+
+# Copiar archivos de compilación al directorio de despliegue
+Write-Host "Copiando archivos a directorio de despliegue..."
+Copy-Item -Path .\build\* -Destination ..\deployment\frontend -Recurse -Force
+
+# Volver al directorio original
+Pop-Location
+
+Write-Host "Frontend build creado en deployment/frontend/"
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\cloudformation\template.yaml
+/===============================================================================
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation para despliegue de aplicación El Cliente - Fondos de Inversión'
+
+Parameters:
+  Stage:
+    Type: String
+    Default: prod
+    AllowedValues:
+      - prod
+      - dev
+    Description: Entorno de despliegue
+  CreateDeploymentBucket:
+    Type: String
+    Default: "false"
+    AllowedValues:
+      - "true"
+      - "false"
+    Description: Si es true, se creará el bucket de despliegue, si es false, se usará uno existente
+
+Conditions:
+  ShouldCreateDeploymentBucket: !Equals [!Ref CreateDeploymentBucket, "true"]
+
+Resources:
+  # ====================
+  # IAM Roles
+  # ====================
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource:
+                  - !GetAtt ClientsTable.Arn
+                  - !GetAtt FundsTable.Arn
+                  - !GetAtt SubscriptionsTable.Arn
+                  - !GetAtt TransactionsTable.Arn
+                  - !Join 
+                    - ''
+                    - - !GetAtt TransactionsTable.Arn
+                      - '/index/*'
+
+  # ====================
+  # DynamoDB Tables
+  # ====================
+  ClientsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'ElCliente-Clients-${Stage}'
+      BillingMode: PAY_PER_REQUEST  # Para mantener costos bajos
+      AttributeDefinitions:
+        - AttributeName: clientId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: clientId
+          KeyType: HASH
+      SSESpecification:
+        SSEEnabled: true  # Cifrado por defecto
+
+  FundsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'ElCliente-Funds-${Stage}'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: fundId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: fundId
+          KeyType: HASH
+      SSESpecification:
+        SSEEnabled: true
+
+  SubscriptionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'ElCliente-Subscriptions-${Stage}'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: clientId
+          AttributeType: S
+        - AttributeName: fundId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: clientId
+          KeyType: HASH
+        - AttributeName: fundId
+          KeyType: RANGE
+      SSESpecification:
+        SSEEnabled: true
+
+  TransactionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'ElCliente-Transactions-${Stage}'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: clientId
+          AttributeType: S
+        - AttributeName: transactionId
+          AttributeType: S
+        - AttributeName: transactionDate
+          AttributeType: S
+      KeySchema:
+        - AttributeName: clientId
+          KeyType: HASH
+        - AttributeName: transactionId
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: TransactionsByDate
+          KeySchema:
+            - AttributeName: clientId
+              KeyType: HASH
+            - AttributeName: transactionDate
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      SSESpecification:
+        SSEEnabled: true
+
+  # ====================
+  # Lambda Layer para dependencias
+  # ====================
+  PythonDependenciesLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: !Sub 'ElCliente-Dependencies-${Stage}'
+      Description: 'Dependencies for ElCliente application'
+      Content:
+        S3Bucket: !Sub 'elcliente-deployment-${AWS::AccountId}-${AWS::Region}'
+        S3Key: layers/python-dependencies.zip
+      CompatibleRuntimes:
+        - python3.9
+      LicenseInfo: 'MIT'
+
+  # ====================
+  # AWS Lambda
+  # ====================
+  BackendFunction:
+    Type: AWS::Lambda::Function
+    DependsOn:
+      - LambdaExecutionRole
+      - PythonDependenciesLayer
+    Properties:
+      FunctionName: !Sub 'ElCliente-Backend-${Stage}'
+      Runtime: python3.9
+      Handler: lambda_handler.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Sub 'elcliente-deployment-${AWS::AccountId}-${AWS::Region}'
+        S3Key: backend/lambda-package.zip
+      Layers:
+        - !Ref PythonDependenciesLayer
+      MemorySize: 256
+      Timeout: 30
+      Environment:
+        Variables:
+          STAGE: !Ref Stage
+          DEFAULT_CLIENT_ID: "C123456"
+          CLIENTS_TABLE_NAME: !Ref ClientsTable
+          FUNDS_TABLE_NAME: !Ref FundsTable
+          SUBSCRIPTIONS_TABLE_NAME: !Ref SubscriptionsTable
+          TRANSACTIONS_TABLE_NAME: !Ref TransactionsTable
+          
+  # ====================
+  # API Gateway
+  # ====================
+  ApiGateway:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub 'ElCliente-API-${Stage}'
+      Description: API para gestión de fondos de EL CLIENTE
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  ApiGatewayRootMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ResourceId: !GetAtt ApiGateway.RootResourceId
+      HttpMethod: ANY
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${BackendFunction.Arn}/invocations
+
+  ApiGatewayProxyResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ParentId: !GetAtt ApiGateway.RootResourceId
+      PathPart: '{proxy+}'
+
+  ApiGatewayProxyMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ResourceId: !Ref ApiGatewayProxyResource
+      HttpMethod: ANY
+      AuthorizationType: NONE
+      RequestParameters:
+        method.request.path.proxy: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${BackendFunction.Arn}/invocations
+        PassthroughBehavior: WHEN_NO_MATCH
+        ContentHandling: CONVERT_TO_TEXT
+        IntegrationResponses:
+          - StatusCode: '200'
+
+  # Permiso para que API Gateway invoque Lambda
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref BackendFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*/*
+
+  # Despliegue de API Gateway
+  ApiGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - ApiGatewayRootMethod
+      - ApiGatewayProxyMethod
+    Properties:
+      RestApiId: !Ref ApiGateway
+      StageName: !Ref Stage
+
+  # ====================
+  # S3 & CloudFront
+  # ====================
+  DeploymentBucket:
+    Type: AWS::S3::Bucket
+    Condition: ShouldCreateDeploymentBucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Sub 'elcliente-deployment-${AWS::AccountId}-${AWS::Region}'
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldVersions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+
+  # Bucket S3 para el frontend (ahora privado)
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'elcliente-frontend-${AWS::AccountId}-${Stage}'
+      # Se elimina WebsiteConfiguration para evitar problemas con Block Public Access
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [GET]
+            AllowedOrigins: ['*']
+            MaxAge: 3000
+
+  # OAI para CloudFront
+  CloudFrontOriginAccessIdentity:
+    Type: 'AWS::CloudFront::CloudFrontOriginAccessIdentity'
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: 'OAI for ElCliente frontend bucket'
+
+  # Política de bucket que permite acceso solo a través de CloudFront OAI
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: 'AllowCloudFrontAccessOnly'
+            Effect: Allow
+            Principal:
+              CanonicalUser: !GetAtt CloudFrontOriginAccessIdentity.S3CanonicalUserId
+            Action: 's3:GetObject'
+            Resource: !Sub '${FrontendBucket.Arn}/*'
+
+  # Distribución CloudFront con OAI
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: index.html
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt FrontendBucket.RegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub 'origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}'
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          CachedMethods: [GET, HEAD]
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+          Compress: true
+          DefaultTTL: 86400
+        PriceClass: PriceClass_100
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+
+  # ====================
+  # DynamoDB Initialization Lambda
+  # ====================
+  InitializationFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'ElCliente-Initialization-${Stage}'
+      Runtime: python3.9
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+          from decimal import Decimal
+          import time
+          
+          def handler(event, context):
+              # Solo inicializar en creación o actualización
+              if event['RequestType'] not in ['Create', 'Update']:
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+                  return
+              
+              try:
+                  # Obtener nombres de tablas desde propiedades
+                  clients_table = event['ResourceProperties']['ClientsTable']
+                  funds_table = event['ResourceProperties']['FundsTable']
+                  
+                  dynamodb = boto3.resource('dynamodb')
+                  
+                  # Inicializar tabla de fondos
+                  funds_data = [
+                      {
+                          'fundId': '1',
+                          'name': 'FPV_EL CLIENTE_RECAUDADORA',
+                          'category': 'FPV',
+                          'minimumAmount': Decimal('75000')
+                      },
+                      {
+                          'fundId': '2',
+                          'name': 'FPV_EL CLIENTE_ECOPETROL',
+                          'category': 'FPV',
+                          'minimumAmount': Decimal('125000')
+                      },
+                      {
+                          'fundId': '3',
+                          'name': 'DEUDAPRIVADA',
+                          'category': 'FIC',
+                          'minimumAmount': Decimal('50000')
+                      },
+                      {
+                          'fundId': '4',
+                          'name': 'FDO-ACCIONES',
+                          'category': 'FIC',
+                          'minimumAmount': Decimal('250000')
+                      },
+                      {
+                          'fundId': '5',
+                          'name': 'FPV_EL CLIENTE_DINAMICA',
+                          'category': 'FPV',
+                          'minimumAmount': Decimal('100000')
+                      }
+                  ]
+                  
+                  table = dynamodb.Table(funds_table)
+                  for fund in funds_data:
+                      table.put_item(Item=fund)
+                  
+                  # Crear cliente default
+                  table = dynamodb.Table(clients_table)
+                  table.put_item(
+                      Item={
+                          'clientId': 'C123456',
+                          'balance': Decimal('500000'),
+                          'preferredNotification': 'email',
+                          'email': 'cliente@ejemplo.com',
+                          'phone': '+573001234567'
+                      }
+                  )
+                  
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {
+                      'Message': 'Initialization completed successfully'
+                  })
+              except Exception as e:
+                  print(f"Error: {str(e)}")
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {
+                      'Error': str(e)
+                  })
+      MemorySize: 128
+      Timeout: 60
+
+  InitializeDynamoDBTables:
+    Type: Custom::InitializeDynamoDBTables
+    DependsOn:
+      - ClientsTable
+      - FundsTable
+      - SubscriptionsTable
+      - TransactionsTable
+    Properties:
+      ServiceToken: !GetAtt InitializationFunction.Arn
+      ClientsTable: !Ref ClientsTable
+      FundsTable: !Ref FundsTable
+
+Outputs:
+  ApiEndpoint:
+    Description: "URL de la API Gateway"
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Stage}"
+    Export:
+      Name: !Sub "${AWS::StackName}-ApiEndpoint"
+  
+  CloudFrontDomain:
+    Description: "Dominio de CloudFront para el frontend"
+    Value: !GetAtt CloudFrontDistribution.DomainName
+    Export:
+      Name: !Sub "${AWS::StackName}-CloudFrontDomain"
+      
+  FrontendBucketName:
+    Description: "Nombre del bucket S3 para el frontend"
+    Value: !Ref FrontendBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-FrontendBucket"
+

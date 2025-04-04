@@ -1,0 +1,557 @@
+// Last update transaction car: 2025-03-28 19:19:06.922848
+// Total files: 11
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\services\__tests__\api.test.js
+/===============================================================================
+
+// src/services/__tests__/api.test.js
+import API_URL from '../../config/api';
+
+// Mock axios
+jest.mock('axios');
+import axios from 'axios';
+
+// Importamos la función createApi en lugar de la instancia por defecto
+import { createApi } from '../api';
+
+describe('API Service', () => {
+  it('should create API instance with correct configuration', () => {
+    // Llamamos a la función directamente en el test
+    createApi();
+    
+    // Ahora podemos verificar que axios.create fue llamado con los parámetros correctos
+    expect(axios.create).toHaveBeenCalledWith({
+      baseURL: API_URL,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+  });
+});
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\services\__tests__\clienteService.test.js
+/===============================================================================
+
+// src/services/__tests__/clienteService.test.js
+import { getClientInfo, updateClientPreferences } from '../clienteService';
+import api from '../api';
+
+// Mock the api module
+jest.mock('../api');
+
+describe('Cliente Service', () => {
+  beforeEach(() => {
+    // Clear all mocks before each test
+    jest.clearAllMocks();
+  });
+
+  describe('getClientInfo', () => {
+    it('should fetch client info with default ID if none provided', async () => {
+      // Setup mock response
+      const mockResponse = { data: { clientId: 'C123456', balance: 500000 } };
+      api.get.mockResolvedValue(mockResponse);
+
+      // Call the function
+      const result = await getClientInfo();
+
+      // Check if API was called correctly
+      expect(api.get).toHaveBeenCalledWith('/clientes/C123456');
+      // Check if function returns the correct data
+      expect(result).toEqual(mockResponse.data);
+    });
+
+    it('should fetch client info with provided ID', async () => {
+      // Setup mock response
+      const mockResponse = { data: { clientId: 'C654321', balance: 750000 } };
+      api.get.mockResolvedValue(mockResponse);
+
+      // Call the function with a specific client ID
+      const result = await getClientInfo('C654321');
+
+      // Check if API was called correctly
+      expect(api.get).toHaveBeenCalledWith('/clientes/C654321');
+      // Check if function returns the correct data
+      expect(result).toEqual(mockResponse.data);
+    });
+
+    it('should propagate errors from the API', async () => {
+      // Setup mock to throw an error
+      const errorMessage = 'Network Error';
+      api.get.mockRejectedValue(new Error(errorMessage));
+
+      // Call the function and expect it to throw
+      await expect(getClientInfo()).rejects.toThrow(errorMessage);
+      expect(api.get).toHaveBeenCalledWith('/clientes/C123456');
+    });
+  });
+
+  describe('updateClientPreferences', () => {
+    it('should update client preferences', async () => {
+      // Setup mock data and response
+      const clientId = 'C123456';
+      const updateData = { 
+        preferredNotification: 'email',
+        email: 'test@example.com' 
+      };
+      const mockResponse = { 
+        data: { 
+          preferredNotification: 'email',
+          email: 'test@example.com' 
+        } 
+      };
+      
+      api.patch.mockResolvedValue(mockResponse);
+
+      // Call the function
+      const result = await updateClientPreferences(clientId, updateData);
+
+      // Check if API was called correctly
+      expect(api.patch).toHaveBeenCalledWith(`/clientes/${clientId}`, updateData);
+      // Check if function returns the correct data
+      expect(result).toEqual(mockResponse.data);
+    });
+
+    it('should propagate errors from the API', async () => {
+      // Setup data and mock to throw an error
+      const clientId = 'C123456';
+      const updateData = { preferredNotification: 'sms' };
+      const errorMessage = 'Server Error';
+      
+      api.patch.mockRejectedValue(new Error(errorMessage));
+
+      // Call the function and expect it to throw
+      await expect(updateClientPreferences(clientId, updateData)).rejects.toThrow(errorMessage);
+      expect(api.patch).toHaveBeenCalledWith(`/clientes/${clientId}`, updateData);
+    });
+  });
+});
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\services\__tests__\fondoService.test.js
+/===============================================================================
+
+// src/services/__tests__/fondoService.test.js
+import { getAllFunds, getFundDetails } from '../fondoService';
+import api from '../api';
+
+// Mock the api module
+jest.mock('../api');
+
+describe('Fondo Service', () => {
+  beforeEach(() => {
+    // Clear all mocks before each test
+    jest.clearAllMocks();
+  });
+
+  describe('getAllFunds', () => {
+    it('should fetch all funds', async () => {
+      // Setup mock response with sample funds data
+      const mockFunds = [
+        { fundId: '1', name: 'FPV_EL CLIENTE_RECAUDADORA', category: 'FPV', minimumAmount: 75000 },
+        { fundId: '2', name: 'FPV_EL CLIENTE_ECOPETROL', category: 'FPV', minimumAmount: 125000 }
+      ];
+      const mockResponse = { data: mockFunds };
+      api.get.mockResolvedValue(mockResponse);
+
+      // Call the function
+      const result = await getAllFunds();
+
+      // Check if API was called correctly
+      expect(api.get).toHaveBeenCalledWith('/fondos');
+      // Check if function returns the correct data
+      expect(result).toEqual(mockFunds);
+    });
+
+    it('should propagate errors from the API', async () => {
+      // Setup mock to throw an error
+      const errorMessage = 'Network Error';
+      api.get.mockRejectedValue(new Error(errorMessage));
+
+      // Call the function and expect it to throw
+      await expect(getAllFunds()).rejects.toThrow(errorMessage);
+      expect(api.get).toHaveBeenCalledWith('/fondos');
+    });
+  });
+
+  describe('getFundDetails', () => {
+    it('should fetch details for a specific fund', async () => {
+      // Setup mock fund data and response
+      const fundId = '3';
+      const mockFundDetails = { 
+        fundId: '3', 
+        name: 'DEUDAPRIVADA', 
+        category: 'FIC', 
+        minimumAmount: 50000 
+      };
+      const mockResponse = { data: mockFundDetails };
+      
+      api.get.mockResolvedValue(mockResponse);
+
+      // Call the function
+      const result = await getFundDetails(fundId);
+
+      // Check if API was called correctly
+      expect(api.get).toHaveBeenCalledWith(`/fondos/${fundId}`);
+      // Check if function returns the correct data
+      expect(result).toEqual(mockFundDetails);
+    });
+
+    it('should propagate errors from the API', async () => {
+      // Setup mock to throw an error
+      const fundId = '999'; // Non-existent fund ID
+      const errorMessage = 'Fund not found';
+      
+      api.get.mockRejectedValue(new Error(errorMessage));
+
+      // Call the function and expect it to throw
+      await expect(getFundDetails(fundId)).rejects.toThrow(errorMessage);
+      expect(api.get).toHaveBeenCalledWith(`/fondos/${fundId}`);
+    });
+  });
+});
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\services\__tests__\transaccionService.test.js
+/===============================================================================
+
+// src/services/__tests__/transaccionService.test.js
+import { 
+    subscribeToFund, 
+    cancelSubscription, 
+    getTransactionHistory, 
+    getActiveSubscriptions 
+  } from '../transaccionService';
+  import api from '../api';
+  
+  // Mock the api module
+  jest.mock('../api');
+  
+  describe('Transaccion Service', () => {
+    beforeEach(() => {
+      // Clear all mocks before each test
+      jest.clearAllMocks();
+    });
+  
+    describe('subscribeToFund', () => {
+      it('should create a fund subscription', async () => {
+        // Setup mock data and response
+        const fundId = '1';
+        const mockResponse = { 
+          data: { 
+            transactionId: 'T12345',
+            fundId: '1',
+            type: 'SUBSCRIPTION',
+            amount: 75000,
+            status: 'COMPLETED',
+            fundName: 'FPV_EL CLIENTE_RECAUDADORA'
+          } 
+        };
+        
+        api.post.mockResolvedValue(mockResponse);
+  
+        // Call the function
+        const result = await subscribeToFund(fundId);
+  
+        // Check if API was called correctly
+        expect(api.post).toHaveBeenCalledWith('/transacciones/subscriptions', { fundId });
+        // Check if function returns the correct data
+        expect(result).toEqual(mockResponse.data);
+      });
+  
+      it('should propagate errors from the API', async () => {
+        // Setup data and mock to throw an error
+        const fundId = '1';
+        const errorMessage = 'Insufficient funds';
+        
+        api.post.mockRejectedValue(new Error(errorMessage));
+  
+        // Call the function and expect it to throw
+        await expect(subscribeToFund(fundId)).rejects.toThrow(errorMessage);
+        expect(api.post).toHaveBeenCalledWith('/transacciones/subscriptions', { fundId });
+      });
+    });
+  
+    describe('cancelSubscription', () => {
+      it('should cancel a fund subscription', async () => {
+        // Setup mock data and response
+        const fundId = '1';
+        const mockResponse = { 
+          data: { 
+            transactionId: 'T67890',
+            fundId: '1',
+            type: 'CANCELLATION',
+            amount: 75000,
+            status: 'COMPLETED',
+            fundName: 'FPV_EL CLIENTE_RECAUDADORA'
+          } 
+        };
+        
+        api.delete.mockResolvedValue(mockResponse);
+  
+        // Call the function
+        const result = await cancelSubscription(fundId);
+  
+        // Check if API was called correctly
+        expect(api.delete).toHaveBeenCalledWith(`/transacciones/subscriptions/${fundId}`);
+        // Check if function returns the correct data
+        expect(result).toEqual(mockResponse.data);
+      });
+  
+      it('should propagate errors from the API', async () => {
+        // Setup data and mock to throw an error
+        const fundId = '999'; // Non-existent subscription
+        const errorMessage = 'Subscription not found';
+        
+        api.delete.mockRejectedValue(new Error(errorMessage));
+  
+        // Call the function and expect it to throw
+        await expect(cancelSubscription(fundId)).rejects.toThrow(errorMessage);
+        expect(api.delete).toHaveBeenCalledWith(`/transacciones/subscriptions/${fundId}`);
+      });
+    });
+  
+    describe('getTransactionHistory', () => {
+      it('should fetch transaction history with default limit', async () => {
+        // Setup mock response
+        const mockTransactions = [
+          { transactionId: 'T1', type: 'SUBSCRIPTION', amount: 75000 },
+          { transactionId: 'T2', type: 'CANCELLATION', amount: 50000 }
+        ];
+        const mockResponse = { data: mockTransactions };
+        
+        api.get.mockResolvedValue(mockResponse);
+  
+        // Call the function with default limit
+        const result = await getTransactionHistory();
+  
+        // Check if API was called correctly with default params
+        expect(api.get).toHaveBeenCalledWith('/transacciones/history', {
+          params: { limit: 10 }
+        });
+        // Check if function returns the correct data
+        expect(result).toEqual(mockTransactions);
+      });
+  
+      it('should fetch transaction history with custom limit', async () => {
+        // Setup mock response
+        const mockTransactions = [
+          { transactionId: 'T1', type: 'SUBSCRIPTION', amount: 75000 }
+        ];
+        const mockResponse = { data: mockTransactions };
+        
+        api.get.mockResolvedValue(mockResponse);
+  
+        // Call the function with custom limit
+        const result = await getTransactionHistory(1);
+  
+        // Check if API was called correctly with custom params
+        expect(api.get).toHaveBeenCalledWith('/transacciones/history', {
+          params: { limit: 1 }
+        });
+        // Check if function returns the correct data
+        expect(result).toEqual(mockTransactions);
+      });
+  
+      it('should propagate errors from the API', async () => {
+        // Setup mock to throw an error
+        const errorMessage = 'Server Error';
+        
+        api.get.mockRejectedValue(new Error(errorMessage));
+  
+        // Call the function and expect it to throw
+        await expect(getTransactionHistory()).rejects.toThrow(errorMessage);
+        expect(api.get).toHaveBeenCalledWith('/transacciones/history', {
+          params: { limit: 10 }
+        });
+      });
+    });
+  
+    describe('getActiveSubscriptions', () => {
+      it('should fetch active subscriptions', async () => {
+        // Setup mock response
+        const mockSubscriptions = [
+          { 
+            subscriptionId: 'S1', 
+            fundId: '1', 
+            status: 'ACTIVE', 
+            amountSubscribed: 75000,
+            fundName: 'FPV_EL CLIENTE_RECAUDADORA'
+          }
+        ];
+        const mockResponse = { data: mockSubscriptions };
+        
+        api.get.mockResolvedValue(mockResponse);
+  
+        // Call the function
+        const result = await getActiveSubscriptions();
+  
+        // Check if API was called correctly
+        expect(api.get).toHaveBeenCalledWith('/transacciones/subscriptions');
+        // Check if function returns the correct data
+        expect(result).toEqual(mockSubscriptions);
+      });
+  
+      it('should propagate errors from the API', async () => {
+        // Setup mock to throw an error
+        const errorMessage = 'Server Error';
+        
+        api.get.mockRejectedValue(new Error(errorMessage));
+  
+        // Call the function and expect it to throw
+        await expect(getActiveSubscriptions()).rejects.toThrow(errorMessage);
+        expect(api.get).toHaveBeenCalledWith('/transacciones/subscriptions');
+      });
+    });
+  });
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\jest.config.js
+/===============================================================================
+
+module.exports = {
+    collectCoverageFrom: [
+      "src/**/*.{js,jsx}",
+      "!src/index.js",
+      "!src/reportWebVitals.js"
+    ],
+    coverageThreshold: {
+      global: {
+        statements: 80,
+        branches: 80,
+        functions: 80,
+        lines: 80
+      }
+    },
+    testEnvironment: "jsdom",
+    transform: {
+      "^.+\\.(js|jsx)$": "babel-jest"
+    },
+    transformIgnorePatterns: [
+      "/node_modules/(?!(axios)/)"
+    ],
+    moduleNameMapper: {
+      "\\.(css|less|scss|sass)$": "<rootDir>/src/__mocks__/styleMock.js",
+      "\\.(jpg|jpeg|png|gif|svg)$": "<rootDir>/src/__mocks__/fileMock.js"
+    },
+    setupFilesAfterEnv: [
+      "<rootDir>/src/setupTests.js"
+    ]
+  };
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\setupTests.js
+/===============================================================================
+
+// jest-dom adds custom jest matchers for asserting on DOM nodes.
+// allows you to do things like:
+// expect(element).toHaveTextContent(/react/i)
+// learn more: https://github.com/testing-library/jest-dom
+import '@testing-library/jest-dom';
+
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\package.json
+/===============================================================================
+
+{
+  "name": "amaris_el_cliente_front",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@mui/icons-material": "^5.17.1",
+    "@mui/material": "^5.17.1",
+    "@reduxjs/toolkit": "^2.6.1",
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/user-event": "^13.5.0",
+    "axios": "^1.8.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-redux": "^9.2.0",
+    "react-router-dom": "^7.4.0",
+    "react-scripts": "5.0.1",
+    "redux": "^5.0.1",
+    "redux-thunk": "^3.1.0",
+    "web-vitals": "^2.1.4"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "test:coverage": "react-scripts test --coverage --watchAll=false"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@babel/preset-env": "^7.26.9",
+    "@babel/preset-react": "^7.26.3",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.2.0",
+    "babel-jest": "^29.7.0",
+    "jest": "^27.5.1",
+    "jest-environment-jsdom": "^29.7.0"
+  }
+}
+
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\.babelrc
+/===============================================================================
+
+{
+    "presets": ["@babel/preset-env", "@babel/preset-react"]
+  }
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\__mocks__\fileMock.js
+/===============================================================================
+
+module.exports = "test-file-stub";
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\__mocks__\styleMock.js
+/===============================================================================
+
+module.exports = {};
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\__mocks__\axios.js
+/===============================================================================
+
+const axios = {
+    create: jest.fn(() => axios),
+    get: jest.fn(() => Promise.resolve({ data: {} })),
+    post: jest.fn(() => Promise.resolve({ data: {} })),
+    put: jest.fn(() => Promise.resolve({ data: {} })),
+    delete: jest.fn(() => Promise.resolve({ data: {} })),
+    patch: jest.fn(() => Promise.resolve({ data: {} })),
+    defaults: {
+      baseURL: '',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    }
+  };
+  
+  module.exports = axios;
+

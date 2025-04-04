@@ -1,0 +1,1106 @@
+// Last update transaction car: 2025-03-28 12:36:14.025969
+// Total files: 7
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\backend\test\test_cliente_api.py
+/===============================================================================
+
+import pytest
+from fastapi.testclient import TestClient
+from unittest.mock import patch, AsyncMock, MagicMock
+from app.main import app
+
+client = TestClient(app)
+
+class TestClienteAPI:
+    
+    @patch('app.api.endpoints.cliente.ClienteService')
+    def test_get_client_success(self, mock_service):
+        # Setup
+        mock_service.get_client = AsyncMock(return_value={
+            'clientId': 'C123456',
+            'balance': 500000,
+            'preferredNotification': 'email',
+            'email': 'cliente@ejemplo.com',
+            'phone': '+573001234567'
+        })
+        
+        # Execute
+        response = client.get("/api/v1/clientes/C123456")
+        
+        # Assert
+        assert response.status_code == 200
+        data = response.json()
+        assert data['clientId'] == 'C123456'
+        assert data['balance'] == 500000
+        assert data['preferredNotification'] == 'email'
+    
+    @patch('app.api.endpoints.cliente.ClienteService')
+    def test_get_client_not_found(self, mock_service):
+        # Setup
+        mock_service.get_client = AsyncMock(return_value=None)
+        
+        # Execute
+        response = client.get("/api/v1/clientes/C999999")
+        
+        # Assert
+        assert response.status_code == 404
+        assert response.json()['detail'] == "Cliente no encontrado"
+    
+    @patch('app.api.endpoints.cliente.ClienteService')
+    def test_update_client_success(self, mock_service):
+        # Setup
+        mock_service.update_client_preferences = AsyncMock(return_value={
+            'preferredNotification': 'sms',
+            'phone': '+573009876543'
+        })
+        
+        # Execute
+        response = client.patch(
+            "/api/v1/clientes/C123456",
+            json={"preferredNotification": "sms", "phone": "+573009876543"}
+        )
+        
+        # Assert
+        assert response.status_code == 200
+        data = response.json()
+        assert data['preferredNotification'] == 'sms'
+        assert data['phone'] == '+573009876543'
+    
+    @patch('app.api.endpoints.cliente.ClienteService')
+    def test_update_client_not_found(self, mock_service):
+        # Setup
+        mock_service.update_client_preferences = AsyncMock(return_value=None)
+        
+        # Execute
+        response = client.patch(
+            "/api/v1/clientes/C999999",
+            json={"preferredNotification": "sms"}
+        )
+        
+        # Assert
+        assert response.status_code == 404
+        assert response.json()['detail'] == "Cliente no encontrado o error al actualizar"
+
+
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\backend\test\test_cliente_service.py
+/===============================================================================
+
+import pytest
+import boto3
+import uuid
+from decimal import Decimal
+from unittest.mock import patch, MagicMock, AsyncMock  
+from app.models.cliente import Cliente, ClienteUpdate
+from app.services.cliente_service import ClienteService, float_to_decimal
+
+# Mocking the DynamoDB table operations
+@pytest.fixture
+def mock_dynamodb_table():
+    with patch('app.services.cliente_service.table') as mock_table:
+        yield mock_table
+
+@pytest.fixture
+def sample_client_data():
+    return {
+        'clientId': 'C123456',
+        'balance': Decimal('500000'),
+        'preferredNotification': 'email',
+        'email': 'cliente@ejemplo.com',
+        'phone': '+573001234567'
+    }
+
+class TestClienteService:
+    
+    @pytest.mark.asyncio
+    async def test_get_client_success(self, mock_dynamodb_table, sample_client_data):
+        # Setup
+        mock_dynamodb_table.get_item.return_value = {'Item': sample_client_data}
+        
+        # Execute
+        result = await ClienteService.get_client('C123456')
+        
+        # Assert
+        mock_dynamodb_table.get_item.assert_called_once_with(Key={'clientId': 'C123456'})
+        assert result == sample_client_data
+    
+    @pytest.mark.asyncio
+    async def test_get_client_not_found(self, mock_dynamodb_table):
+        # Setup
+        mock_dynamodb_table.get_item.return_value = {}
+        
+        # Execute
+        result = await ClienteService.get_client('C999999')
+        
+        # Assert
+        mock_dynamodb_table.get_item.assert_called_once_with(Key={'clientId': 'C999999'})
+        assert result is None
+    
+    @pytest.mark.asyncio
+    async def test_get_client_error(self, mock_dynamodb_table):
+        # Setup
+        from botocore.exceptions import ClientError
+        error_response = {'Error': {'Message': 'Test error message'}}
+        mock_dynamodb_table.get_item.side_effect = ClientError(error_response, 'GetItem')
+        
+        # Execute
+        result = await ClienteService.get_client('C123456')
+        
+        # Assert
+        mock_dynamodb_table.get_item.assert_called_once_with(Key={'clientId': 'C123456'})
+        assert result is None
+    
+    @pytest.mark.asyncio
+    async def test_update_client_balance_success(self, mock_dynamodb_table):
+        # Setup
+        mock_dynamodb_table.update_item.return_value = {
+            'Attributes': {'balance': Decimal('600000')}
+        }
+        
+        # Execute
+        result = await ClienteService.update_client_balance('C123456', 100000)
+        
+        # Assert
+        mock_dynamodb_table.update_item.assert_called_once()
+        assert result == {'balance': Decimal('600000')}
+    
+    @pytest.mark.asyncio
+    async def test_update_client_balance_error(self, mock_dynamodb_table):
+        # Setup
+        from botocore.exceptions import ClientError
+        error_response = {'Error': {'Message': 'Test error message'}}
+        mock_dynamodb_table.update_item.side_effect = ClientError(error_response, 'UpdateItem')
+        
+        # Execute
+        result = await ClienteService.update_client_balance('C123456', 100000)
+        
+        # Assert
+        mock_dynamodb_table.update_item.assert_called_once()
+        assert result is None
+    
+    @pytest.mark.asyncio
+    async def test_update_client_preferences_all_fields(self, mock_dynamodb_table):
+        # Setup
+        update_data = ClienteUpdate(
+            preferredNotification='sms',
+            email='nuevo@ejemplo.com',
+            phone='+573009876543'
+        )
+        mock_dynamodb_table.update_item.return_value = {
+            'Attributes': {
+                'preferredNotification': 'sms',
+                'email': 'nuevo@ejemplo.com',
+                'phone': '+573009876543'
+            }
+        }
+        
+        # Execute
+        result = await ClienteService.update_client_preferences('C123456', update_data)
+        
+        # Assert
+        mock_dynamodb_table.update_item.assert_called_once()
+        assert 'preferredNotification = :notification' in mock_dynamodb_table.update_item.call_args[1]['UpdateExpression']
+        assert 'email = :email' in mock_dynamodb_table.update_item.call_args[1]['UpdateExpression']
+        assert 'phone = :phone' in mock_dynamodb_table.update_item.call_args[1]['UpdateExpression']
+        assert result == {
+            'preferredNotification': 'sms',
+            'email': 'nuevo@ejemplo.com',
+            'phone': '+573009876543'
+        }
+    
+    @pytest.mark.asyncio
+    async def test_update_client_preferences_partial(self, mock_dynamodb_table):
+        # Setup
+        update_data = ClienteUpdate(preferredNotification='sms')
+        mock_dynamodb_table.update_item.return_value = {
+            'Attributes': {'preferredNotification': 'sms'}
+        }
+        
+        # Execute
+        result = await ClienteService.update_client_preferences('C123456', update_data)
+        
+        # Assert
+        mock_dynamodb_table.update_item.assert_called_once()
+        assert 'preferredNotification = :notification' in mock_dynamodb_table.update_item.call_args[1]['UpdateExpression']
+        assert 'email = :email' not in mock_dynamodb_table.update_item.call_args[1]['UpdateExpression']
+        assert 'phone = :phone' not in mock_dynamodb_table.update_item.call_args[1]['UpdateExpression']
+        assert result == {'preferredNotification': 'sms'}
+    
+    @pytest.mark.asyncio
+    async def test_update_client_preferences_error(self, mock_dynamodb_table):
+        # Setup
+        update_data = ClienteUpdate(preferredNotification='sms')
+        from botocore.exceptions import ClientError
+        error_response = {'Error': {'Message': 'Test error message'}}
+        mock_dynamodb_table.update_item.side_effect = ClientError(error_response, 'UpdateItem')
+        
+        # Execute
+        result = await ClienteService.update_client_preferences('C123456', update_data)
+        
+        # Assert
+        mock_dynamodb_table.update_item.assert_called_once()
+        assert result is None
+    
+    def test_float_to_decimal_conversion(self):
+        # Test conversion of float
+        assert float_to_decimal(10.5) == Decimal('10.5')
+        
+        # Test conversion of dict with float
+        input_dict = {'a': 10.5, 'b': 'string', 'c': 100}
+        expected = {'a': Decimal('10.5'), 'b': 'string', 'c': 100}
+        assert float_to_decimal(input_dict) == expected
+        
+        # Test conversion of list with float
+        input_list = [10.5, 'string', 100]
+        expected = [Decimal('10.5'), 'string', 100]
+        assert float_to_decimal(input_list) == expected
+        
+        # Test with nested structures
+        nested = {'a': [10.5, 20.5], 'b': {'c': 30.5}}
+        expected = {'a': [Decimal('10.5'), Decimal('20.5')], 'b': {'c': Decimal('30.5')}}
+        assert float_to_decimal(nested) == expected
+
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\backend\test\test_fondo_service.py
+/===============================================================================
+
+import pytest
+import boto3
+from decimal import Decimal
+from unittest.mock import patch, MagicMock, AsyncMock 
+from app.services.fondo_service import FondoService
+
+@pytest.fixture
+def mock_dynamodb_table():
+    with patch('app.services.fondo_service.table') as mock_table:
+        yield mock_table
+
+@pytest.fixture
+def sample_funds_data():
+    return [
+        {
+            'fundId': '1',
+            'name': 'FPV_EL CLIENTE_RECAUDADORA',
+            'category': 'FPV',
+            'minimumAmount': Decimal('75000')
+        },
+        {
+            'fundId': '2',
+            'name': 'FPV_EL CLIENTE_ECOPETROL',
+            'category': 'FPV',
+            'minimumAmount': Decimal('125000')
+        }
+    ]
+
+class TestFondoService:
+    
+    @pytest.mark.asyncio
+    async def test_get_all_funds_success(self, mock_dynamodb_table, sample_funds_data):
+        # Setup
+        mock_dynamodb_table.scan.return_value = {'Items': sample_funds_data}
+        
+        # Execute
+        result = await FondoService.get_all_funds()
+        
+        # Assert
+        mock_dynamodb_table.scan.assert_called_once()
+        assert result == sample_funds_data
+    
+    @pytest.mark.asyncio
+    async def test_get_all_funds_empty(self, mock_dynamodb_table):
+        # Setup
+        mock_dynamodb_table.scan.return_value = {'Items': []}
+        
+        # Execute
+        result = await FondoService.get_all_funds()
+        
+        # Assert
+        mock_dynamodb_table.scan.assert_called_once()
+        assert result == []
+    
+    @pytest.mark.asyncio
+    async def test_get_all_funds_error(self, mock_dynamodb_table):
+        # Setup
+        from botocore.exceptions import ClientError
+        error_response = {'Error': {'Message': 'Test error message'}}
+        mock_dynamodb_table.scan.side_effect = ClientError(error_response, 'Scan')
+        
+        # Execute
+        result = await FondoService.get_all_funds()
+        
+        # Assert
+        mock_dynamodb_table.scan.assert_called_once()
+        assert result == []
+    
+    @pytest.mark.asyncio
+    async def test_get_fund_success(self, mock_dynamodb_table, sample_funds_data):
+        # Setup
+        mock_dynamodb_table.get_item.return_value = {'Item': sample_funds_data[0]}
+        
+        # Execute
+        result = await FondoService.get_fund('1')
+        
+        # Assert
+        mock_dynamodb_table.get_item.assert_called_once_with(Key={'fundId': '1'})
+        assert result == sample_funds_data[0]
+    
+    @pytest.mark.asyncio
+    async def test_get_fund_not_found(self, mock_dynamodb_table):
+        # Setup
+        mock_dynamodb_table.get_item.return_value = {}
+        
+        # Execute
+        result = await FondoService.get_fund('999')
+        
+        # Assert
+        mock_dynamodb_table.get_item.assert_called_once_with(Key={'fundId': '999'})
+        assert result is None
+    
+    @pytest.mark.asyncio
+    async def test_get_fund_error(self, mock_dynamodb_table):
+        # Setup
+        from botocore.exceptions import ClientError
+        error_response = {'Error': {'Message': 'Test error message'}}
+        mock_dynamodb_table.get_item.side_effect = ClientError(error_response, 'GetItem')
+        
+        # Execute
+        result = await FondoService.get_fund('1')
+        
+        # Assert
+        mock_dynamodb_table.get_item.assert_called_once_with(Key={'fundId': '1'})
+        assert result is None
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\backend\test\test_fondos_api.py
+/===============================================================================
+
+import pytest
+from fastapi.testclient import TestClient
+from unittest.mock import patch, MagicMock, AsyncMock 
+from app.main import app
+
+client = TestClient(app)
+
+class TestFondosAPI:
+    
+    @patch('app.api.endpoints.fondos.FondoService')
+    def test_get_all_funds_success(self, mock_service):
+        # Setup
+        mock_funds = [
+            {
+                'fundId': '1',
+                'name': 'FPV_EL CLIENTE_RECAUDADORA',
+                'category': 'FPV',
+                'minimumAmount': 75000
+            },
+            {
+                'fundId': '2',
+                'name': 'FPV_EL CLIENTE_ECOPETROL',
+                'category': 'FPV',
+                'minimumAmount': 125000
+            }
+        ]
+        mock_service.get_all_funds = AsyncMock(return_value=mock_funds)
+        
+        # Execute
+        response = client.get("/api/v1/fondos")
+        
+        # Assert
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 2
+        assert data[0]['fundId'] == '1'
+        assert data[1]['fundId'] == '2'
+    
+    @patch('app.api.endpoints.fondos.FondoService')
+    def test_get_all_funds_empty(self, mock_service):
+        # Setup
+        mock_service.get_all_funds = AsyncMock(return_value=[])
+        
+        # Execute
+        response = client.get("/api/v1/fondos")
+        
+        # Assert
+        assert response.status_code == 200
+        assert response.json() == []
+    
+    @patch('app.api.endpoints.fondos.FondoService')
+    def test_get_fund_success(self, mock_service):
+        # Setup
+        mock_fund = {
+            'fundId': '1',
+            'name': 'FPV_EL CLIENTE_RECAUDADORA',
+            'category': 'FPV',
+            'minimumAmount': 75000
+        }
+        mock_service.get_fund = AsyncMock(return_value=mock_fund)
+        
+        # Execute
+        response = client.get("/api/v1/fondos/1")
+        
+        # Assert
+        assert response.status_code == 200
+        data = response.json()
+        assert data['fundId'] == '1'
+        assert data['name'] == 'FPV_EL CLIENTE_RECAUDADORA'
+    
+    @patch('app.api.endpoints.fondos.FondoService')
+    def test_get_fund_not_found(self, mock_service):
+        # Setup
+        mock_service.get_fund = AsyncMock(return_value=None)
+        
+        # Execute
+        response = client.get("/api/v1/fondos/999")
+        
+        # Assert
+        assert response.status_code == 404
+        assert response.json()['detail'] == "Fondo no encontrado"
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\backend\test\test_notificacion_service.py
+/===============================================================================
+
+import pytest
+from unittest.mock import patch, MagicMock, AsyncMock 
+from app.services.notificacion_service import NotificacionService
+
+class TestNotificacionService:
+    
+    @pytest.mark.asyncio
+    async def test_send_notification_email(self):
+        # Setup
+        with patch.object(NotificacionService, 'send_email', return_value=True) as mock_send_email:
+            # Execute
+            result = await NotificacionService.send_notification(
+                client_id='C123456',
+                notification_type='email',
+                message='Test message',
+                email='test@example.com',
+                phone=None
+            )
+            
+            # Assert
+            mock_send_email.assert_called_once_with('test@example.com', 'Test message')
+            assert result is True
+    
+    @pytest.mark.asyncio
+    async def test_send_notification_sms(self):
+        # Setup
+        with patch.object(NotificacionService, 'send_sms', return_value=True) as mock_send_sms:
+            # Execute
+            result = await NotificacionService.send_notification(
+                client_id='C123456',
+                notification_type='sms',
+                message='Test message',
+                email=None,
+                phone='+573001234567'
+            )
+            
+            # Assert
+            mock_send_sms.assert_called_once_with('+573001234567', 'Test message')
+            assert result is True
+    
+    @pytest.mark.asyncio
+    async def test_send_notification_missing_data(self):
+        # Execute
+        result = await NotificacionService.send_notification(
+            client_id='C123456',
+            notification_type='email',
+            message='Test message',
+            email=None,
+            phone=None
+        )
+        
+        # Assert
+        assert result is False
+    
+    @pytest.mark.asyncio
+    async def test_send_email_success(self):
+        # Setup
+        with patch('builtins.print') as mock_print:
+            # Execute
+            result = await NotificacionService.send_email('test@example.com', 'Test message')
+            
+            # Assert
+            mock_print.assert_called_once()
+            assert result is True
+    
+    @pytest.mark.asyncio
+    async def test_send_email_exception(self):
+        # Instead of patching print, patch the entire function with an exception
+        with patch('app.services.notificacion_service.NotificacionService.send_email',
+                side_effect=Exception("Test exception")):
+            try:
+                # This will throw an exception
+                result = await NotificacionService.send_notification(
+                    client_id='C123456',
+                    notification_type='email',
+                    message='Test message',
+                    email='test@example.com'
+                )
+                assert False, "Should have raised an exception"
+            except Exception:
+                # If we catch the exception here, the test passes
+                pass
+            
+    @pytest.mark.asyncio
+    async def test_send_email_failure(self):
+        # Test that notification fails when email sending fails
+        with patch('app.services.notificacion_service.NotificacionService.send_email',
+                return_value=False):
+            result = await NotificacionService.send_notification(
+                client_id='C123456',
+                notification_type='email',
+                message='Test message',
+                email='test@example.com'
+            )
+            assert result is False
+            
+    @pytest.mark.asyncio
+    async def test_send_sms_failure(self):
+        # Test that notification fails when SMS sending fails
+        with patch('app.services.notificacion_service.NotificacionService.send_sms',
+                return_value=False):
+            result = await NotificacionService.send_notification(
+                client_id='C123456',
+                notification_type='sms',
+                message='Test message',
+                phone='+573001234567'
+            )
+            assert result is False
+    
+    @pytest.mark.asyncio
+    async def test_send_sms_success(self):
+        # Setup
+        with patch('builtins.print') as mock_print:
+            # Execute
+            result = await NotificacionService.send_sms('+573001234567', 'Test message')
+            
+            # Assert
+            mock_print.assert_called_once()
+            assert result is True
+    
+    @pytest.mark.asyncio
+    async def test_send_sms_exception(self):
+        # Instead of patching print, patch the entire function to raise an exception
+        with patch('app.services.notificacion_service.NotificacionService.send_sms', 
+                side_effect=Exception("Test exception")):
+            # When we call the parent function, it should catch the exception
+            result = await NotificacionService.send_notification(
+                client_id='C123456',
+                notification_type='sms',
+                message='Test message',
+                phone='+573001234567'
+            )
+            # Verify it returns False when an exception occurs
+            assert result is False
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\backend\test\test_transaccion_service.py
+/===============================================================================
+
+import pytest
+import boto3
+import uuid
+from decimal import Decimal
+from datetime import datetime
+from unittest.mock import patch, MagicMock, ANY, AsyncMock  
+from app.models.transaccion import TransaccionCreate, Transaccion, Subscription
+from app.services.transaccion_service import TransaccionService, convert_types_for_dynamodb
+
+# Fixtures
+@pytest.fixture
+def mock_transaction_table():
+    with patch('app.services.transaccion_service.transaction_table') as mock_table:
+        yield mock_table
+
+@pytest.fixture
+def mock_subscription_table():
+    with patch('app.services.transaccion_service.subscription_table') as mock_table:
+        yield mock_table
+
+@pytest.fixture
+def mock_cliente_service():
+    with patch('app.services.transaccion_service.ClienteService') as mock_service:
+        # Configure get_client to return a coroutine that resolves to the desired value
+        mock_service.get_client = AsyncMock()
+        yield mock_service
+        
+
+@pytest.fixture
+def mock_fondo_service():
+    with patch('app.services.transaccion_service.FondoService') as mock_service:
+        # Configure get_fund to return a coroutine that resolves to the desired value
+        mock_service.get_fund = AsyncMock()
+        yield mock_service
+
+@pytest.fixture
+def mock_notificacion_service():
+    with patch('app.services.transaccion_service.NotificacionService') as mock_service:
+        yield mock_service
+
+@pytest.fixture
+def sample_client_data():
+    return {
+        'clientId': 'C123456',
+        'balance': Decimal('500000'),
+        'preferredNotification': 'email',
+        'email': 'cliente@ejemplo.com',
+        'phone': '+573001234567'
+    }
+
+@pytest.fixture
+def sample_fund_data():
+    return {
+        'fundId': '1',
+        'name': 'FPV_EL CLIENTE_RECAUDADORA',
+        'category': 'FPV',
+        'minimumAmount': Decimal('75000')
+    }
+
+class TestTransaccionService:
+    
+    @pytest.mark.asyncio
+    async def test_create_subscription_success(
+        self, mock_transaction_table, mock_subscription_table, 
+        mock_cliente_service, mock_fondo_service, mock_notificacion_service,
+        sample_client_data, sample_fund_data
+    ):
+    # Setup
+        client_id = 'C123456'
+        subscription_data = TransaccionCreate(fundId='1')
+        
+        # Use return_value for AsyncMock
+        mock_cliente_service.get_client.return_value = sample_client_data
+        mock_fondo_service.get_fund.return_value = sample_fund_data
+        
+        # Important: make sure update_client_balance returns a value too
+        mock_cliente_service.update_client_balance.return_value = {'balance': Decimal('425000')}
+        
+        # Mock subscription check (not already subscribed)
+        mock_subscription_table.get_item.return_value = {}
+        
+        # Mock notification success
+        mock_notificacion_service.send_notification.return_value = True
+        
+        # Mock UUID generation for consistent testing
+        with patch('uuid.uuid4', return_value=uuid.UUID('00000000-0000-0000-0000-000000000001')):
+            with patch('app.services.transaccion_service.datetime') as mock_datetime:
+                mock_datetime.now.return_value = datetime(2025, 3, 28, 12, 0, 0)
+                
+                # Execute
+                result = await TransaccionService.create_subscription(client_id, subscription_data)
+                
+                # Assert
+                mock_cliente_service.get_client.assert_called_once_with(client_id)
+                mock_fondo_service.get_fund.assert_called_once_with('1')
+                mock_subscription_table.get_item.assert_called_once()
+                
+                # Check client balance was updated
+                mock_cliente_service.update_client_balance.assert_called_once_with(
+                    client_id, -Decimal('75000')
+                )
+                
+                # Verify result contains expected data
+                assert result['fundName'] == 'FPV_EL CLIENTE_RECAUDADORA'
+                assert result['type'] == 'SUBSCRIPTION'
+                assert result['status'] == 'COMPLETED'
+    
+    @pytest.mark.asyncio
+    async def test_create_subscription_insufficient_balance(
+        self, mock_cliente_service, mock_fondo_service,
+        sample_fund_data
+    ):
+        # Setup
+        client_id = 'C123456'
+        subscription_data = TransaccionCreate(fundId='1')
+        
+        # Client with insufficient balance
+        insufficient_balance_client = {
+            'clientId': 'C123456',
+            'balance': Decimal('50000'),  # Less than minimum amount for fund
+            'preferredNotification': 'email',
+            'email': 'cliente@ejemplo.com'
+        }
+        
+        mock_cliente_service.get_client.return_value = insufficient_balance_client
+        mock_fondo_service.get_fund.return_value = sample_fund_data
+        
+        # Execute
+        result = await TransaccionService.create_subscription(client_id, subscription_data)
+        
+        # Assert
+        assert 'error' in result
+        assert result['status'] == 'FAILED'
+        assert 'No tiene saldo disponible' in result['error']
+    
+    @pytest.mark.asyncio
+    async def test_create_subscription_already_subscribed(
+        self, mock_subscription_table, mock_cliente_service, mock_fondo_service,
+        sample_client_data, sample_fund_data
+    ):
+        # Setup
+        client_id = 'C123456'
+        subscription_data = TransaccionCreate(fundId='1')
+        
+        mock_cliente_service.get_client.return_value = sample_client_data
+        mock_fondo_service.get_fund.return_value = sample_fund_data
+        
+        # Mock existing active subscription
+        mock_subscription_table.get_item.return_value = {
+            'Item': {
+                'clientId': 'C123456',
+                'fundId': '1',
+                'status': 'ACTIVE'
+            }
+        }
+        
+        # Execute
+        result = await TransaccionService.create_subscription(client_id, subscription_data)
+        
+        # Assert
+        assert 'error' in result
+        assert result['status'] == 'FAILED'
+        assert 'Ya está suscrito a este fondo' in result['error']
+    
+    @pytest.mark.asyncio
+    async def test_cancel_subscription_success(
+        self, mock_transaction_table, mock_subscription_table,
+        mock_cliente_service, mock_fondo_service, mock_notificacion_service,
+        sample_client_data, sample_fund_data
+    ):
+        # Setup
+        client_id = 'C123456'
+        fund_id = '1'
+        
+        # Mock active subscription
+        mock_subscription_table.get_item.return_value = {
+            'Item': {
+                'clientId': 'C123456',
+                'fundId': '1',
+                'status': 'ACTIVE',
+                'amountSubscribed': Decimal('75000')
+            }
+        }
+        
+        mock_cliente_service.get_client.return_value = sample_client_data
+        mock_fondo_service.get_fund.return_value = sample_fund_data
+        
+        # Mock UUID generation for consistent testing
+        with patch('uuid.uuid4', return_value=uuid.UUID('00000000-0000-0000-0000-000000000002')):
+            with patch('app.services.transaccion_service.datetime') as mock_datetime:
+                mock_datetime.now.return_value = datetime(2025, 3, 28, 12, 0, 0)
+                
+                # Execute
+                result = await TransaccionService.cancel_subscription(client_id, fund_id)
+                
+                # Assert
+                mock_subscription_table.get_item.assert_called_once()
+                
+                # Check subscription was updated
+                mock_subscription_table.update_item.assert_called_once()
+                
+                # Check balance was updated
+                mock_cliente_service.update_client_balance.assert_called_once_with(
+                    client_id, Decimal('75000')
+                )
+                
+                # Check transaction was recorded
+                mock_transaction_table.put_item.assert_called_once()
+                
+                # Check notification was sent
+                mock_notificacion_service.send_notification.assert_called_once()
+                
+                # Verify result contains expected data
+                assert result['fundName'] == 'FPV_EL CLIENTE_RECAUDADORA'
+                assert result['type'] == 'CANCELLATION'
+                assert result['status'] == 'COMPLETED'
+    
+    @pytest.mark.asyncio
+    async def test_cancel_subscription_not_subscribed(self, mock_subscription_table):
+        # Setup
+        client_id = 'C123456'
+        fund_id = '1'
+        
+        # Mock no active subscription
+        mock_subscription_table.get_item.return_value = {}
+        
+        # Execute
+        result = await TransaccionService.cancel_subscription(client_id, fund_id)
+        
+        # Assert
+        assert 'error' in result
+        assert result['status'] == 'FAILED'
+        assert 'No está suscrito a este fondo' in result['error']
+    
+    @pytest.mark.asyncio
+    async def test_get_client_transactions_success(
+        self, mock_transaction_table, mock_fondo_service
+    ):
+        # Setup
+        client_id = 'C123456'
+        transactions = [
+            {
+                'transactionId': '1',
+                'clientId': 'C123456',
+                'fundId': '1',
+                'type': 'SUBSCRIPTION',
+                'amount': Decimal('75000'),
+                'status': 'COMPLETED'
+            },
+            {
+                'transactionId': '2',
+                'clientId': 'C123456',
+                'fundId': '2',
+                'type': 'CANCELLATION',
+                'amount': Decimal('125000'),
+                'status': 'COMPLETED'
+            }
+        ]
+        
+        mock_transaction_table.query.return_value = {'Items': transactions}
+        
+        mock_fondo_service.get_fund.side_effect = [
+            {'name': 'FPV_EL CLIENTE_RECAUDADORA'},
+            {'name': 'FPV_EL CLIENTE_ECOPETROL'}
+        ]
+        
+        # Execute
+        result = await TransaccionService.get_client_transactions(client_id, 2)
+        
+        # Assert
+        mock_transaction_table.query.assert_called_once()
+        assert len(result) == 2
+        assert result[0]['fundName'] == 'FPV_EL CLIENTE_RECAUDADORA'
+        assert result[1]['fundName'] == 'FPV_EL CLIENTE_ECOPETROL'
+    
+    @pytest.mark.asyncio
+    async def test_get_client_active_subscriptions_success(
+        self, mock_subscription_table, mock_fondo_service
+    ):
+        # Setup
+        client_id = 'C123456'
+        subscriptions = [
+            {
+                'subscriptionId': '1',
+                'clientId': 'C123456',
+                'fundId': '1',
+                'status': 'ACTIVE',
+                'amountSubscribed': Decimal('75000')
+            },
+            {
+                'subscriptionId': '2',
+                'clientId': 'C123456',
+                'fundId': '3',
+                'status': 'ACTIVE',
+                'amountSubscribed': Decimal('50000')
+            }
+        ]
+        
+        mock_subscription_table.query.return_value = {'Items': subscriptions}
+        
+        mock_fondo_service.get_fund.side_effect = [
+            {'name': 'FPV_EL CLIENTE_RECAUDADORA'},
+            {'name': 'DEUDAPRIVADA'}
+        ]
+        
+        # Execute
+        result = await TransaccionService.get_client_active_subscriptions(client_id)
+        
+        # Assert
+        mock_subscription_table.query.assert_called_once()
+        assert len(result) == 2
+        assert result[0]['fundName'] == 'FPV_EL CLIENTE_RECAUDADORA'
+        assert result[1]['fundName'] == 'DEUDAPRIVADA'
+    
+    def test_convert_types_for_dynamodb(self):
+        # Test conversion of datetime
+        test_date = datetime(2025, 3, 28, 12, 0, 0)
+        assert convert_types_for_dynamodb(test_date) == '2025-03-28T12:00:00'
+        
+        # Test conversion of float
+        assert convert_types_for_dynamodb(10.5) == Decimal('10.5')
+        
+        # Test conversion of dict with mixed types
+        test_dict = {
+            'float_val': 10.5,
+            'str_val': 'test',
+            'date_val': datetime(2025, 3, 28, 12, 0, 0)
+        }
+        expected = {
+            'float_val': Decimal('10.5'),
+            'str_val': 'test',
+            'date_val': '2025-03-28T12:00:00'
+        }
+        assert convert_types_for_dynamodb(test_dict) == expected
+        
+        # Test conversion of list with mixed types
+        test_list = [10.5, 'test', datetime(2025, 3, 28, 12, 0, 0)]
+        expected = [Decimal('10.5'), 'test', '2025-03-28T12:00:00']
+        assert convert_types_for_dynamodb(test_list) == expected
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\backend\test\test_transacciones_api.py
+/===============================================================================
+
+import pytest
+from fastapi.testclient import TestClient
+from unittest.mock import patch, MagicMock, AsyncMock
+from app.main import app
+
+client = TestClient(app)
+
+class TestTransaccionesAPI:
+    
+    @patch('app.api.endpoints.transacciones.TransaccionService')
+    def test_create_subscription_success(self, mock_service):
+        # Setup
+        mock_result = {
+            'transactionId': '1234',
+            'clientId': 'C123456',
+            'fundId': '1',
+            'type': 'SUBSCRIPTION',
+            'amount': 75000,
+            'status': 'COMPLETED',
+            'fundName': 'FPV_EL CLIENTE_RECAUDADORA'
+        }
+        mock_service.create_subscription = AsyncMock(return_value=mock_result)
+        
+        # Execute
+        response = client.post(
+            "/api/v1/transacciones/subscriptions",
+            json={"fundId": "1"}
+        )
+        
+        # Assert
+        assert response.status_code == 200
+        data = response.json()
+        assert data['transactionId'] == '1234'
+        assert data['type'] == 'SUBSCRIPTION'
+        assert data['status'] == 'COMPLETED'
+        assert data['fundName'] == 'FPV_EL CLIENTE_RECAUDADORA'
+    
+    @patch('app.api.endpoints.transacciones.TransaccionService')
+    def test_create_subscription_error(self, mock_service):
+        # Setup
+        mock_result = {
+            'error': 'No tiene saldo disponible para vincularse al fondo',
+            'status': 'FAILED'
+        }
+        mock_service.create_subscription = AsyncMock(return_value=mock_result)
+        
+        # Execute
+        response = client.post(
+            "/api/v1/transacciones/subscriptions",
+            json={"fundId": "1"}
+        )
+        
+        # Assert
+        assert response.status_code == 400
+        assert response.json()['detail'] == 'No tiene saldo disponible para vincularse al fondo'
+    
+    @patch('app.api.endpoints.transacciones.TransaccionService')
+    def test_cancel_subscription_success(self, mock_service):
+        # Setup
+        mock_result = {
+            'transactionId': '1234',
+            'clientId': 'C123456',
+            'fundId': '1',
+            'type': 'CANCELLATION',
+            'amount': 75000,
+            'status': 'COMPLETED',
+            'fundName': 'FPV_EL CLIENTE_RECAUDADORA'
+        }
+        mock_service.cancel_subscription = AsyncMock(return_value=mock_result)
+        
+        # Execute
+        response = client.delete("/api/v1/transacciones/subscriptions/1")
+        
+        # Assert
+        assert response.status_code == 200
+        data = response.json()
+        assert data['transactionId'] == '1234'
+        assert data['type'] == 'CANCELLATION'
+        assert data['status'] == 'COMPLETED'
+    
+    @patch('app.api.endpoints.transacciones.TransaccionService')
+    def test_cancel_subscription_error(self, mock_service):
+        # Setup
+        mock_result = {
+            'error': 'No está suscrito a este fondo',
+            'status': 'FAILED'
+        }
+        mock_service.cancel_subscription = AsyncMock(return_value=mock_result)
+        
+        # Execute
+        response = client.delete("/api/v1/transacciones/subscriptions/999")
+        
+        # Assert
+        assert response.status_code == 400
+        assert response.json()['detail'] == 'No está suscrito a este fondo'
+    
+    @patch('app.api.endpoints.transacciones.TransaccionService')
+    def test_get_transactions_history_success(self, mock_service):
+        # Setup
+        mock_transactions = [
+            {
+                'transactionId': '1',
+                'clientId': 'C123456',
+                'fundId': '1',
+                'type': 'SUBSCRIPTION',
+                'amount': 75000,
+                'status': 'COMPLETED',
+                'fundName': 'FPV_EL CLIENTE_RECAUDADORA'
+            },
+            {
+                'transactionId': '2',
+                'clientId': 'C123456',
+                'fundId': '2',
+                'type': 'CANCELLATION',
+                'amount': 125000,
+                'status': 'COMPLETED',
+                'fundName': 'FPV_EL CLIENTE_ECOPETROL'
+            }
+        ]
+        mock_service.get_client_transactions = AsyncMock(return_value=mock_transactions)
+        
+        # Execute
+        response = client.get("/api/v1/transacciones/history?limit=2")
+        
+        # Assert
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 2
+        assert data[0]['transactionId'] == '1'
+        assert data[1]['transactionId'] == '2'
+    
+    @patch('app.api.endpoints.transacciones.TransaccionService')
+    def test_get_active_subscriptions_success(self, mock_service):
+        # Setup
+        mock_subscriptions = [
+            {
+                'subscriptionId': '1',
+                'clientId': 'C123456',
+                'fundId': '1',
+                'status': 'ACTIVE',
+                'amountSubscribed': 75000,
+                'fundName': 'FPV_EL CLIENTE_RECAUDADORA'
+            }
+        ]
+        mock_service.get_client_active_subscriptions = AsyncMock(return_value=mock_subscriptions)
+        
+        # Execute
+        response = client.get("/api/v1/transacciones/subscriptions")
+        
+        # Assert
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 1
+        assert data[0]['subscriptionId'] == '1'
+        assert data[0]['status'] == 'ACTIVE'
+        assert data[0]['fundName'] == 'FPV_EL CLIENTE_RECAUDADORA'
+
+

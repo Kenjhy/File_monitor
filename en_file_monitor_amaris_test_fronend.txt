@@ -1,0 +1,1241 @@
+// Last update transaction car: 2025-03-28 00:30:55.918629
+// Total files: 21
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\components\ClientBalance.js
+/===============================================================================
+
+import React from 'react';
+import { 
+  Paper, 
+  Typography, 
+  Box, 
+  Stack,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
+} from '@mui/material';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import MailOutlineIcon from '@mui/icons-material/MailOutline';
+import SmsOutlinedIcon from '@mui/icons-material/SmsOutlined';
+import { useDispatch } from 'react-redux';
+import { updatePreferences } from '../store/slices/clienteSlice';
+
+const ClientBalance = ({ clientInfo }) => {
+  const dispatch = useDispatch();
+
+  const handleChangeNotification = (event) => {
+    dispatch(updatePreferences({
+      clientId: clientInfo.clientId,
+      data: { preferredNotification: event.target.value }
+    }));
+  };
+
+  if (!clientInfo) {
+    return <Paper sx={{ p: 3, mb: 3 }}>Cargando información del cliente...</Paper>;
+  }
+
+  return (
+    <Paper sx={{ p: 3, mb: 3, borderRadius: 2, boxShadow: 3 }}>
+      <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
+        <AccountBalanceWalletIcon fontSize="large" color="primary" />
+        <Typography variant="h5" component="h2">
+          Información del Cliente
+        </Typography>
+      </Stack>
+      
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="body1">
+          <strong>Saldo disponible:</strong>
+        </Typography>
+        <Typography variant="h6" color="primary.main">
+          ${clientInfo.balance?.toLocaleString()} COP
+        </Typography>
+      </Box>
+      
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <FormControl sx={{ minWidth: 200 }} size="small">
+          <InputLabel id="notification-type-label">Tipo de notificación</InputLabel>
+          <Select
+            labelId="notification-type-label"
+            id="notification-type-select"
+            value={clientInfo.preferredNotification || 'email'}
+            label="Tipo de notificación"
+            onChange={handleChangeNotification}
+            startAdornment={
+              clientInfo.preferredNotification === 'email' 
+              ? <MailOutlineIcon sx={{ mr: 1 }} fontSize="small" /> 
+              : <SmsOutlinedIcon sx={{ mr: 1 }} fontSize="small" />
+            }
+          >
+            <MenuItem value="email">Email</MenuItem>
+            <MenuItem value="sms">SMS</MenuItem>
+          </Select>
+        </FormControl>
+        
+        <Box>
+          <Typography variant="body2" color="text.secondary">
+            {clientInfo.preferredNotification === 'email' 
+              ? `Email: ${clientInfo.email || 'No especificado'}`
+              : `Teléfono: ${clientInfo.phone || 'No especificado'}`
+            }
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            ID: {clientInfo.clientId}
+          </Typography>
+        </Box>
+      </Box>
+    </Paper>
+  );
+};
+
+export default ClientBalance;
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\components\FundCard.js
+/===============================================================================
+
+import React from 'react';
+import { 
+  Card, 
+  CardContent, 
+  CardActions, 
+  Typography, 
+  Button,
+  Chip,
+  Box,
+  Tooltip
+} from '@mui/material';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import CategoryIcon from '@mui/icons-material/Category';
+
+const FundCard = ({ fund, onSubscribe, onCancel, isSubscribed, clientBalance }) => {
+  // Verificar si el cliente tiene saldo suficiente para suscribirse
+  const canSubscribe = clientBalance >= fund.minimumAmount;
+  
+  return (
+    <Card sx={{ width: '100%', mb: 2, borderRadius: 2, boxShadow: 3 }}>
+      <CardContent>
+        <Typography variant="h6" component="div" gutterBottom>
+          {fund.name}
+        </Typography>
+        
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+          <CategoryIcon fontSize="small" sx={{ color: 'text.secondary', mr: 1 }} />
+          <Chip 
+            label={fund.category} 
+            size="small" 
+            color={fund.category === 'FPV' ? 'primary' : 'secondary'} 
+            variant="outlined"
+          />
+        </Box>
+        
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+          <AccountBalanceWalletIcon fontSize="small" sx={{ color: 'text.secondary', mr: 1 }} />
+          <Typography variant="body2" color="text.secondary">
+            Monto mínimo: ${fund.minimumAmount.toLocaleString()} COP
+          </Typography>
+        </Box>
+      </CardContent>
+      
+      <CardActions sx={{ justifyContent: 'flex-end', p: 2, pt: 0 }}>
+        {isSubscribed ? (
+          <Button 
+            variant="outlined" 
+            color="error" 
+            onClick={() => onCancel(fund.fundId)}
+            size="small"
+          >
+            Cancelar Suscripción
+          </Button>
+        ) : (
+          <Tooltip title={!canSubscribe ? `Saldo insuficiente. Necesita $${fund.minimumAmount.toLocaleString()} COP` : ''}>
+            <span>
+              <Button 
+                variant="contained" 
+                color="primary" 
+                onClick={() => onSubscribe(fund.fundId)}
+                disabled={!canSubscribe}
+                size="small"
+              >
+                Suscribirse
+              </Button>
+            </span>
+          </Tooltip>
+        )}
+      </CardActions>
+    </Card>
+  );
+};
+
+export default FundCard;
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\components\Header.js
+/===============================================================================
+
+import React from 'react';
+import { AppBar, Toolbar, Typography, Container } from '@mui/material';
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
+
+const Header = () => {
+  return (
+    <AppBar position="static">
+      <Container maxWidth="xl">
+        <Toolbar disableGutters>
+          <AccountBalanceIcon sx={{ display: { xs: 'none', md: 'flex' }, mr: 1 }} />
+          <Typography
+            variant="h6"
+            noWrap
+            component="div"
+            sx={{
+              mr: 2,
+              display: { xs: 'none', md: 'flex' },
+              fontFamily: 'monospace',
+              fontWeight: 700,
+              letterSpacing: '.3rem',
+              color: 'inherit',
+              textDecoration: 'none',
+            }}
+          >
+            EL CLIENTE - FONDOS
+          </Typography>
+          
+          <AccountBalanceIcon sx={{ display: { xs: 'flex', md: 'none' }, mr: 1 }} />
+          <Typography
+            variant="h5"
+            noWrap
+            component="div"
+            sx={{
+              mr: 2,
+              display: { xs: 'flex', md: 'none' },
+              flexGrow: 1,
+              fontFamily: 'monospace',
+              fontWeight: 700,
+              letterSpacing: '.3rem',
+              color: 'inherit',
+              textDecoration: 'none',
+            }}
+          >
+            FONDOS
+          </Typography>
+        </Toolbar>
+      </Container>
+    </AppBar>
+  );
+};
+
+export default Header;
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\components\SubscriptionsList.js
+/===============================================================================
+
+import React from 'react';
+import { 
+  List, 
+  ListItem, 
+  ListItemText, 
+  ListItemIcon,
+  ListItemSecondaryAction,
+  IconButton, 
+  Typography, 
+  Chip, 
+  Box,
+  Divider
+} from '@mui/material';
+import FolderIcon from '@mui/icons-material/Folder';
+import CancelIcon from '@mui/icons-material/Cancel';
+
+const SubscriptionsList = ({ subscriptions, onCancel }) => {
+  if (!subscriptions || subscriptions.length === 0) {
+    return (
+      <Typography variant="body2" sx={{ p: 2, textAlign: 'center', color: 'text.secondary' }}>
+        No hay suscripciones activas.
+      </Typography>
+    );
+  }
+
+  return (
+    <List sx={{ width: '100%' }}>
+      {subscriptions.map((subscription, index) => {
+        const date = new Date(subscription.subscriptionDate);
+        const formattedDate = date.toLocaleDateString();
+
+        return (
+          <React.Fragment key={subscription.subscriptionId}>
+            <ListItem alignItems="flex-start">
+              <ListItemIcon>
+                <FolderIcon color="primary" />
+              </ListItemIcon>
+              <ListItemText
+                primary={
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Typography variant="subtitle2" sx={{ mr: 1 }}>
+                      {subscription.fundName || `Fondo ID: ${subscription.fundId}`}
+                    </Typography>
+                    <Chip
+                      label={subscription.status}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                    />
+                  </Box>
+                }
+                secondary={
+                  <>
+                    <Typography
+                      component="span"
+                      variant="body2"
+                      color="text.primary"
+                    >
+                      Monto: ${subscription.amountSubscribed.toLocaleString()} COP
+                    </Typography>
+                    <Typography
+                      component="div"
+                      variant="caption"
+                      color="text.secondary"
+                    >
+                      Suscrito desde: {formattedDate}
+                    </Typography>
+                  </>
+                }
+              />
+              <ListItemSecondaryAction>
+                <IconButton 
+                  edge="end" 
+                  aria-label="cancel" 
+                  onClick={() => onCancel(subscription.fundId)}
+                  color="error"
+                  size="small"
+                >
+                  <CancelIcon />
+                </IconButton>
+              </ListItemSecondaryAction>
+            </ListItem>
+            {index < subscriptions.length - 1 && <Divider variant="inset" component="li" />}
+          </React.Fragment>
+        );
+      })}
+    </List>
+  );
+};
+
+export default SubscriptionsList;
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\components\TransactionHistory.js
+/===============================================================================
+
+import React from 'react';
+import { 
+  List, 
+  ListItem, 
+  ListItemText, 
+  ListItemIcon, 
+  Typography, 
+  Chip, 
+  Box,
+  Divider
+} from '@mui/material';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
+
+const TransactionHistory = ({ transactions }) => {
+  if (!transactions || transactions.length === 0) {
+    return (
+      <Typography variant="body2" sx={{ p: 2, textAlign: 'center', color: 'text.secondary' }}>
+        No hay transacciones para mostrar.
+      </Typography>
+    );
+  }
+
+  return (
+    <List sx={{ width: '100%' }}>
+      {transactions.map((transaction, index) => {
+        const isSubscription = transaction.type === 'SUBSCRIPTION';
+        const date = new Date(transaction.transactionDate);
+        const formattedDate = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+
+        return (
+          <React.Fragment key={transaction.transactionId}>
+            <ListItem alignItems="flex-start">
+              <ListItemIcon>
+                {isSubscription ? (
+                  <AddCircleOutlineIcon color="success" />
+                ) : (
+                  <RemoveCircleOutlineIcon color="error" />
+                )}
+              </ListItemIcon>
+              <ListItemText
+                primary={
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="subtitle2">
+                      {transaction.fundName || `Fondo ID: ${transaction.fundId}`}
+                    </Typography>
+                    <Chip
+                      label={isSubscription ? 'Suscripción' : 'Cancelación'}
+                      size="small"
+                      color={isSubscription ? 'success' : 'error'}
+                      variant="outlined"
+                    />
+                  </Box>
+                }
+                secondary={
+                  <>
+                    <Typography
+                      component="span"
+                      variant="body2"
+                      color="text.primary"
+                    >
+                      ${transaction.amount.toLocaleString()} COP
+                    </Typography>
+                    <Typography
+                      component="div"
+                      variant="caption"
+                      color="text.secondary"
+                    >
+                      {formattedDate}
+                    </Typography>
+                  </>
+                }
+              />
+            </ListItem>
+            {index < transactions.length - 1 && <Divider variant="inset" component="li" />}
+          </React.Fragment>
+        );
+      })}
+    </List>
+  );
+};
+
+export default TransactionHistory;
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\config\api.js
+/===============================================================================
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8001/api/v1';
+
+export default API_URL;
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\pages\Dashboard.js
+/===============================================================================
+
+import React, { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { 
+  Container, 
+  Typography, 
+  Grid, 
+  Paper, 
+  Box, 
+  Divider, 
+  Alert, 
+  Snackbar, 
+  CircularProgress,
+  Tabs,
+  Tab
+} from '@mui/material';
+import FundCard from '../components/FundCard';
+import TransactionHistory from '../components/TransactionHistory';
+import SubscriptionsList from '../components/SubscriptionsList';
+import ClientBalance from '../components/ClientBalance';
+import { fetchClientInfo } from '../store/slices/clienteSlice';
+import { fetchAllFunds } from '../store/slices/fondoSlice';
+import { 
+  fetchActiveSubscriptions, 
+  fetchTransactionHistory,
+  subscribeToFundAction,
+  cancelFundSubscription,
+  clearError,
+  clearLastOperation
+} from '../store/slices/transaccionSlice';
+
+const Dashboard = () => {
+  const dispatch = useDispatch();
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertSeverity, setAlertSeverity] = useState('info');
+  const [openAlert, setOpenAlert] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
+  
+  const { clientInfo, loading: clientLoading, error: clientError } = useSelector(state => state.cliente);
+  const { fundsList, loading: fundsLoading, error: fundsError } = useSelector(state => state.fondo);
+  const { 
+    activeSubscriptions, 
+    transactions, 
+    loading: transactionLoading,
+    error: transactionError,
+    lastOperation
+  } = useSelector(state => state.transaccion);
+  
+  // Cargar datos al iniciar
+  useEffect(() => {
+    dispatch(fetchClientInfo());
+    dispatch(fetchAllFunds());
+    dispatch(fetchActiveSubscriptions());
+    dispatch(fetchTransactionHistory());
+  }, [dispatch]);
+  
+  // Mostrar errores si ocurren
+  useEffect(() => {
+    const errorMessage = clientError || fundsError || transactionError;
+    if (errorMessage) {
+      // Asegurarse de que el mensaje de error sea una cadena
+      const errorText = typeof errorMessage === 'object' 
+        ? JSON.stringify(errorMessage) 
+        : String(errorMessage);
+      
+      setAlertMessage(errorText);
+      setAlertSeverity('error');
+      setOpenAlert(true);
+    }
+  }, [clientError, fundsError, transactionError]);
+  
+  // Manejar resultado de operaciones
+  useEffect(() => {
+    if (lastOperation) {
+      if (lastOperation.success) {
+        setAlertMessage(
+          lastOperation.type === 'SUBSCRIPTION' 
+            ? 'Suscripción exitosa al fondo - mensaje enviado' 
+            : 'Cancelación exitosa de la suscripción - mensaje enviado'
+        );
+        setAlertSeverity('success');
+      } else {
+        // Asegurarse de que el mensaje de error sea una cadena
+        const errorText = typeof lastOperation.error === 'object' 
+          ? JSON.stringify(lastOperation.error) 
+          : String(lastOperation.error || `Error en operación de ${lastOperation.type}`);
+        
+        setAlertMessage(errorText);
+        setAlertSeverity('error');
+      }
+      setOpenAlert(true);
+      
+      // Actualizar datos después de una operación exitosa
+      if (lastOperation.success) {
+        dispatch(fetchClientInfo());
+        dispatch(fetchActiveSubscriptions());
+        dispatch(fetchTransactionHistory());
+      }
+      
+      // Limpiar el estado de la operación
+      setTimeout(() => {
+        dispatch(clearLastOperation());
+      }, 1000);
+    }
+  }, [lastOperation, dispatch]);
+  
+  const handleSubscribe = async (fundId) => {
+    dispatch(subscribeToFundAction(fundId));
+  };
+  
+  const handleCancelSubscription = async (fundId) => {
+    dispatch(cancelFundSubscription(fundId));
+  };
+  
+  const handleCloseAlert = () => {
+    setOpenAlert(false);
+    dispatch(clearError());
+  };
+  
+  const handleChangeTab = (event, newValue) => {
+    setActiveTab(newValue);
+  };
+  
+  // Verificar si un fondo tiene suscripción activa
+  const isSubscribed = (fundId) => {
+    return activeSubscriptions?.some(sub => sub.fundId === fundId);
+  };
+  
+  if (clientLoading || fundsLoading) {
+    return (
+      <Container sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+        <CircularProgress />
+      </Container>
+    );
+  }
+  
+  return (
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      {/* Información del Cliente y Saldo */}
+      <ClientBalance clientInfo={clientInfo || {}} />
+      
+      <Grid container spacing={4}>
+        {/* Panel izquierdo: Fondos Disponibles */}
+        <Grid item xs={12} md={7}>
+          <Paper sx={{ p: 3, height: '100%', borderRadius: 2, boxShadow: 3 }}>
+            <Typography variant="h5" gutterBottom>
+              Fondos Disponibles
+            </Typography>
+            <Divider sx={{ mb: 3 }} />
+            
+            {fundsList && fundsList.length > 0 ? (
+              fundsList.map(fund => (
+                <FundCard 
+                  key={fund.fundId}
+                  fund={fund}
+                  onSubscribe={handleSubscribe}
+                  onCancel={handleCancelSubscription}
+                  isSubscribed={isSubscribed(fund.fundId)}
+                  clientBalance={clientInfo?.balance || 0}
+                />
+              ))
+            ) : (
+              <Typography sx={{ p: 2, textAlign: 'center', color: 'text.secondary' }}>
+                No hay fondos disponibles o hubo un error al cargarlos.
+              </Typography>
+            )}
+          </Paper>
+        </Grid>
+        
+        {/* Panel derecho: Tabs para Suscripciones e Historial */}
+        <Grid item xs={12} md={5}>
+          <Paper sx={{ borderRadius: 2, boxShadow: 3 }}>
+            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+              <Tabs 
+                value={activeTab} 
+                onChange={handleChangeTab} 
+                variant="fullWidth"
+                sx={{ minHeight: 48 }}
+              >
+                <Tab label="Suscripciones Activas" id="tab-0" />
+                <Tab label="Historial de Transacciones" id="tab-1" />
+              </Tabs>
+            </Box>
+            
+            <Box sx={{ p: 2 }}>
+              {activeTab === 0 && (
+                <Box>
+                  <SubscriptionsList 
+                    subscriptions={activeSubscriptions || []} 
+                    onCancel={handleCancelSubscription} 
+                  />
+                </Box>
+              )}
+              
+              {activeTab === 1 && (
+                <Box>
+                  {transactionLoading ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+                      <CircularProgress size={24} />
+                    </Box>
+                  ) : (
+                    <TransactionHistory transactions={transactions || []} />
+                  )}
+                </Box>
+              )}
+            </Box>
+          </Paper>
+        </Grid>
+      </Grid>
+      
+      <Snackbar 
+        open={openAlert} 
+        autoHideDuration={6000} 
+        onClose={handleCloseAlert}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={handleCloseAlert} 
+          severity={alertSeverity} 
+          sx={{ width: '100%' }}
+          variant="filled"
+        >
+          {alertMessage}
+        </Alert>
+      </Snackbar>
+    </Container>
+  );
+};
+
+export default Dashboard;
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\services\api.js
+/===============================================================================
+
+import axios from 'axios';
+import API_URL from '../config/api';
+
+const api = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
+export default api;
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\services\clienteService.js
+/===============================================================================
+
+import api from './api';
+
+export const getClientInfo = async (clientId = 'C123456') => {
+  const response = await api.get(`/clientes/${clientId}`);
+  return response.data;
+};
+
+export const updateClientPreferences = async (clientId, data) => {
+  const response = await api.patch(`/clientes/${clientId}`, data);
+  return response.data;
+};
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\services\fondoService.js
+/===============================================================================
+
+import api from './api';
+
+export const getAllFunds = async () => {
+  const response = await api.get('/fondos');
+  return response.data;
+};
+
+export const getFundDetails = async (fundId) => {
+  const response = await api.get(`/fondos/${fundId}`);
+  return response.data;
+};
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\services\transaccionService.js
+/===============================================================================
+
+import api from './api';
+
+export const subscribeToFund = async (fundId) => {
+  const response = await api.post('/transacciones/subscriptions', { fundId });
+  return response.data;
+};
+
+export const cancelSubscription = async (fundId) => {
+  const response = await api.delete(`/transacciones/subscriptions/${fundId}`);
+  return response.data;
+};
+
+export const getTransactionHistory = async (limit = 10) => {
+  const response = await api.get('/transacciones/history', {
+    params: { limit }
+  });
+  return response.data;
+};
+
+export const getActiveSubscriptions = async () => {
+  const response = await api.get('/transacciones/subscriptions');
+  return response.data;
+};
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\store\slices\clienteSlice.js
+/===============================================================================
+
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { getClientInfo, updateClientPreferences } from '../../services/clienteService';
+
+export const fetchClientInfo = createAsyncThunk(
+  'cliente/fetchInfo',
+  async (clientId = 'C123456', { rejectWithValue }) => {
+    try {
+      return await getClientInfo(clientId);
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+export const updatePreferences = createAsyncThunk(
+  'cliente/updatePreferences',
+  async ({ clientId = 'C123456', data }, { rejectWithValue }) => {
+    try {
+      return await updateClientPreferences(clientId, data);
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+const initialState = {
+  clientInfo: null,
+  loading: false,
+  error: null
+};
+
+const clienteSlice = createSlice({
+  name: 'cliente',
+  initialState,
+  reducers: {},
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchClientInfo.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchClientInfo.fulfilled, (state, action) => {
+        state.loading = false;
+        state.clientInfo = action.payload;
+      })
+      .addCase(fetchClientInfo.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      .addCase(updatePreferences.fulfilled, (state, action) => {
+        state.clientInfo = { ...state.clientInfo, ...action.payload };
+      });
+  }
+});
+
+export default clienteSlice.reducer;
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\store\slices\fondoSlice.js
+/===============================================================================
+
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { getAllFunds, getFundDetails } from '../../services/fondoService';
+
+export const fetchAllFunds = createAsyncThunk(
+  'fondo/fetchAll',
+  async (_, { rejectWithValue }) => {
+    try {
+      return await getAllFunds();
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+export const fetchFundDetails = createAsyncThunk(
+  'fondo/fetchDetails',
+  async (fundId, { rejectWithValue }) => {
+    try {
+      return await getFundDetails(fundId);
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+const initialState = {
+  fundsList: [],
+  currentFund: null,
+  loading: false,
+  error: null
+};
+
+const fondoSlice = createSlice({
+  name: 'fondo',
+  initialState,
+  reducers: {},
+  extraReducers: (builder) => {
+    builder
+      // Fondos todos
+      .addCase(fetchAllFunds.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchAllFunds.fulfilled, (state, action) => {
+        state.loading = false;
+        state.fundsList = action.payload;
+      })
+      .addCase(fetchAllFunds.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      // Fondo específico
+      .addCase(fetchFundDetails.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchFundDetails.fulfilled, (state, action) => {
+        state.loading = false;
+        state.currentFund = action.payload;
+      })
+      .addCase(fetchFundDetails.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      });
+  }
+});
+
+export default fondoSlice.reducer;
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\store\slices\transaccionSlice.js
+/===============================================================================
+
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { 
+  subscribeToFund, 
+  cancelSubscription, 
+  getTransactionHistory, 
+  getActiveSubscriptions 
+} from '../../services/transaccionService';
+
+export const fetchTransactionHistory = createAsyncThunk(
+  'transaccion/fetchHistory',
+  async (limit = 10, { rejectWithValue }) => {
+    try {
+      return await getTransactionHistory(limit);
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.detail || error.message || "Error desconocido");
+    }
+  }
+);
+
+export const fetchActiveSubscriptions = createAsyncThunk(
+  'transaccion/fetchActiveSubscriptions',
+  async (_, { rejectWithValue }) => {
+    try {
+      return await getActiveSubscriptions();
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.detail || error.message || "Error desconocido");
+    }
+  }
+);
+
+export const subscribeToFundAction = createAsyncThunk(
+  'transaccion/subscribeToFund',
+  async (fundId, { rejectWithValue }) => {
+    try {
+      return await subscribeToFund(fundId);
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.detail || error.message || "Error al suscribirse");
+    }
+  }
+);
+
+export const cancelFundSubscription = createAsyncThunk(
+  'transaccion/cancelSubscription',
+  async (fundId, { rejectWithValue }) => {
+    try {
+      return await cancelSubscription(fundId);
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.detail || error.message || "Error al cancelar");
+    }
+  }
+);
+
+const initialState = {
+  transactions: [],
+  activeSubscriptions: [],
+  loading: false,
+  error: null,
+  lastOperation: null
+};
+
+const transaccionSlice = createSlice({
+  name: 'transaccion',
+  initialState,
+  reducers: {
+    clearError: (state) => {
+      state.error = null;
+    },
+    clearLastOperation: (state) => {
+      state.lastOperation = null;
+    }
+  },
+  extraReducers: (builder) => {
+    builder
+      // Historial de transacciones
+      .addCase(fetchTransactionHistory.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchTransactionHistory.fulfilled, (state, action) => {
+        state.loading = false;
+        state.transactions = action.payload || [];
+      })
+      .addCase(fetchTransactionHistory.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+        state.transactions = [];
+      })
+      // Suscripciones activas
+      .addCase(fetchActiveSubscriptions.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchActiveSubscriptions.fulfilled, (state, action) => {
+        state.loading = false;
+        state.activeSubscriptions = action.payload || [];
+      })
+      .addCase(fetchActiveSubscriptions.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+        state.activeSubscriptions = [];
+      })
+      // Suscribir a fondo
+      .addCase(subscribeToFundAction.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(subscribeToFundAction.fulfilled, (state, action) => {
+        state.loading = false;
+        state.lastOperation = {
+          type: 'SUBSCRIPTION',
+          data: action.payload,
+          success: true
+        };
+      })
+      .addCase(subscribeToFundAction.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+        state.lastOperation = {
+          type: 'SUBSCRIPTION',
+          success: false,
+          error: action.payload
+        };
+      })
+      // Cancelar suscripción
+      .addCase(cancelFundSubscription.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(cancelFundSubscription.fulfilled, (state, action) => {
+        state.loading = false;
+        state.lastOperation = {
+          type: 'CANCELLATION',
+          data: action.payload,
+          success: true
+        };
+      })
+      .addCase(cancelFundSubscription.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+        state.lastOperation = {
+          type: 'CANCELLATION',
+          success: false,
+          error: action.payload
+        };
+      });
+  }
+});
+
+export const { clearError, clearLastOperation } = transaccionSlice.actions;
+export default transaccionSlice.reducer;
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\store\index.js
+/===============================================================================
+
+import { configureStore } from '@reduxjs/toolkit';
+import clienteReducer from './slices/clienteSlice';
+import fondoReducer from './slices/fondoSlice';
+import transaccionReducer from './slices/transaccionSlice';
+
+export const store = configureStore({
+  reducer: {
+    cliente: clienteReducer,
+    fondo: fondoReducer,
+    transaccion: transaccionReducer
+  }
+});
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\App.css
+/===============================================================================
+
+.App {
+  text-align: center;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\App.js
+/===============================================================================
+
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Provider } from 'react-redux';
+import { store } from './store';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import Dashboard from './pages/Dashboard';
+import Header from './components/Header';
+
+// Definir tema de Material-UI
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#1976d2',
+    },
+    secondary: {
+      main: '#dc004e',
+    },
+  },
+});
+
+function App() {
+  return (
+    <Provider store={store}>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Router>
+          <Header />
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+          </Routes>
+        </Router>
+      </ThemeProvider>
+    </Provider>
+  );
+}
+
+export default App;
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\index.css
+/===============================================================================
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\index.js
+/===============================================================================
+
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import './index.css';
+import App from './App';
+import reportWebVitals from './reportWebVitals';
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+
+// If you want to start measuring performance in your app, pass a function
+// to log results (for example: reportWebVitals(console.log))
+// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
+reportWebVitals();
+
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\reportWebVitals.js
+/===============================================================================
+
+const reportWebVitals = onPerfEntry => {
+  if (onPerfEntry && onPerfEntry instanceof Function) {
+    import('web-vitals').then(({ getCLS, getFID, getFCP, getLCP, getTTFB }) => {
+      getCLS(onPerfEntry);
+      getFID(onPerfEntry);
+      getFCP(onPerfEntry);
+      getLCP(onPerfEntry);
+      getTTFB(onPerfEntry);
+    });
+  }
+};
+
+export default reportWebVitals;
+
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\package.json
+/===============================================================================
+
+{
+  "name": "amaris_el_cliente_front",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@mui/icons-material": "^5.17.1",
+    "@mui/material": "^5.17.1",
+    "@reduxjs/toolkit": "^2.6.1",
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.2.0",
+    "@testing-library/user-event": "^13.5.0",
+    "axios": "^1.8.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-redux": "^9.2.0",
+    "react-router-dom": "^7.4.0",
+    "react-scripts": "5.0.1",
+    "redux": "^5.0.1",
+    "redux-thunk": "^3.1.0",
+    "web-vitals": "^2.1.4"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}
+
+

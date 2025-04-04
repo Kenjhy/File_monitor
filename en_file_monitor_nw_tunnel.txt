@@ -1,0 +1,1276 @@
+// Last update transaction car: 2025-03-14 12:25:31.863604
+// Total files: 19
+
+
+// File: C:\ProyectsSoftware\NIRSA\nw.servicio.solicitud\src\main\java\com\nirsa\solicitud\dto\CarsDTO.java
+/===============================================================================
+
+package com.nirsa.solicitud.dto;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.*;
+import lombok.experimental.SuperBuilder;
+
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@SuperBuilder
+@EqualsAndHashCode(callSuper = true) // Para herencia correcta
+@Schema(description = "DTO for cars information")
+public class CarsDTO extends BaseEntityDTO {
+    @Schema(description = "Unique identifier", example = "1")
+    private Integer id;
+
+    @Schema(description = "Transaction ID", example = "1")
+    @NotNull(message = "Transaction ID is required")
+    private Integer transactionId;
+
+    @Schema(description = "Car code", example = "CAR-001")
+    @NotBlank(message = "Car code is required")
+    private String carCode;
+
+    @Schema(description = "Maximum boxes quantity", example = "100")
+    @NotNull(message = "Maximum boxes quantity is required")
+    private Integer maxBoxesQuantity;
+
+    @Schema(description = "Current boxes quantity", example = "50")
+    @NotNull(message = "Current boxes quantity is required")
+    private Integer currentBoxesQuantity;
+
+    @Schema(description = "State ID", example = "1")
+    @NotNull(message = "State ID is required")
+    private Integer stateId;
+
+    @Schema(description = "Tunnel ID", example = "1")
+    private Integer tunnelId;
+
+    @Schema(description = "idcoche in nirsa", example = "5")
+    @NotBlank(message = "id coche is required")
+    private String idnwcatalogocoche;
+
+    @Schema(description = "idmaquina in labels", example = "M001")
+    private String idMaquina;
+
+    @Schema(description = "idmaquina in labels", example = "M001")
+    private String maquinaDescripcion;
+
+    @Schema(description = "Creation date and time", example = "2023-09-01T10:15:30")
+    private String createdAt;
+    @Schema(description = "Created by", example = "admin")
+    private String createdBy;
+    @Schema(description = "Last update date and time", example = "2023-09-02T12:20:45")
+    private String updatedAt;
+    @Schema(description = "Updated by", example = "user123")
+    private String updatedBy;
+}
+
+
+// File: C:\ProyectsSoftware\NIRSA\nw.servicio.solicitud\src\main\java\com\nirsa\solicitud\dto\response\TransactionTunnelCarsResponseDTO.java
+/===============================================================================
+
+package com.nirsa.solicitud.dto.response;
+
+import com.nirsa.solicitud.dto.CarsDTO;
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.*;
+
+import java.util.List;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Schema(description = "DTO for transaction, car and box response")
+public class TransactionTunnelCarsResponseDTO {
+    @Schema(description = "Transaction ID")
+    private Integer transactionId;
+
+    @Schema(description = "Production Date", example = "2024-01-09")
+    private String productionDate;
+
+    @Schema(description = "Turn ID", example = "1")
+    private Integer turnId;
+
+    @Schema(description = "Car ID")
+    private Integer tunnelId;
+
+    @Schema(description = "Boxes list")
+    private List<CarsDTO> Cars;
+
+    @Schema(description = "Car State ID")
+    private Integer tunnelStateId;
+
+    @Schema(description = "Current Boxes Quantity")
+    private Integer currentCarsQuantity;
+
+    @Schema(description = "Response details")
+    private ResponseDto response;
+}
+
+
+// File: C:\ProyectsSoftware\NIRSA\nw.servicio.solicitud\src\main\java\com\nirsa\solicitud\entity\Tunnels.java
+/===============================================================================
+
+package com.nirsa.solicitud.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.math.BigDecimal;
+import java.time.*;
+
+
+@Entity
+@Table(name = "\"Tuneles\"", schema = "public")
+@Getter @Setter @ToString @NoArgsConstructor @AllArgsConstructor
+public class Tunnels extends BaseEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id", nullable = false)
+    private Integer id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "idtransaccion", nullable = false)
+    private Transactions transaction;
+
+    @Column(name = "codtunel", length = 50, nullable = false)
+    private String tunnelCode;
+
+    @Column(name = "cantmaxcoches", nullable = false)
+    private Integer maxCarsQuantity;
+
+    @Column(name = "cantactualcoches", nullable = false)
+    private Integer currentCarsQuantity;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "idestado", nullable = false)
+    private States state;
+
+    @Column(name = "temperaturadescargatunel", precision = 3, scale = 1)
+    private BigDecimal unloadTunnelTemperature;
+
+    @Column(name = "numeropersonasdescargatunel")
+    private Integer unloadTunnelPersons;
+
+    @Column(name = "fechahorainiciodescargatunel")
+    private LocalDateTime unloadTunnelStartDateTime;
+
+    @Column(name = "fechahorafindescargatunel")
+    private LocalDateTime unloadTunnelEndDateTime;
+
+    @Column(name = "idtipocongelacion")
+    private Integer freezingTypeId;
+
+    @Column(name = "fechamasterado")
+    private LocalDate masterDate;
+
+    @Column(name = "turnomasterado", length = 50)
+    private String masterTurn;
+
+    @Column(name = "tipocongelacionmasterado", length = 50)
+    private String masterFreezingType;
+
+    @Column(name = "temperaturaproductomeasterado", precision = 3, scale = 1)
+    private BigDecimal masterProductTemperature;
+
+    @Column(name = "horainiciomasterado")
+    private LocalTime masterStartTime;
+
+    @Column(name = "horafinmasterado")
+    private LocalTime masterEndTime;
+
+    @Column(name = "numeropersonasmasterado")
+    private Integer masterPersons;
+
+    @Column(name = "observacionesmasterado", length = 150)
+    private String masterObservations;
+    @Column(name = "tunel", length = 50)
+    private String tunnel;
+
+}
+
+
+// File: C:\ProyectsSoftware\NIRSA\nw.servicio.solicitud\src\main\java\com\nirsa\solicitud\dto\request\TransactionTunnelCarRequestDTO.java
+/===============================================================================
+
+package com.nirsa.solicitud.dto.request;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.*;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Schema(description = "DTO for transaction, Tunnel and car combined operations")
+public class   TransactionTunnelCarRequestDTO {
+
+    @Schema(description = "Company ID o es la misma planta", example = "1")
+    @NotNull(message = "Company ID is required")
+    private Integer companyId;
+
+    @Schema(description = "Production date (format: dd/MM/yyyy)", example = "02/07/2025")
+    @NotNull(message = "Production date is required")
+    private String productionDate;
+
+    @Schema(description = "turn ID", example = "1")
+    @NotNull(message = "turn ID is required")
+    private Integer turnId;
+
+    @Schema(description = "Production ID", example = "1")
+    @NotNull(message = "production ID is required")
+    private Integer productionId;
+
+    @Schema(description = "Car code", example = "CL-0005")
+    @NotBlank(message = "Car code is required")
+    private String carCode;
+
+    @Schema(description = "Tunnel code", example = "8")
+    @NotBlank(message = "Tunnel code is required")
+    private String tunnelCode;
+
+    @Schema(description = "Maximum cars quantity", example = "3")
+    @NotNull(message = "Maximum cars quantity is required")
+    private Integer maxCarsQuantity;
+
+    @Schema(description = "Status code in NIRSA opcional", example = "1")
+    private Integer codigo_estado;
+
+}
+
+
+
+// File: C:\ProyectsSoftware\NIRSA\nw.servicio.solicitud\src\main\java\com\nirsa\solicitud\dto\TunnelDTO.java
+/===============================================================================
+
+package com.nirsa.solicitud.dto;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.*;
+
+import java.math.BigDecimal;
+import java.time.*;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Schema(description = "DTO for Tunnel information")
+public class TunnelDTO {
+    @Schema(description = "Unique identifier", example = "1")
+    private Integer id;
+
+    @Schema(description = "Transaction ID", example = "1")
+    @NotNull(message = "Transaction ID is required")
+    private Integer transactionId;
+
+    @Schema(description = "Tunnel code", example = "T001")
+    @NotBlank(message = "Tunnel code is required")
+    private String tunnelCode; ///
+
+    @Schema(description = "Maximum cars quantity", example = "100")
+    @NotNull(message = "Maximum cars quantity is required")
+    private Integer maxCarsQuantity; ///
+
+    @Schema(description = "Current cars quantity", example = "50")
+    @NotNull(message = "Current cars quantity is required")
+    private Integer currentCarsQuantity;
+
+    @Schema(description = "State ID", example = "1")
+    @NotNull(message = "State ID is required")
+    private Integer stateId;
+
+    @Schema(description = "Unload tunnel temperature", example = "20.5")
+    private BigDecimal unloadTunnelTemperature;
+
+    @Schema(description = "Unload tunnel persons", example = "5")
+    private Integer unloadTunnelPersons;
+
+    @Schema(description = "Unload tunnel start date time", example = "2024-02-02T10:00:00")
+    private LocalDateTime unloadTunnelStartDateTime;
+
+    @Schema(description = "Unload tunnel end date time", example = "2024-02-02T12:00:00")
+    private LocalDateTime unloadTunnelEndDateTime;
+
+    @Schema(description = "Freezing Type ID", example = "1")
+    private Integer freezingTypeId;
+
+    @Schema(description = "Master date", example = "2024-02-02")
+    private LocalDate masterDate;
+
+    @Schema(description = "Master shift", example = "Morning")
+    private String masterTurn;
+
+    @Schema(description = "Master freezing type", example = "Fast")
+    private String masterFreezingType;
+
+    @Schema(description = "Master product temperature", example = "18.5")
+    private BigDecimal masterProductTemperature;
+
+    @Schema(description = "Master start time", example = "10:00:00")
+    private LocalTime masterStartTime;
+
+    @Schema(description = "Master end time", example = "12:00:00")
+    private LocalTime masterEndTime;
+
+    @Schema(description = "Master persons", example = "4")
+    private Integer masterPersons;
+
+    @Schema(description = "Master observations", example = "Process completed successfully")
+    private String masterObservations;
+
+    @Schema(description = "Description tunnel", example = "T5")
+    private String tunnel;
+
+    @Schema(description = "Created by", example = "admin")
+    private String createdBy;
+
+    @Schema(description = "Creation date and time", example = "2024-02-02T10:15:30")
+    private String createdAt;
+
+    @Schema(description = "Updated by", example = "user123")
+    private String updatedBy;
+
+    @Schema(description = "Last update date and time", example = "2024-02-02T12:20:45")
+    private String updatedAt;
+
+}
+
+
+// File: C:\ProyectsSoftware\NIRSA\nw.servicio.solicitud\src\main\java\com\nirsa\solicitud\mapper\TunnelMapper.java
+/===============================================================================
+
+package com.nirsa.solicitud.mapper;
+
+
+import com.nirsa.solicitud.dto.CarsDTO;
+import com.nirsa.solicitud.dto.TunnelCarDetailDTO;
+import com.nirsa.solicitud.dto.request.NirsaSaveCloseTunnelRequestDTO;
+import com.nirsa.solicitud.dto.response.ResponseDto;
+import com.nirsa.solicitud.dto.response.TransactionTunnelCarsResponseDTO;
+import com.nirsa.solicitud.entity.*;
+
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.stream.Collectors;
+
+public class TunnelMapper extends BaseMapper {
+
+    public static CarsDTO mapToCarDto(Cars car) {
+        return CarsDTO.builder()
+                .id(car.getId())
+                .transactionId(car.getTransaction().getId())
+                .carCode(car.getCarCode())
+                .maxBoxesQuantity(car.getMaxBoxesQuantity())
+                .currentBoxesQuantity(car.getCurrentBoxesQuantity())
+                .stateId(car.getState().getId())
+                .tunnelId(car.getTunnelId())
+                .idnwcatalogocoche(car.getIdnwcatalogocoche())
+                .createdAt(formatDateTime(car.getCreatedAt()))
+                .createdBy(car.getCreatedBy())
+                .updatedAt(formatDateTime(car.getUpdatedAt()))
+                .updatedBy(car.getUpdatedBy())
+                .build();
+    }
+
+    public static TransactionTunnelCarsResponseDTO createTunnelResponse(
+            Tunnels tunnel,
+            List<CarsDTO> cars,
+            String statusCode,
+            String statusMsg) {
+
+        return TransactionTunnelCarsResponseDTO.builder()
+                .transactionId(tunnel.getTransaction().getId())
+                .productionDate(formatDate(tunnel.getTransaction().getProductionDate()))
+                .turnId(tunnel.getTransaction().getTurnId())
+                .tunnelId(tunnel.getId())
+                .Cars(cars)
+                .tunnelStateId(tunnel.getState().getId())
+                .currentCarsQuantity(tunnel.getCurrentCarsQuantity())
+                .response(new ResponseDto(statusCode, statusMsg))
+                .build();
+    }
+
+    public static NirsaSaveCloseTunnelRequestDTO mapToNirsaSaveCloseTunnelRequestDto(ClosedTunnels closedTunnel, List<Cars> cars) {
+        if (closedTunnel == null) {
+            return null;
+        }
+
+        List<TunnelCarDetailDTO> detailDTOs = cars.stream()
+                .map(car -> TunnelCarDetailDTO.builder()
+                        .idtransaccionCoche(car.getTransaction().getId())
+                        .codigocoche(car.getCarCode())
+                        .build())
+                .collect(Collectors.toList());
+
+        return NirsaSaveCloseTunnelRequestDTO.builder()
+                .idempresa(closedTunnel.getCompanyId())
+                .idproduccion(closedTunnel.getProductionId())
+                .idturno(closedTunnel.getTurnId())
+                .idtunelcongelacion(closedTunnel.getTunnelFreezingId())
+                .cantidadactualcoches(closedTunnel.getCurrentCarsQuantity())
+                .idtransacciontunel(closedTunnel.getTunnelTransaction().getId())
+                .observacion(closedTunnel.getObservation())
+                .usuario(closedTunnel.getCreatedBy())
+                .fechaAperturaTunel(formatDateTime(closedTunnel.getTunnelOpeningDate()))
+                .fechaencendidomaquina(formatDateTime(closedTunnel.getMachineStartDate()))
+                .fechaCierreTunel(formatDateTime(closedTunnel.getTunnelClosingDate()))
+                .detalle(detailDTOs)
+                .build();
+    }
+
+}
+
+
+// File: C:\ProyectsSoftware\NIRSA\nw.servicio.solicitud\src\main\java\com\nirsa\solicitud\service\ITunnelService.java
+/===============================================================================
+
+package com.nirsa.solicitud.service;
+
+import com.nirsa.solicitud.dto.request.NirsaSaveCloseTunnelRequestDTO;
+import com.nirsa.solicitud.dto.request.TransactionTunnelCarRequestDTO;
+import com.nirsa.solicitud.dto.response.DetailTunnelCarsResponseDTO;
+import com.nirsa.solicitud.dto.response.TransactionTunnelCarsResponseDTO;
+
+import java.util.List;
+
+public interface ITunnelService {
+    /**
+     * Registers information about cars entering a tunnel.
+     * @param request TransactionTunnelCarRequestDTO containing tunnel assembly information
+     * @return TransactionTunnelCarsResponseDTO with the tunnel and car information
+     */
+    TransactionTunnelCarsResponseDTO tunnelAssembly(TransactionTunnelCarRequestDTO request);
+
+    /**
+     * Gets the list of cars in a tunnel.
+     * @param request TransactionTunnelCarRequestDTO containing tunnel information
+     * @return TransactionTunnelCarsResponseDTO with the list of cars in the tunnel
+     */
+    TransactionTunnelCarsResponseDTO getCarsInTunnel(TransactionTunnelCarRequestDTO request);
+
+    List<DetailTunnelCarsResponseDTO> detalleCarsInTunnel(Integer carId);
+    /**
+     * Finalizes and closes a tunnel, updating its status and sending information to NIRSA.
+     * @param tunnelId ID of the tunnel to finalize and close
+     * @return List of tunnel closure requests sent to NIRSA
+     */
+    List<NirsaSaveCloseTunnelRequestDTO> finaliseOrCloseTunnel(Integer tunnelId);
+}
+
+
+// File: C:\ProyectsSoftware\NIRSA\nw.servicio.solicitud\src\main\java\com\nirsa\solicitud\service\Impl\TunnelServiceImpl.java
+/===============================================================================
+
+package com.nirsa.solicitud.service.Impl;
+
+import com.nirsa.solicitud.config.CurrentUser;
+import com.nirsa.solicitud.constants.RequestConstants;
+import com.nirsa.solicitud.dto.CarsDTO;
+import com.nirsa.solicitud.dto.UserDTO;
+import com.nirsa.solicitud.dto.request.NirsaSaveCloseTunnelRequestDTO;
+import com.nirsa.solicitud.dto.request.TransactionTunnelCarRequestDTO;
+import com.nirsa.solicitud.dto.response.DetailTunnelCarsResponseDTO;
+import com.nirsa.solicitud.dto.response.TransactionTunnelCarsResponseDTO;
+import com.nirsa.solicitud.entity.*;
+import com.nirsa.solicitud.exception.*;
+import com.nirsa.solicitud.mapper.BaseMapper;
+import com.nirsa.solicitud.mapper.TunnelMapper;
+import com.nirsa.solicitud.repository.*;
+import com.nirsa.solicitud.service.ITunnelService;
+import com.nirsa.solicitud.service.IUtilityService;
+import com.nirsa.solicitud.utilities.TransactionUtils;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Service
+@AllArgsConstructor
+@Slf4j
+public class TunnelServiceImpl implements ITunnelService {
+
+    private final TransactionsRepository transactionsRepository;
+    private final TunnelsRepository tunnelsRepository;
+    private final CarsRepository carsRepository;
+    private final StatesRepository statesRepository;
+    private final CarStatesRepository carStatesRepository;
+    private final TunnelStatesRepository tunnelStatesRepository;
+    private final LabelsRepository labelsRepository;
+    private final BoxesRepository boxesRepository;
+    private final ClosedTunnelsRepository closedTunnelsRepository;
+
+    private IUtilityService utilityService;
+    private final TransactionUtils transactionUtils;
+    private final NirsaIntegrationService nirsaIntegrationService;
+    private final CurrentUser currentUser;
+
+    @Override
+    @Transactional
+    public TransactionTunnelCarsResponseDTO tunnelAssembly(TransactionTunnelCarRequestDTO request) {
+        log.info("Starting tunnel assembly process");
+        // Validar usuario
+        UserDTO currentUserDTO = currentUser.getCurrentUser();
+        utilityService.evaluateAuthorization(currentUserDTO);
+        try {
+            // 1. Find or create transaction
+            Transactions transaction = transactionUtils.findOrCreateTransaction(
+                    transactionsRepository,
+                    request.getCompanyId(),
+                    request.getProductionDate(),
+                    request.getTurnId(),
+                    request.getProductionId(),
+                    RequestConstants.TRANSACTION_TYPE_TUNNEL_ID);
+
+            // 2. Get or create tunnel
+            Tunnels tunnel = getOrCreateTunnel(request, transaction);
+
+            // 3. Get and validate car by carCode and CLOSED state
+            Cars car = carsRepository.findByCarCodeAndState_Id(request.getCarCode(), RequestConstants.STATE_CLOSED_ID)
+                    .orElseThrow(() -> new CarNotFoundException("Car not found with code: " + request.getCarCode() + " in CLOSED state"));
+
+            // 4. Validate car quantity
+            transactionUtils.validateCarsQuantity(tunnel, request.getMaxCarsQuantity());
+
+            // 5. Update car state to ASSIGNED and associate with tunnel
+            car.setTunnelId(tunnel.getId());
+            transactionUtils.updateCarState(
+                    carsRepository,
+                    statesRepository,
+                    carStatesRepository,
+                    nirsaIntegrationService,
+                    car,
+                    RequestConstants.STATE_ASSIGNED_CODE,
+                    RequestConstants.TRANSACTION_TYPE_CAR_ID,
+                    currentUser.getToken()
+            );
+
+            // 6. Update tunnel car count
+            transactionUtils.updateEntityCount(tunnel, 1, "CurrentCarsQuantity");
+            tunnelsRepository.save(tunnel);
+
+            // 7. Return response using getCarsInTunnel
+            return getCarsInTunnel(request);
+
+        } catch (Exception e) {
+            log.error("Error in tunnel assembly: ", e);
+            throw e;
+        }
+    }
+
+    @Override
+    public TransactionTunnelCarsResponseDTO getCarsInTunnel(TransactionTunnelCarRequestDTO request) {
+        log.info("Getting cars in tunnel for request: {}", request);
+
+        Tunnels tunnel = tunnelsRepository.findByTunnelCode(request.getTunnelCode())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Tunnel", "code", request.getTunnelCode()));
+
+        // Esto devuelve el número de máquinas distintas asociadas a las cajas de un carro específico.
+        List<Cars> cars = carsRepository.findByTunnelIdOrderByCreatedAtDesc(tunnel.getId());
+        List<CarsDTO> carDTOs = cars.stream()
+                .map(car -> {
+                    CarsDTO dto = TunnelMapper.mapToCarDto(car);
+                    enrichCarDtoWithLabelInfo(dto, car);
+                    return dto;
+                })
+                .collect(Collectors.toList());
+
+        String machineMessage = null;
+        for (Cars car : cars) {
+            String message = getTunnelMachineMessage(car.getId());
+            if (message != null) {
+                machineMessage = message;
+                break;
+            }
+        }
+
+        return TunnelMapper.createTunnelResponse(
+                tunnel,
+                carDTOs,
+                RequestConstants.STATUS_200,
+                machineMessage != null ? machineMessage : RequestConstants.MESSAGE_200
+        );
+    }
+
+    @Override
+    public List<DetailTunnelCarsResponseDTO> detalleCarsInTunnel(Integer carId) {
+        List<Object[]> results = boxesRepository.findDetailByCarId(carId);
+        if (results.isEmpty()) {
+            throw new CarNotFoundException("No details found for car with ID: " + carId);
+        }
+
+        return results.stream()
+                .map(data -> DetailTunnelCarsResponseDTO.builder()
+                        .numeroIngreso((Integer) data[0])
+                        .idOrdenProduccion((String) data[1])
+                        .proforma((String) data[2])
+                        .currentBoxesQuantityPerEntry(((Long) data[3]).intValue())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public List<NirsaSaveCloseTunnelRequestDTO> finaliseOrCloseTunnel(Integer tunnelId) {
+        log.info("Starting finalize/close process for tunnel ID: {}", tunnelId);
+        try {
+            // Validar el túnel y su estado
+            Tunnels tunnel = transactionUtils.validateAndGetTunnel(tunnelsRepository, tunnelId);
+            transactionUtils.validateTunnelForFinalization(tunnel);
+
+            // Obtener los coches asociados al túnel
+            List<Cars> cars = carsRepository.findByTunnelId(tunnel.getId());
+            if (cars.isEmpty()) {
+                throw new InvalidTransactionStateException("No cars found in tunnel");
+            }
+
+            // Guardar el estado original para posible compensación
+            Integer originalStateCode = tunnel.getState().getCode();
+
+            //Validar túnel en NIRSA antes de cualquier cambio
+            transactionUtils.validateTunnelInNirsa(nirsaIntegrationService, tunnel, currentUser.getToken());
+
+            // Guardar la información de cierre del túnel en la BD local
+            List<NirsaSaveCloseTunnelRequestDTO> closedTunnelsData = saveClosedTunnelInformation(tunnel, cars);
+
+            try {
+                // Actualizar estado local y en NIRSA usando el método simplificado
+                transactionUtils.updateTunnelState(
+                        tunnelsRepository,
+                        statesRepository,
+                        tunnelStatesRepository,
+                        nirsaIntegrationService,
+                        tunnel,
+                        RequestConstants.TUNNEL_STATE_CLOSED_CODE,
+                        tunnel.getTransaction().getTypeTransactionId(),
+                        currentUser.getToken()
+                );
+
+                // Guardar la información de cierre en NIRSA
+                try {
+                    saveClosedTunnelsInNirsa(closedTunnelsData);
+                } catch (Exception nirsaDataError) {
+                    log.error("Error saving closed tunnels data in NIRSA: {}", nirsaDataError.getMessage());
+
+                    // Compensar el estado en NIRSA (revertir al estado anterior)
+                    transactionUtils.compensateTunnelStateInNirsa(
+                            nirsaIntegrationService,
+                            tunnel,
+                            originalStateCode,
+                            currentUser.getToken()
+                    );
+
+                    // Lanzar la excepción para que Spring haga rollback de la transacción local
+                    throw nirsaDataError;
+                }
+
+                return closedTunnelsData;
+
+            } catch (Exception nirsaError) {
+                log.error("Error in NIRSA integration: {}", nirsaError.getMessage());
+
+                // Dejar que Spring maneje el rollback de la transacción local
+                throw nirsaError;
+            }
+        } catch (Exception e) {
+            log.error("Error in finalizeOrCloseTunnel for tunnel {}: {}", tunnelId, e.getMessage(), e);
+            throw e; // Spring hará rollback de la transacción
+        }
+    }
+
+    private List<NirsaSaveCloseTunnelRequestDTO> saveClosedTunnelInformation(Tunnels tunnel, List<Cars> cars) {
+        List<ClosedTunnels> closedTunnelsList = new ArrayList<>();
+
+        // For each car in the tunnel, we create a record in the ClosedTunnels table
+        for (Cars car : cars) {
+            ClosedTunnels closedTunnel = createClosedTunnelRecord(tunnel, car);
+            closedTunnelsList.add(closedTunnel);
+        }
+
+        // Save all records in the database
+        List<ClosedTunnels> savedClosedTunnels = closedTunnelsRepository.saveAll(closedTunnelsList);
+
+        // Crear el DTO para NIRSA usando el mapper
+        // Usamos el primer ClosedTunnels guardado como base para la información del túnel
+        return List.of(TunnelMapper.mapToNirsaSaveCloseTunnelRequestDto(savedClosedTunnels.get(0), cars));
+    }
+
+    private ClosedTunnels createClosedTunnelRecord(Tunnels tunnel, Cars car) {
+        ClosedTunnels closedTunnel = new ClosedTunnels();
+
+        // Set base tunnel information
+        closedTunnel.setTunnel(tunnel);
+        closedTunnel.setTunnelTransaction(tunnel.getTransaction());
+        closedTunnel.setCompanyId(tunnel.getTransaction().getCompanyId());
+        closedTunnel.setProductionId(tunnel.getTransaction().getProductionId());
+        closedTunnel.setTurnId(tunnel.getTransaction().getTurnId());
+        closedTunnel.setTunnelFreezingId(Integer.valueOf(tunnel.getTunnelCode()));
+        closedTunnel.setCurrentCarsQuantity(tunnel.getCurrentCarsQuantity());
+        //        closedTunnel.setObservation(tunnel.getMasterObservations());
+        //        closedTunnel.setMachineStartDate(??);
+
+        // Set dates
+        closedTunnel.setTunnelOpeningDate(tunnel.getCreatedAt());  // O cualquier fecha que se requiera
+        closedTunnel.setTunnelClosingDate(BaseMapper.getCurrentDateTime());
+
+        // Set car information - Here we add the car data
+        closedTunnel.setCarTransaction(car.getTransaction());
+        closedTunnel.setCar(car);
+        closedTunnel.setCarCode(car.getCarCode());
+
+        return closedTunnel;
+    }
+
+
+    public void saveClosedTunnelsInNirsa(List<NirsaSaveCloseTunnelRequestDTO> closedTunnelsData) {
+        log.info("Saving closed tunnels data in NIRSA, records: {}", closedTunnelsData.size());
+        nirsaIntegrationService.saveClosedTunnelsInNirsa(closedTunnelsData, currentUser.getToken());
+        log.info("Successfully saved closed tunnels data in NIRSA");
+    }
+
+    private Tunnels getOrCreateTunnel(TransactionTunnelCarRequestDTO request, Transactions transaction) {
+        Optional<Tunnels> existingTunnel = tunnelsRepository.findByTunnelCode(request.getTunnelCode());
+
+        if (existingTunnel.isPresent()) {
+            Tunnels tunnel = existingTunnel.get();
+            if (!tunnel.getTransaction().getId().equals(transaction.getId())) {
+                throw new InvalidTransactionStateException("Tunnel already exists in another transaction");
+            }
+            return tunnel;
+        }
+
+        Tunnels newTunnel = new Tunnels();
+        newTunnel.setTransaction(transaction);
+        newTunnel.setTunnelCode(request.getTunnelCode());
+        newTunnel.setMaxCarsQuantity(request.getMaxCarsQuantity());
+        newTunnel.setCurrentCarsQuantity(0);
+        States initialState = statesRepository.findById(RequestConstants.TUNNEL_STATE_OPENED_ID)
+                .orElseThrow(() -> new InvalidStateTransitionException("Invalid initial state"));
+        newTunnel.setState(initialState);
+
+        Tunnels savedTunnel = tunnelsRepository.save(newTunnel);
+
+        transactionUtils.updateTunnelState(
+                tunnelsRepository,
+                statesRepository,
+                tunnelStatesRepository,
+                nirsaIntegrationService,
+                savedTunnel,
+                RequestConstants.TUNNEL_STATE_OPENED_CODE,
+                transaction.getTypeTransactionId(),
+                currentUser.getToken()
+        );
+
+        return savedTunnel;
+    }
+
+    private void enrichCarDtoWithLabelInfo(CarsDTO carDTO, Cars car) {
+        boxesRepository.findByCarIdWithLabelOrderedDesc(car.getId())
+                .stream()
+                .findFirst()
+                .ifPresent(box -> {
+                    Labels label = box.getLabel();
+                    carDTO.setIdMaquina(label.getIdMaquina());
+                    carDTO.setMaquinaDescripcion(label.getMaquinaDescripcion());
+                });
+    }
+
+    private String getTunnelMachineMessage(Integer carId) {
+        List<Object[]> distinctMachines = boxesRepository.findDistinctMachinesByCarId(carId);
+        if (distinctMachines.size() > 1) {
+            String machines = distinctMachines.stream()
+                    .map(m -> String.format("%s (%s)", m[0], m[1]))
+                    .collect(Collectors.joining(", "));
+            return String.format("Se han encontrado %d idMaquinas distintos: %s",
+                    distinctMachines.size(), machines);
+        }
+        return null;
+    }
+}
+
+
+// File: C:\ProyectsSoftware\NIRSA\nw.servicio.solicitud\src\main\java\com\nirsa\solicitud\controller\TransactionTunnelController.java
+/===============================================================================
+
+package com.nirsa.solicitud.controller;
+
+import com.nirsa.solicitud.config.CurrentUser;
+import com.nirsa.solicitud.dto.request.NirsaSaveCloseTunnelRequestDTO;
+import com.nirsa.solicitud.dto.request.TransactionTunnelCarRequestDTO;
+import com.nirsa.solicitud.dto.response.*;
+import com.nirsa.solicitud.service.ITunnelService;
+import com.nirsa.solicitud.service.IUtilityService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.*;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.AllArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.*;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping(path="/api/v1/transactions/tunnel", produces = {MediaType.APPLICATION_JSON_VALUE})
+@AllArgsConstructor
+@Tag(name = "Transaction Tunnel Operations", description = "API para la gestión de transacciones de túneles")
+@CrossOrigin(origins = "*", allowedHeaders = "*")
+@SecurityRequirement(name = "tokenAuth")
+public class TransactionTunnelController {
+
+    private final ITunnelService tunnelService;
+    private IUtilityService utilityService;
+    private CurrentUser currentUser;
+    private static final Logger logger = LoggerFactory.getLogger(TransactionTunnelController.class);
+
+    @Operation(summary = "Registrar carro en túnel",
+            description = "Registra un carro en un túnel y actualiza sus estados")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Carro registrado exitosamente",
+                    content = @Content(schema = @Schema(implementation = TransactionTunnelCarsResponseDTO.class))),
+            @ApiResponse(responseCode = "400", description = "Datos inválidos o túnel lleno",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class))),
+            @ApiResponse(responseCode = "404", description = "Túnel o carro no encontrado",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class)))
+    })
+    @PostMapping("/assembly")
+    public ResponseEntity<TransactionTunnelCarsResponseDTO> tunnelAssembly(
+            @Valid @RequestBody TransactionTunnelCarRequestDTO request) {
+        logger.info("Registering car in tunnel");
+        utilityService.evaluateAuthorization(currentUser.getCurrentUser());
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(tunnelService.tunnelAssembly(request));
+    }
+
+    @Operation(summary = "Obtener carros en túnel",
+            description = "Obtiene la lista de carros asignados a un túnel específico")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Lista obtenida exitosamente",
+                    content = @Content(schema = @Schema(implementation = TransactionTunnelCarsResponseDTO.class))),
+            @ApiResponse(responseCode = "404", description = "Túnel no encontrado",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class)))
+    })
+    @GetMapping("/{tunnelCode}/cars")
+    public ResponseEntity<TransactionTunnelCarsResponseDTO> getCarsInTunnel(
+            @Parameter(description = "Código del túnel", example = "8")
+            @PathVariable String tunnelCode) {
+        logger.info("Fetching cars for tunnel code: {}", tunnelCode);
+        TransactionTunnelCarRequestDTO request = TransactionTunnelCarRequestDTO.builder()
+                .tunnelCode(tunnelCode).build();
+        return ResponseEntity.ok(tunnelService.getCarsInTunnel(request));
+    }
+
+    @Operation(summary = "Obtener detalle de carros en túnel",
+            description = "Obtiene detalles agrupados de cajas por número de ingreso en un carro específico")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200",
+                    description = "Detalle obtenido exitosamente",
+                    content = @Content(mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = DetailTunnelCarsResponseDTO.class)))),
+            @ApiResponse(responseCode = "404",
+                    description = "Carro no encontrado",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class)))
+    })
+    @GetMapping("/cars/{carId}/detail")
+    public ResponseEntity<List<DetailTunnelCarsResponseDTO>> getDetailCarsInTunnel(
+            @Parameter(description = "ID del carro", example = "1")
+            @PathVariable Integer carId) {
+
+        logger.info("Fetching detail for car ID: {}", carId);
+        utilityService.evaluateAuthorization(currentUser.getCurrentUser());
+        return ResponseEntity.ok(tunnelService.detalleCarsInTunnel(carId));
+    }
+
+    @Operation(summary = "Finalizar y cerrar túnel",
+            description = "Finaliza y cierra un túnel actualizando su estado y enviando información a NIRSA")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Túnel finalizado y cerrado exitosamente",
+                    content = @Content(mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = NirsaSaveCloseTunnelRequestDTO.class)))),
+            @ApiResponse(responseCode = "400", description = "Datos inválidos o estado inválido",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class))),
+            @ApiResponse(responseCode = "404", description = "Túnel no encontrado",
+                    content = @Content(schema = @Schema(implementation = ErrorResponseDto.class)))
+    })
+    @PostMapping("/{tunnelId}/close")
+    public ResponseEntity<List<NirsaSaveCloseTunnelRequestDTO>> closeTunnel(
+            @Parameter(description = "ID del túnel", example = "1")
+            @PathVariable Integer tunnelId) {
+        logger.info("Closing tunnel with ID: {}", tunnelId);
+        utilityService.evaluateAuthorization(currentUser.getCurrentUser());
+        return ResponseEntity.ok(tunnelService.finaliseOrCloseTunnel(tunnelId));
+    }
+}
+
+
+// File: C:\ProyectsSoftware\NIRSA\nw.servicio.solicitud\src\main\java\com\nirsa\solicitud\repository\TunnelsRepository.java
+/===============================================================================
+
+package com.nirsa.solicitud.repository;
+
+import com.nirsa.solicitud.entity.Tunnels;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface TunnelsRepository extends JpaRepository<Tunnels, Integer> {
+    Optional<Tunnels> findByTunnelCode(String tunnelCode);
+    List<Tunnels> findByTransactionId(Integer transactionId);
+
+    @Query("SELECT t.id, t.transaction.id, t.tunnelCode, t.updatedAt FROM Tunnels t " +
+            "JOIN t.state te " +
+            "WHERE te.code = :paramStateCode AND te.typeTransaction.id = :paramTipoTran ")
+    List<Object[]> obtainByCodeState(@Param("paramStateCode") Integer paramStateCode,
+                                     @Param("paramTipoTran") Integer paramTipoTran);
+
+    @Query("SELECT t.id, t.transaction.id, t.tunnelCode, t.updatedAt FROM Tunnels t JOIN t.transaction tra " +
+            "JOIN t.state te WHERE te.code = :paramStateCode AND te.typeTransaction.id = :paramTipoTran " +
+            "AND tra.companyId = :paramIdCompany AND tra.productionDate = :paramProdDate " +
+            "AND tra.turnId = :paramIdTurno AND tra.typeTransaction.id = :paramTipoTran " +
+            "AND tra.productionId = :paramIdProd ")
+    List<Object[]> obtainByTransaction(@Param("paramStateCode") Integer paramStateCode,
+                                       @Param("paramIdCompany") Integer paramIdCompany,
+                                       @Param("paramProdDate") LocalDate paramProdDate,
+                                       @Param("paramIdTurno") Integer paramIdTurno,
+                                       @Param("paramTipoTran") Integer paramTipoTran,
+                                       @Param("paramIdProd") Integer paramIdProd);
+}
+
+
+
+// File: C:\ProyectsSoftware\NIRSA\nw.servicio.solicitud\src\main\java\com\nirsa\solicitud\repository\TunnelStatesRepository.java
+/===============================================================================
+
+package com.nirsa.solicitud.repository;
+
+import com.nirsa.solicitud.entity.TunnelStates;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface TunnelStatesRepository extends JpaRepository<TunnelStates, Integer> {
+    void deleteByTunnelId(Integer tunnelId);
+}
+
+
+// File: C:\ProyectsSoftware\NIRSA\nw.servicio.solicitud\src\main\java\com\nirsa\solicitud\entity\TunnelStates.java
+/===============================================================================
+
+package com.nirsa.solicitud.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+@Entity
+@Table(name = "\"Estados_Tuneles\"", schema = "public")
+@Getter
+@Setter
+@ToString
+@NoArgsConstructor @AllArgsConstructor
+public class TunnelStates extends BaseEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id", nullable = false)
+    private Integer id;
+
+//    @ManyToOne(fetch = FetchType.LAZY)
+//    @JoinColumn(name = "idtunel")
+    @Column(name = "idtunel")
+    private Integer tunnelId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "idestado")
+    private States state;
+}
+
+
+
+// File: C:\ProyectsSoftware\NIRSA\nw.servicio.solicitud\src\main\java\com\nirsa\solicitud\dto\response\DetailTunnelCarsResponseDTO.java
+/===============================================================================
+
+package com.nirsa.solicitud.dto.response;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotNull;
+import lombok.*;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Schema(description = "DTO for tunnel car detail information")
+public class DetailTunnelCarsResponseDTO {
+
+
+    @Schema(description = "numero_ingreso Entry number", example = "2304")
+    private Integer numeroIngreso;
+
+    @Schema(description = "Production order ID Production order ID", example = "OP-2024-0001")
+    private String idOrdenProduccion;
+
+    @Schema(description = "Proforma", example = "PRF-001")
+    private String proforma;
+
+    @Schema(description = "Current boxes quantity per entry", example = "50")
+    @NotNull(message = "Current boxes quantity is required")
+    private Integer currentBoxesQuantityPerEntry;
+}
+
+
+
+// File: C:\ProyectsSoftware\NIRSA\nw.servicio.solicitud\src\main\java\com\nirsa\solicitud\dto\BaseEntityDTO.java
+/===============================================================================
+
+package com.nirsa.solicitud.dto;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.persistence.MappedSuperclass;
+import lombok.*;
+import lombok.experimental.SuperBuilder;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@MappedSuperclass
+@SuperBuilder
+public class BaseEntityDTO {
+
+    @Schema(description = "Creation date and time", example = "2023-09-01T10:15:30")
+    private String createdAt;
+    @Schema(description = "Created by", example = "admin")
+    private String createdBy;
+    @Schema(description = "Last update date and time", example = "2023-09-02T12:20:45")
+    private String updatedAt;
+    @Schema(description = "Updated by", example = "user123")
+    private String updatedBy;
+}
+
+
+// File: C:\ProyectsSoftware\NIRSA\nw.servicio.solicitud\src\main\java\com\nirsa\solicitud\mapper\BaseMapper.java
+/===============================================================================
+
+package com.nirsa.solicitud.mapper;
+
+import com.nirsa.solicitud.constants.RequestConstants;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
+public class BaseMapper {
+    protected static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern(RequestConstants.DATE_FORMAT);
+    protected static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern(RequestConstants.DATE_TIME_FORMAT);
+
+    protected static String formatDateTime(LocalDateTime dateTime) {
+        return dateTime != null ? dateTime.format(DATE_TIME_FORMATTER) : null;
+    }
+
+    protected static String formatDate(LocalDate date) {
+        return date != null ? date.format(DATE_FORMATTER) : null;
+    }
+
+    public static LocalDateTime getCurrentDateTime() {
+        return LocalDateTime.now();
+    }
+
+    protected static LocalDate parseDate(String date) {
+        return date != null ? LocalDate.parse(date, DATE_FORMATTER) : null;
+    }
+
+    protected static LocalDateTime parseDateTime(String dateTime) {
+        return dateTime != null ? LocalDateTime.parse(dateTime, DATE_TIME_FORMATTER) : null;
+    }
+
+    protected static String parseDateToString(LocalDateTime dateToConvert, String format) {
+        if (dateToConvert == null) return "";
+        // Definir el formato deseado
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
+        // Convertir LocalDateTime a String usando el formato definido
+        return dateToConvert.format(formatter);
+    }
+
+}
+
+
+
+// File: C:\ProyectsSoftware\NIRSA\nw.servicio.solicitud\src\main\java\com\nirsa\solicitud\entity\ClosedTunnels.java
+/===============================================================================
+
+package com.nirsa.solicitud.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "\"Cierretuneles\"", schema = "public")
+@Getter @Setter @ToString @NoArgsConstructor @AllArgsConstructor
+public class ClosedTunnels extends BaseEntity {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id", nullable = false)
+    private Integer id;
+
+    @Column(name = "idempresa")
+    private Integer companyId;
+
+    @Column(name = "idproduccion")
+    private Integer productionId;
+
+    @Column(name = "idturno")
+    private Integer turnId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "idtunel", nullable = false)
+    private Tunnels tunnel;
+
+    @Column(name = "idtunelcongelacion")
+    private Integer tunnelFreezingId;
+
+    @Column(name = "cantidadactualcoches", nullable = false)
+    private Integer currentCarsQuantity;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "idtransacciontunel")
+    private Transactions tunnelTransaction;
+
+    @Column(name = "observacion", length = 50)
+    private String observation;
+
+    @Column(name = "fecha_apertura_tunel")
+    private LocalDateTime tunnelOpeningDate;
+
+    @Column(name = "fecha_encendido_maquina")
+    private LocalDateTime machineStartDate;
+
+    @Column(name = "fecha_cierre_tunel")
+    private LocalDateTime tunnelClosingDate;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "idtransaccioncoche")
+    private Transactions carTransaction;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "idcoche", nullable = false)
+    private Cars car;
+
+    @Column(name = "codcoche", length = 50, nullable = false)
+    private String carCode;
+}
+
+
+// File: C:\ProyectsSoftware\NIRSA\nw.servicio.solicitud\src\main\java\com\nirsa\solicitud\repository\ClosedTunnelsRepository.java
+/===============================================================================
+
+package com.nirsa.solicitud.repository;
+
+import com.nirsa.solicitud.entity.ClosedTunnels;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface ClosedTunnelsRepository extends JpaRepository<ClosedTunnels, Integer> {
+}
+
+
+// File: C:\ProyectsSoftware\NIRSA\nw.servicio.solicitud\src\main\java\com\nirsa\solicitud\dto\request\NirsaSaveCloseTunnelRequestDTO.java
+/===============================================================================
+
+package com.nirsa.solicitud.dto.request;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.nirsa.solicitud.dto.TunnelCarDetailDTO;
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.*;
+
+import java.util.List;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Schema(description = "DTO for saving tunnel closure information in NIRSA")
+public class NirsaSaveCloseTunnelRequestDTO {
+    @JsonProperty("idempresa")
+    private Integer idempresa;
+
+    @JsonProperty("idproduccion")
+    private Integer idproduccion;
+
+    @JsonProperty("idturno")
+    private Integer idturno;
+
+    @JsonProperty("idtunelcongelacion")
+    private Integer idtunelcongelacion;
+
+    @JsonProperty("cantidadactualcoches")
+    private Integer cantidadactualcoches;
+
+    @JsonProperty("idtransacciontunel")
+    private Integer idtransacciontunel;
+
+    @JsonProperty("observacion")
+    private String observacion;
+
+    @JsonProperty("usuario")
+    private String usuario;
+
+    @JsonProperty("fechaAperturaTunel")
+    private String fechaAperturaTunel;
+
+    @JsonProperty("fechaencendidomaquina")
+    private String fechaencendidomaquina;
+
+    @JsonProperty("fechaCierreTunel")
+    private String fechaCierreTunel;
+
+    @JsonProperty("detalle")
+    private List<TunnelCarDetailDTO> detalle;
+
+
+}
+
+
+// File: C:\ProyectsSoftware\NIRSA\nw.servicio.solicitud\src\main\java\com\nirsa\solicitud\dto\TunnelCarDetailDTO.java
+/===============================================================================
+
+package com.nirsa.solicitud.dto;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class TunnelCarDetailDTO {
+    @JsonProperty("idtransaccionCoche")
+    private Integer idtransaccionCoche;
+
+    @JsonProperty("codigocoche")
+    private String codigocoche;
+}
+
+

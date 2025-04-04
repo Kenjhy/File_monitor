@@ -1,0 +1,878 @@
+// Last update transaction car: 2025-03-28 12:51:33.869067
+// Total files: 14
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\backend\app\api\endpoints\cliente.py
+/===============================================================================
+
+from fastapi import APIRouter, HTTPException
+from app.models.cliente import Cliente, ClienteUpdate
+from app.services.cliente_service import ClienteService
+from app.config import settings
+
+router = APIRouter()
+
+@router.get("/{client_id}")
+async def get_client(client_id: str = settings.DEFAULT_CLIENT_ID):
+    """Obtiene información del cliente"""
+    client = await ClienteService.get_client(client_id)
+    if not client:
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
+    return client
+
+@router.patch("/{client_id}")
+async def update_client(client_id: str, client_data: ClienteUpdate):
+    """Actualiza preferencias del cliente"""
+    updated = await ClienteService.update_client_preferences(client_id, client_data)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Cliente no encontrado o error al actualizar")
+    return updated
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\backend\app\api\endpoints\fondos.py
+/===============================================================================
+
+from fastapi import APIRouter, HTTPException
+from typing import List
+from app.models.fondo import Fondo
+from app.services.fondo_service import FondoService
+
+router = APIRouter()
+
+@router.get("", response_model=List[dict])
+async def get_all_funds():
+    """Obtiene todos los fondos disponibles"""
+    return await FondoService.get_all_funds()
+
+@router.get("/{fund_id}")
+async def get_fund(fund_id: str):
+    """Obtiene información de un fondo específico"""
+    fund = await FondoService.get_fund(fund_id)
+    if not fund:
+        raise HTTPException(status_code=404, detail="Fondo no encontrado")
+    return fund
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\backend\app\api\endpoints\transacciones.py
+/===============================================================================
+
+from fastapi import APIRouter, HTTPException, Query
+from typing import List
+from app.models.transaccion import TransaccionCreate
+from app.services.transaccion_service import TransaccionService
+from app.config import settings
+
+router = APIRouter()
+
+@router.post("/subscriptions")
+async def create_subscription(
+    subscription_data: TransaccionCreate, 
+    client_id: str = settings.DEFAULT_CLIENT_ID
+):
+    """Suscribe al cliente a un fondo"""
+    result = await TransaccionService.create_subscription(client_id, subscription_data)
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+@router.delete("/subscriptions/{fund_id}")
+async def cancel_subscription(
+    fund_id: str, 
+    client_id: str = settings.DEFAULT_CLIENT_ID
+):
+    """Cancela la suscripción del cliente a un fondo"""
+    result = await TransaccionService.cancel_subscription(client_id, fund_id)
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+@router.get("/history")
+async def get_transactions_history(
+    client_id: str = settings.DEFAULT_CLIENT_ID,
+    limit: int = Query(10, description="Número máximo de transacciones a devolver")
+):
+    """Obtiene el historial de transacciones del cliente"""
+    return await TransaccionService.get_client_transactions(client_id, limit)
+
+@router.get("/subscriptions")
+async def get_active_subscriptions(client_id: str = settings.DEFAULT_CLIENT_ID):
+    """Obtiene las suscripciones activas del cliente"""
+    return await TransaccionService.get_client_active_subscriptions(client_id)
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\backend\app\models\cliente.py
+/===============================================================================
+
+from pydantic import BaseModel, EmailStr, Field
+from typing import Optional
+from uuid import uuid4
+
+
+class Cliente(BaseModel):
+    clientId: str = Field(default_factory=lambda: str(uuid4()))
+    balance: float = 500000.0  # Se posee un monto inicial de COP $500.000.
+    preferredNotification: str = "email"  # Por defecto email
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+
+
+class ClienteUpdate(BaseModel):
+    preferredNotification: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\backend\app\models\fondo.py
+/===============================================================================
+
+from pydantic import BaseModel
+
+
+class Fondo(BaseModel):
+    fundId: str
+    name: str
+    category: str  # FPV o FIC
+    minimumAmount: float
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\backend\app\models\transaccion.py
+/===============================================================================
+
+from pydantic import BaseModel, Field
+from typing import Literal, Optional
+from datetime import datetime
+from uuid import uuid4
+
+
+class Transaccion(BaseModel):
+    transactionId: str = Field(default_factory=lambda: str(uuid4()))  # Toda transacción debe generar un identificador único.
+    clientId: str
+    fundId: str
+    type: Literal["SUBSCRIPTION", "CANCELLATION"]
+    amount: float
+    transactionDate: datetime = Field(default_factory=datetime.now)
+    status: Literal["COMPLETED", "FAILED"] = "COMPLETED"
+
+
+class TransaccionCreate(BaseModel):
+    fundId: str
+    amount: Optional[float] = None  # Opcional, se calcula según el fondo
+
+
+class Subscription(BaseModel):
+    subscriptionId: str = Field(default_factory=lambda: str(uuid4()))
+    clientId: str
+    fundId: str
+    amountSubscribed: float
+    status: Literal["ACTIVE", "CANCELLED"] = "ACTIVE"
+    subscriptionDate: datetime = Field(default_factory=datetime.now)
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\backend\app\services\cliente_service.py
+/===============================================================================
+
+import boto3
+from botocore.exceptions import ClientError
+from decimal import Decimal
+from app.models.cliente import Cliente, ClienteUpdate
+from app.config import settings
+
+# conexión a DynamoDB nube
+dynamodb = boto3.resource('dynamodb', region_name=settings.AWS_REGION)
+table = dynamodb.Table(settings.CLIENTS_TABLE_NAME)
+
+# conexión a DynamoDB local
+# dynamodb = boto3.resource(
+#     'dynamodb', 
+#     endpoint_url='http://localhost:8000',  # Usar DynamoDB local
+#     region_name=settings.AWS_REGION,
+#     aws_access_key_id='dummy',  # Credenciales dummy para DynamoDB local
+#     aws_secret_access_key='dummy'
+# )
+# table = dynamodb.Table('Clients')
+
+
+# Función auxiliar para convertir floats a Decimal
+def float_to_decimal(obj):
+    if isinstance(obj, dict):
+        return {k: float_to_decimal(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [float_to_decimal(i) for i in obj]
+    elif isinstance(obj, float):
+        return Decimal(str(obj))
+    return obj
+
+
+class ClienteService:
+    @staticmethod
+    async def get_client(client_id: str):
+        try:
+            response = table.get_item(Key={'clientId': client_id})
+            return response.get('Item')
+        except ClientError as e:
+            print(f"Error getting client: {e.response['Error']['Message']}")
+            return None
+
+    @staticmethod
+    async def update_client_balance(client_id: str, amount: float):
+        """Actualiza el saldo del cliente (suma o resta)"""
+        try:
+            # Convertir amount a Decimal
+            decimal_amount = Decimal(str(amount))
+            
+            response = table.update_item(
+                Key={'clientId': client_id},
+                UpdateExpression="SET balance = balance + :val",
+                ExpressionAttributeValues={':val': decimal_amount},
+                ReturnValues="UPDATED_NEW"
+            )
+            return response.get('Attributes')
+        except ClientError as e:
+            print(f"Error updating balance: {e.response['Error']['Message']}")
+            return None
+
+    @staticmethod
+    async def update_client_preferences(client_id: str, update_data: ClienteUpdate):
+        update_expression = "SET "
+        expression_attribute_values = {}
+        
+        if update_data.preferredNotification:
+            update_expression += "preferredNotification = :notification, "
+            expression_attribute_values[':notification'] = update_data.preferredNotification
+        
+        if update_data.email:
+            update_expression += "email = :email, "
+            expression_attribute_values[':email'] = update_data.email
+            
+        if update_data.phone:
+            update_expression += "phone = :phone, "
+            expression_attribute_values[':phone'] = update_data.phone
+        
+        # Eliminar la última coma
+        update_expression = update_expression[:-2]
+        
+        try:
+            response = table.update_item(
+                Key={'clientId': client_id},
+                UpdateExpression=update_expression,
+                ExpressionAttributeValues=expression_attribute_values,
+                ReturnValues="UPDATED_NEW"
+            )
+            return response.get('Attributes')
+        except ClientError as e:
+            print(f"Error updating client: {e.response['Error']['Message']}")
+            return None
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\backend\app\services\fondo_service.py
+/===============================================================================
+
+import boto3
+from botocore.exceptions import ClientError
+from decimal import Decimal
+from app.models.fondo import Fondo
+from app.config import settings
+
+# conexión a DynamoDB nube
+dynamodb = boto3.resource('dynamodb', region_name=settings.AWS_REGION)
+table = dynamodb.Table(settings.FUNDS_TABLE_NAME)
+
+
+# conexión a DynamoDB local
+# dynamodb = boto3.resource(
+#     'dynamodb', 
+#     endpoint_url='http://localhost:8000',  # Usar DynamoDB local
+#     region_name=settings.AWS_REGION,
+#     aws_access_key_id='dummy',  # Credenciales dummy para DynamoDB local
+#     aws_secret_access_key='dummy'
+# )
+# table = dynamodb.Table('Funds')
+
+
+class FondoService:
+    @staticmethod
+    async def get_all_funds():
+        """Obtiene todos los fondos disponibles"""
+        try:
+            response = table.scan()
+            return response.get('Items', [])
+        except ClientError as e:
+            print(f"Error getting funds: {e.response['Error']['Message']}")
+            return []
+
+    @staticmethod
+    async def get_fund(fund_id: str):
+        """Obtiene un fondo específico por ID"""
+        try:
+            response = table.get_item(Key={'fundId': fund_id})
+            return response.get('Item')
+        except ClientError as e:
+            print(f"Error getting fund: {e.response['Error']['Message']}")
+            return None
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\backend\app\services\notificacion_service.py
+/===============================================================================
+
+import boto3
+from botocore.exceptions import ClientError
+from app.config import settings
+
+
+
+class NotificacionService:
+    @staticmethod
+    async def send_notification(client_id: str, notification_type: str, message: str, email: str = None, phone: str = None):
+        """Envía una notificación por email o SMS según la preferencia del cliente"""
+        # enviar una notificación por email o sms dependiendo de la selección del usuario una vez suscrito a dicho fondo
+        if notification_type == "email" and email:
+            return await NotificacionService.send_email(email, message)
+        elif notification_type == "sms" and phone:
+            return await NotificacionService.send_sms(phone, message)
+        else:
+            print(f"No se pudo enviar notificación al cliente {client_id}: datos insuficientes")
+            return False
+
+    @staticmethod
+    async def send_email(email: str, message: str):
+        """Envía un email utilizando Amazon SES"""
+        # En un entorno real, usaríamos AWS SES
+        # Para esta prueba, solo simulamos el envío
+        try:
+            print(f"[EMAIL ENVIADO] Destino: {email}, Mensaje: {message}")
+            return True
+        except Exception as e:
+            print(f"Error al enviar email: {str(e)}")
+            return False
+
+    @staticmethod
+    async def send_sms(phone: str, message: str):
+        """Envía un SMS utilizando Amazon SNS"""
+        # En un entorno real, usaríamos AWS SNS
+        # Para esta prueba, solo simulamos el envío
+        try:
+            print(f"[SMS ENVIADO] Destino: {phone}, Mensaje: {message}")
+            return True
+        except Exception as e:
+            print(f"Error al enviar SMS: {str(e)}")
+            return False
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\backend\app\services\transaccion_service.py
+/===============================================================================
+
+import boto3
+from botocore.exceptions import ClientError
+from datetime import datetime
+from uuid import uuid4
+from decimal import Decimal
+from app.models.transaccion import Transaccion, TransaccionCreate, Subscription
+from app.services.cliente_service import ClienteService
+from app.services.fondo_service import FondoService
+from app.services.notificacion_service import NotificacionService
+from app.config import settings
+
+# conexión a DynamoDB nube
+dynamodb = boto3.resource('dynamodb', region_name=settings.AWS_REGION)
+transaction_table = dynamodb.Table(settings.TRANSACTIONS_TABLE_NAME)
+subscription_table = dynamodb.Table(settings.SUBSCRIPTIONS_TABLE_NAME)
+
+#  conexión a DynamoDB local
+# dynamodb = boto3.resource(
+#     'dynamodb', 
+#     endpoint_url='http://localhost:8000',  # Usar DynamoDB local
+#     region_name=settings.AWS_REGION,
+#     aws_access_key_id='dummy',  # Credenciales dummy para DynamoDB local
+#     aws_secret_access_key='dummy'
+# )
+# transaction_table = dynamodb.Table('Transactions')
+# subscription_table = dynamodb.Table('Subscriptions')
+
+
+# Función auxiliar para convertir tipos para DynamoDB
+def convert_types_for_dynamodb(obj):
+    from datetime import datetime
+    
+    if isinstance(obj, dict):
+        return {k: convert_types_for_dynamodb(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_types_for_dynamodb(i) for i in obj]
+    elif isinstance(obj, float):
+        return Decimal(str(obj))
+    elif isinstance(obj, datetime):
+        return obj.isoformat()  # Convertir datetime a string ISO8601
+    return obj
+
+class TransaccionService:
+    @staticmethod
+    async def create_subscription(client_id: str, subscription_data: TransaccionCreate):
+        """Suscribe a un cliente a un fondo"""
+        # Obtener información del cliente y del fondo
+        client = await ClienteService.get_client(client_id)
+        fund = await FondoService.get_fund(subscription_data.fundId)
+        
+        if not client or not fund:
+            return {"error": "Cliente o fondo no encontrado"}
+        
+        # Verificar saldo suficiente
+        if client['balance'] < fund['minimumAmount']:
+            return {
+                "error": f"No tiene saldo disponible para vincularse al fondo {fund['name']}",
+                "status": "FAILED"
+            }
+        
+        # Verificar si ya está suscrito
+        try:
+            existing = subscription_table.get_item(
+                Key={'clientId': client_id, 'fundId': subscription_data.fundId}
+            ).get('Item')
+            
+            if existing and existing['status'] == 'ACTIVE':
+                return {"error": "Ya está suscrito a este fondo", "status": "FAILED"}
+        except ClientError:
+            pass  # Si hay error es porque no existe, lo cual es correcto
+        
+        # Crear la suscripción
+        subscription_id = str(uuid4())
+        current_time = datetime.now()
+        subscription = Subscription(
+            subscriptionId=subscription_id,
+            clientId=client_id,
+            fundId=subscription_data.fundId,
+            amountSubscribed=fund['minimumAmount'],
+            status="ACTIVE",
+            subscriptionDate=current_time
+        )
+        
+        # Registrar transacción
+        transaction_id = str(uuid4())
+        transaction = Transaccion(
+            transactionId=transaction_id,
+            clientId=client_id,
+            fundId=subscription_data.fundId,
+            type="SUBSCRIPTION",
+            amount=fund['minimumAmount'],
+            transactionDate=current_time,
+            status="COMPLETED"
+        )
+        
+        # Actualizar balance del cliente
+        await ClienteService.update_client_balance(client_id, -fund['minimumAmount'])
+        
+        # Convertir tipos para DynamoDB
+        subscription_dict = convert_types_for_dynamodb(subscription.dict())
+        transaction_dict = convert_types_for_dynamodb(transaction.dict())
+        
+        # Guardar transacción y suscripción
+        try:
+            subscription_table.put_item(Item=subscription_dict)
+            transaction_table.put_item(Item=transaction_dict)
+            
+            # Enviar notificación
+            await NotificacionService.send_notification(
+                client_id=client_id,
+                notification_type=client['preferredNotification'],
+                message=f"Se ha suscrito exitosamente al fondo {fund['name']}",
+                email=client.get('email'),
+                phone=client.get('phone')
+            )
+            
+            return {**transaction.dict(), "fundName": fund['name']}
+        except ClientError as e:
+            print(f"Error creating subscription: {str(e)}")
+            return {"error": "Error al crear suscripción", "status": "FAILED"}
+
+    @staticmethod
+    async def cancel_subscription(client_id: str, fund_id: str):
+        """Cancela la suscripción de un cliente a un fondo"""
+        # Verificar si está suscrito
+        try:
+            subscription = subscription_table.get_item(
+                Key={'clientId': client_id, 'fundId': fund_id}
+            ).get('Item')
+            
+            if not subscription or subscription['status'] != 'ACTIVE':
+                return {"error": "No está suscrito a este fondo", "status": "FAILED"}
+        except ClientError as e:
+            return {"error": f"Error al verificar suscripción: {str(e)}", "status": "FAILED"}
+        
+        # Obtener información del fondo
+        fund = await FondoService.get_fund(fund_id)
+        client = await ClienteService.get_client(client_id)
+        
+        if not fund or not client:
+            return {"error": "Fondo o cliente no encontrado", "status": "FAILED"}
+        
+        # Actualizar la suscripción
+        try:
+            subscription_table.update_item(
+                Key={'clientId': client_id, 'fundId': fund_id},
+                UpdateExpression="SET #status = :status",
+                ExpressionAttributeNames={'#status': 'status'},
+                ExpressionAttributeValues={':status': 'CANCELLED'}
+            )
+        except ClientError as e:
+            return {"error": f"Error al cancelar suscripción: {str(e)}", "status": "FAILED"}
+        
+        # Registrar transacción de cancelación
+        transaction_id = str(uuid4())
+        current_time = datetime.now()
+        transaction = Transaccion(
+            transactionId=transaction_id,
+            clientId=client_id,
+            fundId=fund_id,
+            type="CANCELLATION",
+            amount=subscription['amountSubscribed'],
+            transactionDate=current_time,
+            status="COMPLETED"
+        )
+        
+        # Devolver el dinero al cliente
+        await ClienteService.update_client_balance(client_id, subscription['amountSubscribed'])
+        
+        # Convertir tipos para DynamoDB
+        transaction_dict = convert_types_for_dynamodb(transaction.dict())
+        
+        # Guardar transacción
+        try:
+            transaction_table.put_item(Item=transaction_dict)
+            
+            # Enviar notificación
+            await NotificacionService.send_notification(
+                client_id=client_id,
+                notification_type=client['preferredNotification'],
+                message=f"Ha cancelado exitosamente su suscripción al fondo {fund['name']}",
+                email=client.get('email'),
+                phone=client.get('phone')
+            )
+            
+            return {**transaction.dict(), "fundName": fund['name']}
+        except ClientError as e:
+            print(f"Error registering cancellation: {str(e)}")
+            return {"error": "Error al registrar cancelación", "status": "FAILED"}
+
+    @staticmethod
+    async def get_client_transactions(client_id: str, limit: int = 10):
+        """Obtiene el historial de transacciones de un cliente"""
+        try:
+            response = transaction_table.query(
+                KeyConditionExpression="clientId = :cid",
+                ExpressionAttributeValues={':cid': client_id},
+                ScanIndexForward=False,  # Orden descendente por fecha
+                Limit=limit
+            )
+            
+            # Añadir nombres de fondos
+            transactions = response.get('Items', [])
+            for tx in transactions:
+                fund = await FondoService.get_fund(tx['fundId'])
+                if fund:
+                    tx['fundName'] = fund['name']
+            
+            return transactions
+        except ClientError as e:
+            print(f"Error getting transactions: {str(e)}")
+            return []
+
+    @staticmethod
+    async def get_client_active_subscriptions(client_id: str):
+        """Obtiene las suscripciones activas de un cliente"""
+        try:
+            response = subscription_table.query(
+                KeyConditionExpression="clientId = :cid",
+                FilterExpression="#status = :status",
+                ExpressionAttributeNames={'#status': 'status'},
+                ExpressionAttributeValues={
+                    ':cid': client_id,
+                    ':status': 'ACTIVE'
+                }
+            )
+            
+            # Añadir nombres de fondos
+            subscriptions = response.get('Items', [])
+            for sub in subscriptions:
+                fund = await FondoService.get_fund(sub['fundId'])
+                if fund:
+                    sub['fundName'] = fund['name']
+            
+            return subscriptions
+        except ClientError as e:
+            print(f"Error getting subscriptions: {str(e)}")
+            return []
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\backend\app\config.py
+/===============================================================================
+
+from pydantic_settings import BaseSettings
+import os
+
+
+class Settings(BaseSettings):
+    APP_NAME: str = "EL CLIENTE - Fondos API"
+    API_V1_PREFIX: str = "/api/v1"
+    AWS_REGION: str = os.environ.get("AWS_REGION", "us-east-1")
+    
+    # Nombres de tablas DynamoDB
+    CLIENTS_TABLE_NAME: str = os.environ.get("CLIENTS_TABLE_NAME", "Clients")
+    FUNDS_TABLE_NAME: str = os.environ.get("FUNDS_TABLE_NAME", "Funds")
+    SUBSCRIPTIONS_TABLE_NAME: str = os.environ.get("SUBSCRIPTIONS_TABLE_NAME", "Subscriptions")
+    TRANSACTIONS_TABLE_NAME: str = os.environ.get("TRANSACTIONS_TABLE_NAME", "Transactions")
+    
+    # Valores default para desarrollo local
+    DEFAULT_CLIENT_ID: str = os.environ.get("DEFAULT_CLIENT_ID", "C123456")
+    
+    class Config:
+        env_file = ".env"
+
+settings = Settings()
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\backend\app\main.py
+/===============================================================================
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.api.endpoints import cliente, fondos, transacciones
+from app.config import settings
+
+app = FastAPI(
+    title=settings.APP_NAME,
+    description="API para gestión de fondos de inversión",
+    version="1.0.0"
+)
+
+# Configurar CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # En producción, esto debería limitarse a dominios específicos
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Rutas API
+app.include_router(
+    cliente.router,
+    prefix=f"{settings.API_V1_PREFIX}/clientes",
+    tags=["clientes"]
+)
+app.include_router(
+    fondos.router,
+    prefix=f"{settings.API_V1_PREFIX}/fondos",
+    tags=["fondos"]
+)
+app.include_router(
+    transacciones.router,
+    prefix=f"{settings.API_V1_PREFIX}/transacciones",
+    tags=["transacciones"]
+)
+
+@app.get("/", tags=["root"])
+async def root():
+    return {"message": "Bienvenido a la API de Fondos de EL CLIENTE"}
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\backend\scripts\create_tables.py
+/===============================================================================
+
+import boto3
+from decimal import Decimal
+import time
+
+# Usar endpoint local para desarrollo
+dynamodb = boto3.resource('dynamodb', endpoint_url='http://localhost:8000')
+client = boto3.client('dynamodb', endpoint_url='http://localhost:8000')
+
+# Lista de nombres de tablas que queremos crear
+table_names = ['Clients', 'Funds', 'Subscriptions', 'Transactions']
+
+# Eliminar tablas existentes si existen
+existing_tables = client.list_tables()['TableNames']
+for table_name in table_names:
+    if table_name in existing_tables:
+        print(f"Eliminando tabla existente: {table_name}")
+        table = dynamodb.Table(table_name)
+        table.delete()
+        # Esperar a que la tabla se elimine
+        print(f"Esperando a que {table_name} se elimine...")
+        waiter = client.get_waiter('table_not_exists')
+        waiter.wait(TableName=table_name)
+        print(f"Tabla {table_name} eliminada.")
+
+# Crear tabla Clients
+print("Creando tabla Clients...")
+clients_table = dynamodb.create_table(
+    TableName='Clients',
+    KeySchema=[
+        {'AttributeName': 'clientId', 'KeyType': 'HASH'}
+    ],
+    AttributeDefinitions=[
+        {'AttributeName': 'clientId', 'AttributeType': 'S'}
+    ],
+    ProvisionedThroughput={'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+)
+
+# Crear tabla Funds
+print("Creando tabla Funds...")
+funds_table = dynamodb.create_table(
+    TableName='Funds',
+    KeySchema=[
+        {'AttributeName': 'fundId', 'KeyType': 'HASH'}
+    ],
+    AttributeDefinitions=[
+        {'AttributeName': 'fundId', 'AttributeType': 'S'}
+    ],
+    ProvisionedThroughput={'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+)
+
+# Crear tabla Subscriptions
+print("Creando tabla Subscriptions...")
+subscriptions_table = dynamodb.create_table(
+    TableName='Subscriptions',
+    KeySchema=[
+        {'AttributeName': 'clientId', 'KeyType': 'HASH'},
+        {'AttributeName': 'fundId', 'KeyType': 'RANGE'}
+    ],
+    AttributeDefinitions=[
+        {'AttributeName': 'clientId', 'AttributeType': 'S'},
+        {'AttributeName': 'fundId', 'AttributeType': 'S'}
+    ],
+    ProvisionedThroughput={'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+)
+
+# Crear tabla Transactions
+print("Creando tabla Transactions...")
+try:
+    transactions_table = dynamodb.create_table(
+        TableName='Transactions',
+        KeySchema=[
+            {'AttributeName': 'clientId', 'KeyType': 'HASH'},
+            {'AttributeName': 'transactionId', 'KeyType': 'RANGE'}
+        ],
+        AttributeDefinitions=[
+            {'AttributeName': 'clientId', 'AttributeType': 'S'},
+            {'AttributeName': 'transactionId', 'AttributeType': 'S'},
+            {'AttributeName': 'transactionDate', 'AttributeType': 'S'}
+        ],
+        GlobalSecondaryIndexes=[
+            {
+                'IndexName': 'TransactionsByDate',
+                'KeySchema': [
+                    {'AttributeName': 'clientId', 'KeyType': 'HASH'},
+                    {'AttributeName': 'transactionDate', 'KeyType': 'RANGE'}
+                ],
+                'Projection': {'ProjectionType': 'ALL'},
+                'ProvisionedThroughput': {'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+            }
+        ],
+        ProvisionedThroughput={'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+    )
+except Exception as e:
+    print(f"Error al crear la tabla Transactions: {str(e)}")
+    # Si hay un error, puede ser porque la tabla se creó parcialmente
+    # Intentemos eliminarla y crearla de nuevo
+    if 'Transactions' in client.list_tables()['TableNames']:
+        print("Eliminando tabla Transactions para intentar de nuevo...")
+        dynamodb.Table('Transactions').delete()
+        waiter = client.get_waiter('table_not_exists')
+        waiter.wait(TableName='Transactions')
+        
+        # Crear la tabla nuevamente
+        print("Intentando crear la tabla Transactions nuevamente...")
+        transactions_table = dynamodb.create_table(
+            TableName='Transactions',
+            KeySchema=[
+                {'AttributeName': 'clientId', 'KeyType': 'HASH'},
+                {'AttributeName': 'transactionId', 'KeyType': 'RANGE'}
+            ],
+            AttributeDefinitions=[
+                {'AttributeName': 'clientId', 'AttributeType': 'S'},
+                {'AttributeName': 'transactionId', 'AttributeType': 'S'},
+                {'AttributeName': 'transactionDate', 'AttributeType': 'S'}
+            ],
+            GlobalSecondaryIndexes=[
+                {
+                    'IndexName': 'TransactionsByDate',
+                    'KeySchema': [
+                        {'AttributeName': 'clientId', 'KeyType': 'HASH'},
+                        {'AttributeName': 'transactionDate', 'KeyType': 'RANGE'}
+                    ],
+                    'Projection': {'ProjectionType': 'ALL'},
+                    'ProvisionedThroughput': {'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+                }
+            ],
+            ProvisionedThroughput={'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+        )
+
+# Esperar a que todas las tablas estén creadas antes de insertar datos
+print("Esperando a que todas las tablas estén creadas...")
+for table_name in table_names:
+    waiter = client.get_waiter('table_exists')
+    waiter.wait(TableName=table_name)
+    print(f"Tabla {table_name} creada y disponible.")
+
+# Poblar la tabla de fondos con los datos iniciales - usando Decimal para valores numéricos
+print("Cargando datos en la tabla Funds...")
+funds_data = [
+    {
+        'fundId': '1',
+        'name': 'FPV_EL CLIENTE_RECAUDADORA',
+        'category': 'FPV',
+        'minimumAmount': Decimal('75000')
+    },
+    {
+        'fundId': '2',
+        'name': 'FPV_EL CLIENTE_ECOPETROL',
+        'category': 'FPV',
+        'minimumAmount': Decimal('125000')
+    },
+    {
+        'fundId': '3',
+        'name': 'DEUDAPRIVADA',
+        'category': 'FIC',
+        'minimumAmount': Decimal('50000')
+    },
+    {
+        'fundId': '4',
+        'name': 'FDO-ACCIONES',
+        'category': 'FIC',
+        'minimumAmount': Decimal('250000')
+    },
+    {
+        'fundId': '5',
+        'name': 'FPV_EL CLIENTE_DINAMICA',
+        'category': 'FPV',
+        'minimumAmount': Decimal('100000')
+    }
+]
+
+# Insertar datos de fondos
+funds_table = dynamodb.Table('Funds')
+for fund in funds_data:
+    funds_table.put_item(Item=fund)
+
+# Crear cliente default - usando Decimal para balance
+print("Creando cliente por defecto...")
+clients_table = dynamodb.Table('Clients')
+clients_table.put_item(
+    Item={
+        'clientId': 'C123456',
+        'balance': Decimal('500000'),
+        'preferredNotification': 'email',
+        'email': 'cliente@ejemplo.com',
+        'phone': '+573001234567'
+    }
+)
+
+print("Tablas creadas y datos iniciales cargados correctamente")
+
+
+// File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\backend\.env
+/===============================================================================
+
+APP_NAME="EL CLIENTE - Fondos API"
+API_V1_PREFIX="/api/v1"
+AWS_REGION="us-east-1"
+DEFAULT_CLIENT_ID="C123456"
+
