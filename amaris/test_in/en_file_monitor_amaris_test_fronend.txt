@@ -1,4 +1,4 @@
-// Last update transaction car: 2025-03-28 00:30:55.918629
+// Last update transaction car: 2025-04-11 15:07:28.962138
 // Total files: 21
 
 
@@ -658,16 +658,22 @@ export default Dashboard;
 // File: C:\Proyectos_software\Personal\compani_test\amaris-proyecto-fondos\frontend\src\services\api.js
 /===============================================================================
 
+// src/services/api.js
 import axios from 'axios';
 import API_URL from '../config/api';
 
-const api = axios.create({
-  baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json'
-  }
-});
+// Exportamos la función createApi para poder probarla directamente
+export const createApi = () => {
+  return axios.create({
+    baseURL: API_URL,
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  });
+};
 
+// Exportamos la instancia por defecto
+const api = createApi();
 export default api;
 
 
@@ -1199,8 +1205,6 @@ export default reportWebVitals;
     "@mui/material": "^5.17.1",
     "@reduxjs/toolkit": "^2.6.1",
     "@testing-library/dom": "^10.4.0",
-    "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^16.2.0",
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.8.4",
     "react": "^19.0.0",
@@ -1216,7 +1220,8 @@ export default reportWebVitals;
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "test:coverage": "react-scripts test --coverage --watchAll=false"
   },
   "eslintConfig": {
     "extends": [
@@ -1235,6 +1240,15 @@ export default reportWebVitals;
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "@babel/preset-env": "^7.26.9",
+    "@babel/preset-react": "^7.26.3",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.2.0",
+    "babel-jest": "^29.7.0",
+    "jest": "^27.5.1",
+    "jest-environment-jsdom": "^29.7.0"
   }
 }
 

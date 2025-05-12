@@ -1,0 +1,1985 @@
+// Last update transaction car: 2025-05-10 06:33:59.280531
+// Total files: 8
+
+
+// File: C:\Proyectos_software\Work\Amaris\fsfb\seguimiento_app\seguimiento_app\static\scripts.js
+/===============================================================================
+
+// Funcionalidad para el botón de seguimiento
+document.addEventListener("DOMContentLoaded", function () {
+    // Configurar el modal de seguimiento
+    document.querySelectorAll('[data-target="#seguimientoModal"]').forEach(function (button) {
+        button.addEventListener("click", function () {
+            var id = button.getAttribute("data-id");
+            var modal = document.getElementById("seguimientoModal");
+            var idField = modal.querySelector("#seg-solicitud-id");
+            
+            if (idField) {
+                idField.value = id;
+                // Establecer fecha y hora actual
+                var now = new Date();
+                var datetime = now.toISOString().slice(0, 16);
+                document.getElementById("fecha-seguimiento").value = datetime;
+            }
+        });
+    });
+
+    // Manejar el cambio en "¿Puede egresar?"
+    const puedeEgresar = document.getElementById("puede-egresar");
+    const motivoPuedeEgresar = document.getElementById("motivo-puede-egresar");
+
+    if (puedeEgresar && motivoPuedeEgresar) {
+        puedeEgresar.addEventListener("change", function() {
+            actualizarOpcionesMotivo(this.value);
+        });
+
+        // Inicializar con la opción por defecto
+        actualizarOpcionesMotivo(puedeEgresar.value);
+    }
+
+    // Configurar popovers para detalles de tiempo
+    $('[data-toggle="popover"]').popover({
+        trigger: 'hover',
+        placement: 'left',
+        html: true
+    });
+});
+
+function actualizarOpcionesMotivo(puedeEgresar) {
+    const motivoPuedeEgresar = document.getElementById("motivo-puede-egresar");
+    motivoPuedeEgresar.innerHTML = ''; // Limpiar opciones actuales
+
+    if (puedeEgresar === "SI") {
+        const opcionesSi = [
+            "Trámite Administrativo - Gestión de condicionantes de Egreso",
+            "Trámite Administrativo - Gestión de aceptación del paciente y familia",
+            "Trámite Administrativo - Respuesta PHD por el asegurador",
+            "Situación Clínica - Vigilancia clínica"
+        ];
+        
+        opcionesSi.forEach(opcion => {
+            const option = new Option(opcion, opcion);
+            motivoPuedeEgresar.appendChild(option);
+        });
+    } else {
+        const opcionesNo = [
+            "Situación Clínica - Cambio de diagnóstico",
+            "Situación Clínica - Compensación clínica",
+            "Situación Clínica - Estudios clínicos",
+            "Situación Clínica - Procedimientos Quirúrgicos",
+            "Situación Clínica - Últimos días finalización antibiótico",
+            "Trámite Administrativo - Baja red de apoyo",
+            "Trámite Administrativo - PHD Rechazado por CAP, IPS, Paciente o Familia"
+        ];
+        
+        opcionesNo.forEach(opcion => {
+            const option = new Option(opcion, opcion);
+            motivoPuedeEgresar.appendChild(option);
+        });
+    }
+}
+
+// Función para actualizar las opciones de resultado según el tipo de solicitud
+function actualizarOpcionesResultado(tipoSolicitud) {
+    const resultadoSolicitud = document.getElementById("resultado-solicitud");
+    if (!resultadoSolicitud) return;
+    
+    resultadoSolicitud.innerHTML = ''; // Limpiar opciones actuales
+
+    let opciones = [];
+    
+    switch(tipoSolicitud) {
+        case 'Codificar o Recodificar':
+            opciones = ['Codificado', 'Sin respuesta'];
+            break;
+        case 'Gestion Lider Clínico':
+            opciones = [
+                'Gestionado',
+                'Inestabilidad hemodinámica, condición clínica, Delirium, procedimiento quirúrgico, estudios diagnósticos',
+                'Rechazo del paciente y/o familiar',
+                'Rechazo del tratante a cargo de intervención',
+                'Sin respuesta'
+            ];
+            break;
+        case 'Intervención de educación y entrenamiento':
+            opciones = ['Intervenido', 'Requiere nueva intervención', 'Sin respuesta'];
+            break;
+        case 'Oxigeno domiciliario':
+            opciones = ['Gestionado, en proceso de egreso', 'Sin respuesta'];
+            break;
+        case 'PHD':
+            opciones = ['Rechazo del paciente y familiar', 'Sin respuesta'];
+            break;
+        case 'Medicamentos condicionantes de egreso':
+            opciones = ['En proceso de respuesta por asegurador', 'Sin respuesta'];
+            break;
+        case 'Enfermera domicilio':
+            opciones = ['Gestionado', 'Sin respuesta'];
+            break;
+        case 'Contigo en Casa':
+            opciones = ['Gestionado', 'Rechazo del paciente y/o familiar', 'Sin respuesta'];
+            break;
+        case 'Revision Justificacion Estancia':
+            opciones = ['Gestionado', 'Sin respuesta'];
+            break;
+        case 'Rechazo del paciente de rutas de egreso temprano':
+            opciones = ['Abandono social', 'Gestionado', 'Requiere nueva intervención', 'Sin respuesta'];
+            break;
+        default:
+            opciones = ['Exitosa', 'Fallida', 'No requerida'];
+    }
+    
+    opciones.forEach(opcion => {
+        const option = new Option(opcion, opcion);
+        resultadoSolicitud.appendChild(option);
+    });
+}
+
+// Función para enviar solicitudes pendientes (SendPending)
+function SendPending() {
+    // Implementar la lógica para enviar solicitudes pendientes
+    fetch('/send', {
+        method: 'GET'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.result === 'success') {
+            alert('Solicitudes pendientes enviadas correctamente');
+            window.location.reload();
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+
+// File: C:\Proyectos_software\Work\Amaris\fsfb\seguimiento_app\seguimiento_app\static\style.css
+/===============================================================================
+
+/* Ajustes para dispositivos pequeños */
+@media (max-width: 768px) {
+    .table {
+        font-size: 11px;
+    }
+
+    .form-inline input, .form-inline select, .form-inline button {
+        margin-bottom: 5px;
+        width: 100%;
+    }
+
+    .btn {
+        font-size: 11px;
+    }
+}
+
+/* General adjustments */
+body {
+    background-color: #f8f9fa;
+    margin: 0;
+    padding: 2px;
+    font-family: 'Gilroy', 'Roboto', 'SansSerif', Arial, sans-serif;
+}
+
+/* Adjust the header and table layout */
+h1 {
+    font-size: 28px;
+    color: #343a40;
+    margin-left: 0; /* Align header to the left */
+}
+
+/* Table adjustments */
+.table {
+    width: 100%; /* Use full width */
+    font-size: 14px;
+    margin: 0;
+}
+
+.table-hover tbody tr:hover {
+    background-color: #f1f1f1;
+}
+
+.table td, .table th {
+    padding: 12px 9px; /* 12px vertical, 9px horizontal */
+    text-align: left; /* Asegura un alineado base */
+    vertical-align: middle;
+}
+
+/* Centrar nombres de las columnas */
+.table thead th {
+    text-align: center;
+    vertical-align: middle;
+}
+
+/* Centrar contenido de columnas específicas */
+.table tbody td:nth-child(1), /* TIPO_DOCUMENTO */
+.table tbody td:nth-child(3), /* EVENTO */
+.table tbody td:nth-child(5)  /* TIPO_SOLICITUD */ {
+    text-align: center;
+}
+
+.table tbody td:nth-child(1) /* TIPO_DOCUMENTO */{
+    max-width: 50px;
+}
+
+.table tbody th:nth-child(1) /* TIPO_DOCUMENTO */{
+    max-width: 50px;
+}
+
+
+.table tbody td:nth-child(4) {
+    white-space: nowrap;
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.table thead th:nth-child(4) {
+    max-width: 300px; /* Para que coincida con el cuerpo */
+}
+
+.table tbody tr:nth-child(odd) {
+    background-color: #ffffff; /* Fondo blanco para filas impares */
+}
+
+/* Adjust modal headers */
+.modal-header {
+    border-bottom: none;
+}
+
+.modal-footer {
+    border-top: none;
+}
+
+/* Estilos para el botón de información */
+.time-info-btn {
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+.time-info-btn i {
+    font-size: 14px;
+}
+
+/* Estilos para los popover */
+.popover {
+    max-width: 300px;
+}
+
+.popover-content {
+    font-size: 12px;
+}
+
+/* Ajustes para las columnas de fecha */
+.table th:nth-child(14), /* Fecha Seguimiento */
+.table td:nth-child(14) {
+    min-width: 110px;
+    text-align: center;
+}
+
+.table th:nth-child(15), /* Ver detalle de tiempos */
+.table td:nth-child(15) {
+    min-width: 80px;
+    text-align: center;
+}
+
+/* Estilos para el botón de seguimiento */
+.btn-warning.btn-sm {
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+/* Ajustes para modales */
+.modal-dialog {
+    max-width: 600px;
+}
+
+.modal-body .form-group label {
+    font-weight: 600;
+    color: #495057;
+}
+
+/* Ajustes para el select de resultado solicitud */
+#resultado-solicitud option {
+    padding: 5px;
+    margin: 2px 0;
+}
+
+/* Para mejorar la legibilidad de las opciones largas */
+#motivo-puede-egresar {
+    height: auto;
+    min-height: 38px;
+}
+
+#destino-final {
+    height: auto;
+    min-height: 38px;
+}
+
+
+// File: C:\Proyectos_software\Work\Amaris\fsfb\seguimiento_app\seguimiento_app\templates\index.html
+/===============================================================================
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seguimiento de Solicitudes</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+</head>
+<body>
+    <div class="container-fluid mt-4">
+        <h1 class="text-left">Seguimiento de Solicitudes</h1>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <form class="d-flex flex-wrap" method="GET" style="gap: 15px;">
+                <div class="form-group" style="flex: 1;">
+                    <label for="tipo-documento">Tipo Documento</label>
+                    <input id="tipo-documento" class="form-control" name="tipo_documento" placeholder="Ingrese tipo documento" value="{{ filtros.get('tipo_documento', '') }}">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label for="documento">Documento</label>
+                    <input id="documento" class="form-control" name="documento" placeholder="Ingrese documento" value="{{ filtros.get('documento', '') }}">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label for="tipo-solicitud">Tipo Solicitud</label>
+                    <select id="tipo-solicitud" class="form-control" name="tipo_solicitud">
+
+                        <option value="" {{ 'selected' if not filtros.get('tipo_solicitud') else '' }}>Todos</option>
+    
+                        <!-- Opciones dinámicas desde tipo_sol -->
+                        {% for key, detalles in tipo_sol.items() %}
+                            <option value="{{ key }}" 
+                                {% if filtros.get('tipo_solicitud') == key %}
+                                    selected
+                                {% endif %}
+                            >
+                                {{ detalles.nombre }}
+                            </option>
+                        {% endfor %}
+
+                    </select>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label for="estado-solicitud">Estado Solicitud</label>
+                    <select id="estado-solicitud" class="form-control" name="estado_solicitud">
+                        <option value="">Todos</option>
+                        <option value="Envio Pendiente" {{ 'selected' if filtros.get('estado_solicitud') == 'Envio Pendiente' else '' }}>Envio Pendiente</option>
+                        <option value="En Proceso" {{ 'selected' if filtros.get('estado_solicitud') == 'En Proceso' else '' }}>En Proceso</option>
+                        <option value="Seguimiento" {{ 'selected' if filtros.get('estado_solicitud') == 'Seguimiento' else '' }}>Seguimiento</option>
+                        <option value="Finalizada" {{ 'selected' if filtros.get('estado_solicitud') == 'Finalizada' else '' }}>Finalizada</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label for="responsable">Responsable</label>
+                    <input id="responsable" class="form-control" name="responsable" placeholder="Ingrese responsable" value="{{ filtros.get('responsable', '') }}">
+                </div>
+                <div class="form-group d-flex align-items-end" style="gap: 10px;">
+                    <button class="btn btn-secondary" type="submit">Filtrar</button>
+                    <button type="button" class="btn btn-secondary" onclick="SendPending()">
+                        Enviar Pendientes
+                    </button>
+                    <button class="btn btn-primary" data-toggle="modal" data-target="#addSolicitudModal" type="button">
+                        Crear Solicitud
+                    </button>   
+                </div>
+            </form>
+        </div>
+    </div>
+
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead class="thead-dark">
+                    <tr>
+                        <th style="width: 10px;">Tipo ID</th>
+                        <th>Documento</th>
+                        <th style="width: 10px;">Evento</th>
+                        <th style="width: 180px;">Nombre Paciente</th> <!-- Ancho ajustado -->
+                        <th>Tipo Solicitud</th>
+                        <th>Solicitante</th>
+                        <th>Fecha de Solicitud</th>
+                        <th>Estado Solicitud</th>
+                        <th>Área Responsable</th>
+                        <th>Responsable</th>
+                        <th>Fecha Finalización</th>
+                        <th>Fecha Registro Finalización</th>
+                        <th>Resultado Solicitud</th>
+                        <th>Fecha Seguimiento</th>
+                        <th>Ver detalle de tiempos</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for solicitud in solicitudes %}
+                    <tr>
+                        <td>{{ solicitud[1] }}</td>
+                        <td>{{ solicitud[2] }}</td>
+                        <td>{{ solicitud[3] }}</td>
+                        <td>{{ solicitud[4] }}</td>
+                        <td>{{ solicitud[5] }}</td>
+                        <td>{{ solicitud[6] }}</td>
+                        <td>{{ solicitud[7].strftime('%Y-%m-%d') if solicitud[7] else "N/A" }}</td> <!-- Fecha Solicitud -->
+                        <td>{{ solicitud[9] }}</td>
+                        <td>{{ solicitud[10] }}</td>
+                        <td>{{ solicitud[11] }}</td>
+                        <td>{{ solicitud[12].strftime('%Y-%m-%d') if solicitud[12] else "Pendiente" }}</td> <!-- Fecha Finalización -->
+                        <td>{{ solicitud[13].strftime('%Y-%m-%d') if solicitud[13] else "Pendiente" }}</td> <!-- Fecha Registro Finalización -->
+                        <td>{{ solicitud[14] if solicitud[14] else ""}}</td>
+                        <td>{{ solicitud[16].strftime('%Y-%m-%d %H:%M') if solicitud[16] else "" }}</td> <!-- Fecha Seguimiento -->
+                        <td>
+                            {% if solicitud[8] and solicitud[17] and solicitud[13] %} <!-- Si hay fechas para calcular -->
+                                <button class="btn btn-info btn-sm time-info-btn" 
+                                    data-toggle="popover" 
+                                    data-placement="left"
+                                    data-html="true"
+                                    title="Detalles de tiempo"
+                                    data-content="
+                                        <b>Solicitud vs Seguimiento:</b> {{ calcular_horas(solicitud[8], solicitud[17]) }} horas<br>
+                                        <b>Seguimiento vs Finalización:</b> {{ calcular_horas(solicitud[17], solicitud[13]) }} horas<br>
+                                        <b>Solicitud vs Finalización:</b> {{ calcular_horas(solicitud[8], solicitud[13]) }} horas
+                                    ">
+                                    <i class="fas fa-info-circle"></i>
+                                </button>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if solicitud[9] != 'Seguimiento' and solicitud[9] != 'Finalizada' %}
+                                <button class="btn btn-warning btn-sm" data-toggle="modal" data-target="#seguimientoModal" 
+                                    data-id="{{ solicitud[0] }}">
+                                    Seguimiento
+                                </button>
+                            {% endif %}
+                            
+                            <button class="btn btn-success btn-sm" data-toggle="modal" data-target="#updateSolicitudModal" 
+                                data-id="{{ solicitud[0] }}"
+                                data-tipo-solicitud="{{ solicitud[5] }}">
+                                Finalizar
+                            </button>
+                    
+                            <form action="/delete" method="POST" style="display:inline;">
+                                <input type="hidden" name="id" value="{{ solicitud[0] }}">
+                                <button type="submit" class="btn btn-danger btn-sm">Eliminar</button>
+                            </form>
+                        </td> 
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+        <!-- Paginación -->
+        <nav aria-label="Page navigation">
+            <ul class="pagination justify-content-center">
+                {% if page > 1 %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page-1 }}{% for key, value in filtros.items() %}&{{ key }}={{ value }}{% endfor %}" aria-label="Previous">
+                        &laquo;
+                    </a>
+                </li>
+                {% endif %}
+                <li class="page-item">
+                    <span class="page-link">Página {{ page }}</span>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page+1 }}{% for key, value in filtros.items() %}&{{ key }}={{ value }}{% endfor %}" aria-label="Next">
+                        &raquo;
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+
+    <!-- Modal para agregar solicitud -->
+    <div class="modal fade" id="addSolicitudModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form action="/add" method="POST">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title">Agregar Solicitud</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+
+                        <div class="form-group">
+                            <label for="tipo-documento">Tipo Documento</label>
+                            <select class="form-control" id="tipo-documento" name="tipo_documento" required>
+                                {% for tip in tipo_id %}
+                                <option value={{tip}}>{{tip}}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="documento">Documento</label>
+                            <input class="form-control" id="documento" name="documento" placeholder="Documento" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="evento">Evento</label>
+                            <input class="form-control" id="evento" name="evento" placeholder="Evento" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="fecha-solicitud">Fecha de Solicitud</label>
+                            <input type="date" class="form-control" id="fecha-solicitud" name="fecha_solicitud" value="{{ current_date }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="tipo-solicitud-selec">Tipo Solicitud</label>
+                            <select class="form-control" id="tipo-solicitud-selec" name="tipo_solicitud_selec" required>
+                                {% for key, detalles in tipo_sol.items() %}
+                                <option value="{{ key }}" {% if key == 'Codificar o Recodificar' %}selected{% endif %}>
+                                    {{ detalles.nombre }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="solicitante">Solicitante</label>
+                            <input class="form-control" id="solicitante" name="solicitante" placeholder="Solicitante" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="area-responsable">Área Responsable</label>
+                            <select class="form-control" id="area-responsable" name="area_responsable" required>
+                                <!-- Las opciones se llenarán dinámicamente -->
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="responsable">Responsable</label>
+                            <input class="form-control" id="responsable" name="responsable" placeholder="Responsable" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="correo-cuerpo">Comentarios</label>
+                            <textarea class="form-control" id="correo-cuerpo" name="correo_cuerpo" rows="4"></textarea>
+                        </div>
+                    </div>
+                    <div id="error-message" class="alert alert-danger" style="display: none;"></div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary">Guardar</button>
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>    
+    
+    <!-- Modal para Seguimiento -->
+    <div class="modal fade" id="seguimientoModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="POST" action="/seguimiento">
+                    <div class="modal-header bg-warning text-white">
+                        <h5 class="modal-title">Seguimiento Solicitud</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="seg-solicitud-id">ID de la Solicitud</label>
+                            <input type="text" class="form-control" id="seg-solicitud-id" name="id" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="fecha-seguimiento">Fecha Seguimiento</label>
+                            <input type="datetime-local" class="form-control" id="fecha-seguimiento" name="fecha_seguimiento" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="nivel-gestion">Nivel de gestión de lo solicitado</label>
+                            <select class="form-control" id="nivel-gestion" name="nivel_gestion" required>
+                                <option value="Completo">Completo</option>
+                                <option value="Incompleto">Incompleto</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="puede-egresar">¿Puede egresar?</label>
+                            <select class="form-control" id="puede-egresar" name="puede_egresar" required>
+                                <option value="SI">SI</option>
+                                <option value="NO">NO</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="motivo-puede-egresar">¿Por qué no puede egresar?</label>
+                            <select class="form-control" id="motivo-puede-egresar" name="motivo_puede_egresar" required>
+                                <!-- Las opciones se llenarán dinámicamente según la respuesta de puede_egresar -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-warning">Guardar</button>
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal fade" id="updateSolicitudModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="POST" action="/update">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title">Completar Solicitud</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="solicitud-id">ID de la Solicitud</label>
+                            <input type="text" class="form-control" id="solicitud-id" name="id" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="fecha-finalizacion">Fecha Finalización</label>
+                            <input type="date" class="form-control" id="fecha-finalizacion" name="fecha_finalizacion" value="{{ current_date }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="resultado-solicitud">Resultado Solicitud</label>
+                            <select class="form-control" id="resultado-solicitud" name="resultado_solicitud" required>
+                                <!-- Las opciones se llenarán dinámicamente según el tipo de solicitud -->
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="destino-final">Destino Final</label>
+                            <select class="form-control" id="destino-final" name="destino_final" required>
+                                <option value="Egresó con condicionante resuelto – Otros">Egresó con condicionante resuelto – Otros</option>
+                                <option value="Egresó con condicionante resuelto – Oxígeno domiciliario">Egresó con condicionante resuelto – Oxígeno domiciliario</option>
+                                <option value="Egresó con condicionante resuelto – Programa Contigo en Casa">Egresó con condicionante resuelto – Programa Contigo en Casa</option>
+                                <option value="Egresó con condicionante resuelto – Programa de Hospitalización Domiciliaria">Egresó con condicionante resuelto – Programa de Hospitalización Domiciliaria</option>
+                                <option value="Egresó con condicionante resuelto – Unida de Crónicos">Egresó con condicionante resuelto – Unida de Crónicos</option>
+                                <option value="Egresó sin condicionante">Egresó sin condicionante</option>
+                                <option value="Fallecimiento">Fallecimiento</option>
+                                <option value="Remitido">Remitido</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="comentarios">Comentarios</label>
+                            <textarea class="form-control" id="comentarios" name="comentarios"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-success">Guardar</button>
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Bootstrap JS y jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='scripts.js') }}"></script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            document.querySelectorAll('[data-target="#updateSolicitudModal"]').forEach(function (button) {
+                button.addEventListener("click", function () {
+                    var id = button.getAttribute("data-id");
+                    var tipoSolicitud = button.getAttribute("data-tipo-solicitud");
+                    console.log("ID capturado al hacer clic:", id);
+                    console.log("Tipo de solicitud:", tipoSolicitud);
+        
+                    var modal = document.getElementById("updateSolicitudModal");
+                    var idField = modal.querySelector("#solicitud-id");
+        
+                    if (idField) {
+                        idField.value = id;
+                        console.log("ID asignado al campo:", id);
+                        
+                        // Actualizar las opciones del resultado según el tipo de solicitud
+                        actualizarOpcionesResultado(tipoSolicitud);
+                    } else {
+                        console.error("No se encontró el campo con ID 'solicitud-id'.");
+                    }
+                });
+            });
+        });
+    </script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const form = document.querySelector("#addSolicitudModal form"); // Seleccionar el formulario
+            const errorMessage = document.querySelector("#error-message");  // Seleccionar el div de error
+    
+            form.addEventListener("submit", function (e) {
+                e.preventDefault(); // Evitar el envío tradicional del formulario
+                console.log("Formulario interceptado, enviando datos por fetch...");
+    
+                // Ocultar el mensaje de error antes de enviar
+                errorMessage.style.display = "none";
+                errorMessage.textContent = "";
+    
+                // Crear una solicitud AJAX
+                fetch(form.action, {
+                    method: "POST",
+                    body: new FormData(form),
+                })
+                    .then((response) => {
+                        if (!response.ok) {
+                            return response.json().then((data) => {
+                                throw new Error(data.error || "Error desconocido");
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(() => {
+                        // Éxito: Recargar la página
+                        window.location.reload();
+                    })
+                    .catch((error) => {
+                        // Mostrar el mensaje de error en el modal
+                        errorMessage.textContent = error.message;
+                        errorMessage.style.display = "block";
+                    });
+            });
+        });
+    </script>
+    
+    <!-- Script para manejar el filtrado de áreas responsables -->
+    <script>
+        console.log("Script personalizado cargado."); // Verificar que el script se está ejecutando
+        const tipoSol = {{ tipo_sol | tojson }};
+        $(document).ready(function() {
+            const $tipoSolicitud = $('#tipo-solicitud-selec');
+            const $areaResponsable = $('#area-responsable');
+    
+            function actualizarAreasResponsables(tipoSeleccionado) {
+    
+                const tipoData = tipoSol[tipoSeleccionado];
+                if (!tipoData) {
+                    console.error(`Tipo solicitud "${tipoSeleccionado}" no encontrado en tipoSol.`);
+                    $areaResponsable.empty();
+                    return;
+                }
+    
+                const areas = tipoData.areas_responsables;
+                console.log("Áreas responsables encontradas:", areas);
+    
+                $areaResponsable.empty(); // Limpiar opciones existentes
+    
+                areas.forEach(function(area) {
+                    $areaResponsable.append(new Option(area, area));
+                });
+            }
+    
+            // Inicializar las áreas responsables al cargar la página
+            let tipoInicial = $tipoSolicitud.val();
+    
+            if (!tipoInicial) {
+                tipoInicial = 'Codificar o Recodificar';
+                $tipoSolicitud.val(tipoInicial).trigger('change'); // Establecer y desencadenar cambio
+            } else {
+                actualizarAreasResponsables(tipoInicial);
+            }
+    
+            // Actualizar las áreas responsables cuando cambia el tipo de solicitud
+            $tipoSolicitud.change(function() {
+                const tipoSeleccionado = $(this).val();
+                console.log("Cambio detectado en tipo-solicitud. Nuevo valor:", tipoSeleccionado);
+                actualizarAreasResponsables(tipoSeleccionado);
+            });
+        });
+    </script>
+
+</body>
+</html>
+
+
+// File: C:\Proyectos_software\Work\Amaris\fsfb\seguimiento_app\seguimiento_app\app.py
+/===============================================================================
+
+from flask import Flask, render_template, request, redirect, url_for
+import oracledb
+from config import Config
+from datetime import datetime
+from flask import jsonify
+from snowflake.snowpark import Session
+from snowflake.snowpark.functions import col
+from sqlalchemy import create_engine
+from email_processor import EmailQueueProcessor
+
+app = Flask(__name__)
+
+TIPO_ID = Config.TIPO_ID
+TIPO_SOL = Config.TIPO_SOL
+
+EMAIL_SENDER = Config.EMAIL_SENDER
+EMAIL_PASSWORD = Config.EMAIL_PASSWORD
+
+# Crear una instancia global del procesador
+email_processor = EmailQueueProcessor(EMAIL_SENDER, EMAIL_PASSWORD)
+
+def crear_mensaje(plantilla, **kwargs):
+    return plantilla.format(**kwargs) if plantilla else "Mensaje no encontrado."
+
+def parse_emails(email_str):
+    # Reemplaza ';' por ',' y luego divide por ','
+    emails = email_str.replace(';', ',').split(',')
+    # Elimina espacios en blanco y filtra entradas vacías
+    return [email.strip() + '@fsfb.org.co' for email in emails if email.strip()]
+
+def calcular_horas(fecha1, fecha2):
+    """Calcula la diferencia en horas entre dos fechas"""
+    if fecha1 and fecha2:
+        diff = (fecha2 - fecha1).total_seconds() / 3600
+        return round(diff, 1)
+    return 0
+
+# Registrar la función para usarla en templates
+app.jinja_env.globals.update(calcular_horas=calcular_horas)
+
+class SnowflakePool:
+    
+    def __init__(self,snow_conn_params):
+        self.current_session = None
+        self.connection_parameters = snow_conn_params
+        self.get_session()
+        
+    def get_session(self):
+        # Check if the session exists and is valid
+        if self.current_session is not None:
+            try:
+                if self.current_session.get_active_session() is None:
+                    self.current_session = (
+                        Session.builder
+                        .configs(self.connection_parameters)
+                        .app_name("Solicitud_App")  # Nombre de la aplicación
+                        .getOrCreate()
+                        )
+                # Test the session by running a lightweight query
+            except (ProgrammingError, AttributeError):
+                print("Snowflake session invalid, reinitializing...")
+                self.current_session = None  # Invalidate the session
+        else:
+            self.current_session = (
+                    Session.builder
+                    .configs(self.connection_parameters)
+                    .getOrCreate()
+                )
+
+    def close_session(self):
+        if self.current_session:
+            self.current_session.close()
+            self.current_session = None
+
+snowflake_pool = SnowflakePool(Config.SNOWFLAKE_CONN)
+
+# Configuración del pool para Oracle
+oracle_pool = oracledb.create_pool(
+    user=Config.DB_USER,
+    password=Config.DB_PASSWORD,
+    dsn=Config.DB_DSN,
+    min=5,              # Minimum number of connections in the pool
+    max=20,             # Maximum number of connections in the pool
+    increment=1,        # Number of connections to add when more are needed
+    timeout=500,        # Time in seconds before a connection is considered idle
+    session_callback=None,  # Optional callback for initializing sessions
+)
+# Obtener una conexión desde el pool
+def get_db_connection():
+    return oracle_pool.acquire()
+
+@app.route('/send') 
+def call_python_function(): 
+    # Your Python function code here 
+    return {'result': 'success'} 
+
+# Ruta principal con paginación y filtros
+@app.route("/", methods=["GET"])
+def index():
+    page = int(request.args.get("page", 1))
+    per_page = 20
+    offset = (page - 1) * per_page
+
+    filtros = {key: value for key, value in request.args.items() if key != "page" and value}
+    print(filtros)
+    where_clauses = [f"LOWER({col}) LIKE :{col}" for col in filtros]
+    filters = " AND " + " AND ".join(where_clauses) if where_clauses else ""
+
+    base_query = f"""
+        SELECT * FROM (
+            SELECT a.*, ROWNUM rnum FROM (
+                SELECT * FROM SOLICITUDES 
+                WHERE FECHA_ELIMINACION IS NULL
+                {filters}
+                ORDER BY FECHA_SOLICITUD ASC
+            ) a
+            WHERE ROWNUM <= :limit
+        ) WHERE rnum > :offset
+    """
+
+    params = {col: f"%{value.lower()}%" for col, value in filtros.items()}
+    params["limit"] = offset + per_page
+    params["offset"] = offset
+
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:            
+            cursor.execute(base_query, params)
+            solicitudes = cursor.fetchall()
+
+    current_date = datetime.now().strftime('%Y-%m-%d')
+    return render_template("index.html", solicitudes=solicitudes, page=page, filtros=filtros, current_date=current_date, tipo_id=TIPO_ID, tipo_sol=TIPO_SOL)
+
+# Ruta para agregar una nueva solicitud
+@app.route("/add", methods=["POST"])
+def add():
+    data = request.form
+
+    # Validación en Snowflake
+    try:
+        snowflake_pool.get_session()
+        session = snowflake_pool.current_session
+        q = session.sql(''' 
+                        select  
+                        trim(p.nombre_pac) || ' ' || trim(p.primer_apell_pac) || ' ' || trim(p.segundo_apell_pac) NOMBRE_PACIENTE,
+                        trim(p.tipo_id_paciente) TIPO_DOCUMENTO,
+                        trim(p.id_paciente) DOCUMENTO,
+                        l.episodio EVENTO
+                        from mdf_fsfb_data_pro.data_sub_metr.tbl_log_patologias_teamcoder l
+                        inner join mdf_fsfb_data_pro.edwh.m_pacientes p
+                        on l.cod_paciente = p.paciente
+                        ''')
+        validation_query = q.filter(
+                    (col("TIPO_DOCUMENTO") == data["tipo_documento"]) &
+                    (col("DOCUMENTO") == data["documento"]) &
+                    (col("EVENTO") == data["evento"])
+                    )
+        
+        results = validation_query.collect()
+        if not results:
+            return jsonify({"success": False, "error": "Paciente o evento no existe"}), 400
+
+        # Extraer el nombre del paciente
+        nombre_paciente = results[0]["NOMBRE_PACIENTE"]
+
+    except Exception as e:
+        print(f"Error al validar en Snowflake: {e}")
+        return jsonify({"success": False, "error": "Error al validar los datos, intente más tarde"}), 500
+
+
+    # Validación de duplicados en la base transaccional
+    try:
+        duplicate_query = """
+            SELECT COUNT(*) FROM SOLICITUDES
+            WHERE 
+              ESTADO_SOLICITUD <> 'Finalizada'
+              AND FECHA_ELIMINACION IS NULL
+              AND TIPO_DOCUMENTO = :tipo_documento
+              AND DOCUMENTO = :documento
+              AND EVENTO = :evento
+              AND TIPO_SOLICITUD = :tipo_solicitud
+        """
+
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(duplicate_query, {
+                    "tipo_documento": data["tipo_documento"],
+                    "documento": data["documento"],
+                    "evento": data["evento"],
+                    "tipo_solicitud": data["tipo_solicitud_selec"]
+                })
+                is_duplicate = cursor.fetchone()[0] > 0
+
+        if is_duplicate:
+            return jsonify({"success": False, "error": "La solicitud ya existe"}), 400
+
+    except Exception as e:
+        print(f"Error al verificar duplicados: {e}")
+        return jsonify({"success": False, "error": "Error al verificar duplicados"}), 500
+
+    # Inserción en la tabla de solicitudes
+    try:
+        insert_query = """
+            INSERT INTO SOLICITUDES (
+                TIPO_DOCUMENTO, DOCUMENTO, EVENTO, NOMBRE_PACIENTE,
+                TIPO_SOLICITUD, SOLICITANTE, ESTADO_SOLICITUD,
+                AREA_RESPONSABLE, RESPONSABLE, FECHA_SOLICITUD
+            ) VALUES (:tipo_documento, :documento, :evento, :nombre_paciente,
+                      :tipo_solicitud, :solicitante, :estado_solicitud,
+                      :area_responsable, :responsable, TO_DATE(:fecha_solicitud, 'YYYY-MM-DD'))
+            RETURNING ID INTO :id
+        """
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                id_solicitud = cursor.var(oracledb.NUMBER)  # Variable para almacenar la clave generada
+                cursor.execute(insert_query, {
+                    "tipo_documento": data["tipo_documento"],
+                    "documento": data["documento"],
+                    "evento": data["evento"],
+                    "nombre_paciente": nombre_paciente,
+                    "tipo_solicitud": data["tipo_solicitud_selec"],
+                    "solicitante": data.get("solicitante"),
+                    "estado_solicitud": "Envio Pendiente",
+                    "area_responsable": data["area_responsable"],
+                    "responsable": data.get("responsable"),
+                    "fecha_solicitud": data["fecha_solicitud"],
+                    "id": id_solicitud
+                })
+                conn.commit()
+                id_generado = id_solicitud.getvalue()
+                #print('id generado: ', id_generado)
+                
+                # Verificar y devolver el ID generado
+                if id_generado is not None:
+                    id_generado = int(id_generado[0])  # Convertir a entero si es necesario
+                else:
+                    raise ValueError("No se generó un ID después de la inserción.")
+                
+                # ENVIO DE CORREO             
+                recipients = parse_emails(data.get('responsable'))
+                cc_str=TIPO_SOL[data["tipo_solicitud_selec"]].get('copia_predefinida')
+                if cc_str is not None:
+                    cc = [cc.strip() + '@fsfb.org.co' for cc in cc_str if cc.strip()]
+                else:
+                    cc = None
+                print('Enviar a: ', recipients, cc)
+                body = crear_mensaje(TIPO_SOL[data["tipo_solicitud_selec"]].get('mensaje'),
+                                    tipo_documento = data["tipo_documento"],
+                                    documento = data["documento"],
+                                    evento = data["evento"],
+                                    nombre_paciente = nombre_paciente,
+                                    tipo_solicitud = data["tipo_solicitud_selec"],
+                                    comentarios = data["correo_cuerpo"],
+                                    solicitante = data.get("solicitante"))
+                
+                email_processor.enqueue_email( # Encolar correos
+                                            recipient = recipients,
+                                            subject = f"SOLICITUD DE {data['tipo_solicitud_selec']} | PACIENTE {nombre_paciente} | EVENTO {data['evento']}",
+                                            body = body,
+                                            solicitud_id = id_generado,  # Relación con la tabla SOLICITUDES
+                                            cc = cc
+                                            )
+    except Exception as e:
+        print(f"Error al insertar en la base transaccional: {e}")
+        return jsonify({"success": False, "error": "Error al guardar la solicitud"}), 500
+
+    # Éxito
+    return jsonify({"success": True}), 200
+    #return redirect(url_for("index"))
+
+@app.route("/delete", methods=["POST"])
+def delete():
+    data = request.form
+    update_query = """
+        UPDATE SOLICITUDES S
+        SET S.FECHA_ELIMINACION = SYSDATE
+        WHERE S.ID = :id
+    """
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(update_query, {"id": data["id"]})
+            conn.commit()  # Explicit commit to save changes
+    return redirect(url_for("index"))
+
+# Ruta para completar solicitud
+@app.route("/update", methods=["POST"])
+def update():
+    data = request.form
+    solicitud_id = data.get("id")
+    if not solicitud_id:
+        return jsonify({"error": "ID de la solicitud no proporcionado"}), 400
+
+    update_query = """
+        UPDATE SOLICITUDES
+        SET FECHA_FINALIZACION = TO_DATE(:fecha_finalizacion, 'YYYY-MM-DD'),
+            RESULTADO_SOLICITUD = :resultado_solicitud,
+            COMENTARIOS = :comentarios,
+            ESTADO_SOLICITUD = 'Finalizada',
+            FECHA_REGISTRO_FINALIZACION = SYSDATE,
+            DESTINO_FINAL = :destino_final
+        WHERE ID = :id
+    """
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(update_query, {
+                "fecha_finalizacion": data["fecha_finalizacion"],
+                "resultado_solicitud": data["resultado_solicitud"],
+                "comentarios":data["comentarios"],
+                "destino_final": data["destino_final"],
+                "id": solicitud_id
+            })
+            conn.commit()  # Explicit commit to save changes
+    return redirect(url_for("index"))
+
+# Nueva ruta para seguimiento
+@app.route("/seguimiento", methods=["POST"])
+def seguimiento():
+    data = request.form
+    solicitud_id = data.get("id")
+    if not solicitud_id:
+        return jsonify({"error": "ID de la solicitud no proporcionado"}), 400
+
+    update_query = """
+        UPDATE SOLICITUDES
+        SET FECHA_SEGUIMIENTO = TO_TIMESTAMP(:fecha_seguimiento, 'YYYY-MM-DD HH24:MI'),
+            FECHA_REGISTRO_SEGUIMIENTO = SYSDATE,
+            NIVEL_GESTION = :nivel_gestion,
+            PUEDE_EGRESAR = :puede_egresar,
+            MOTIVO_PUEDE_EGRESAR = :motivo_puede_egresar,
+            ESTADO_SOLICITUD = 'Seguimiento'
+        WHERE ID = :id
+    """
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(update_query, {
+                "fecha_seguimiento": data["fecha_seguimiento"].replace('T', ' '),
+                "nivel_gestion": data["nivel_gestion"],
+                "puede_egresar": data["puede_egresar"],
+                "motivo_puede_egresar": data["motivo_puede_egresar"],
+                "id": solicitud_id
+            })
+            conn.commit()
+    return redirect(url_for("index"))
+
+if __name__ == "__main__":
+    app.run(debug=True)
+    
+# En la creacion de la solicitud, mostrar el cuerpo del correo sugerido segun lo selecionado y que este se use en el correo real
+
+
+// File: C:\Proyectos_software\Work\Amaris\fsfb\seguimiento_app\seguimiento_app\config.py
+/===============================================================================
+
+
+class Config:
+    DB_USER = "OUTCOMES"
+    DB_PASSWORD = "n2p9m0m4m1t"
+    DB_DSN = "hisisis-scan.fundacion.loc:1537/DWHFSFB"  # Cambiar según tu configuración
+    MAIL_SERVER = "smtp.gmail.com"
+    MAIL_PORT = 587
+    MAIL_USE_TLS = True
+    EMAIL_SENDER = "subdir.metricas@fsfb.org.co"
+    EMAIL_PASSWORD = "SantaFe2023*"
+    SNOWFLAKE_CONN = {
+        "account": "HQNBOYI-FSFB",
+        "user": "DESARROLLO_SUB_METR",
+        "password": "D3S4RR0LL0FSFB_M3TR*",
+        "role": "FSFB_SUB_METR_ROL",
+        "database": "MDF_FSFB_DATA_PRO",
+        "warehouse":"FSFB_SUB_METR_DES",
+        "schema": "DATA_SUB_METR"
+    }
+    TIPO_ID=['CC','PA','CE','TI','RC','NI','MS','AS','NU','CD','SC','PE','CN','DE','PT']
+    TIPO_SOL={
+        'Codificar o Recodificar':{
+                                    'nombre':'Codificar o Recodificar',
+                                    'areas_responsables':['Metricas', 'Flujo Hospitalario','Gestion Asistencial'],
+                                    'tiempo_reenvio':24,
+                                    'responsables':['angelica.quinteroc', 'lina.ortiz', 'Claudia.Quintero', 'juliana.alvarez', 'rocio.vargas', 'luz.iriarte', 'nancy.hernandez', 'andrea.romero', 'tatiana.alba', 'rosa.guzman'],
+                                    'mensaje':"""Buen día,
+
+Este correo es para solicitar la revisión y ajuste de los codigos diagnosticos del paciente {nombre_paciente}-{documento} en el evento {evento}.
+
+Comentarios Adicionales:
+{comentarios}
+
+Solicitante:
+{solicitante}
+"""
+                                    },
+        'Gestion Lider Clínico':{
+                                    'nombre':'Gestion Lider Clínico',
+                                    'areas_responsables':['Lider Clínico'],
+                                    'tiempo_reenvio':24,
+                                    'responsables':['sabrina.carvajalino', 'angela.aguirre', 'centrodediabetes','mauricio.cifuentes','vivian.ponce'],
+                                    'mensaje':"""Buen día,
+Envió notificación del paciente {nombre_paciente}-{documento} que en el evento {evento} es un outlier, para gestión conjunta. Esto con el fin de realizar intervenciones conjuntas de egreso temprano.
+
+Comentarios Adicionales:
+{comentarios}
+
+Solicitante:
+{solicitante}
+"""
+                                    },
+        'Intervención de educación y entrenamiento':{
+                                    'nombre':'Intervención de educación y entrenamiento',
+                                    'areas_responsables':['Educación al paciente y su familia'],
+                                    'tiempo_reenvio':24,
+                                    'responsables':['yazmin.torres'],
+                                    'mensaje':"""Buen día,
+
+Envió notificación del paciente {nombre_paciente}-{documento} para intervención por el area de educación por comorbilidades y situación actual de paciente y favorecer las rutas de egreso temprano.
+
+Comentarios Adicionales:
+{comentarios}
+
+Solicitante:
+{solicitante}
+"""
+                                    },
+        'Oxigeno domiciliario':{
+                                    'nombre':'Oxigeno domiciliario',
+                                    'areas_responsables':['Flujo Hospitalario'],
+                                    'copia_predefinida':['dalyla.lealv'], 
+                                    'tiempo_reenvio':24,
+                                    'responsables':['dalyla.lealv','servicios.programa'],
+                                    'mensaje':"""Buen día,
+
+Envió notificación del paciente {nombre_paciente}-{documento} en el evento {evento} para gestión conjunta; con el fin de realizar seguimiento y monitoreo del paciente.
+
+Se solicita {tipo_solicitud}
+
+Comentarios Adicionales:
+{comentarios}
+
+Solicitante:
+{solicitante}
+"""
+                                    },
+        'PHD':{
+                                    'nombre':'PHD',
+                                    'areas_responsables':['Flujo Hospitalario'],
+                                    'copia_predefinida':['dalyla.lealv'], 
+                                    'tiempo_reenvio':24,
+                                    'responsables':['dalyla.lealv','alta.hospitalariasantafe'],
+                                    'mensaje':"""Buen día,
+
+Envió notificación del paciente {nombre_paciente}-{documento} en el evento {evento} para gestión conjunta; con el fin de realizar seguimiento y monitoreo del paciente.
+
+Se solicita {tipo_solicitud}
+
+Comentarios Adicionales:
+{comentarios}
+
+Solicitante:
+{solicitante}
+"""
+                                    },
+        'Medicamentos condicionantes de egreso':{
+                                    'nombre':'Medicamentos condicionantes de egreso',
+                                    'areas_responsables':['Flujo Hospitalario'],
+                                    'copia_predefinida':['dalyla.lealv'], 
+                                    'tiempo_reenvio':24,
+                                    'responsables':['dalyla.lealv','alta.hospitalariasantafe'],
+                                    'mensaje':"""Buen día,
+
+Envió notificación del paciente {nombre_paciente}-{documento} en el evento {evento} para gestión conjunta; con el fin de realizar seguimiento y monitoreo del paciente.
+
+Se solicita {tipo_solicitud}
+
+Comentarios Adicionales:
+{comentarios}
+
+Solicitante:
+{solicitante}
+"""
+                                    },
+        'Enfermera domicilio':{
+                                    'nombre':'Enfermera domicilio',
+                                    'areas_responsables':['Flujo Hospitalario'],
+                                    'copia_predefinida':['dalyla.lealv'], 
+                                    'tiempo_reenvio':24,
+                                    'responsables':['dalyla.lealv','servicios.programa'],
+                                    'mensaje':"""Buen día,
+
+Envió notificación del paciente {nombre_paciente}-{documento} en el evento {evento} para gestión conjunta; con el fin de realizar seguimiento y monitoreo del paciente.
+
+Se solicita {tipo_solicitud}
+
+Comentarios Adicionales:
+{comentarios}
+
+Solicitante:
+{solicitante}
+"""
+                                    },
+        'Contigo en Casa':{
+                                    'nombre':'Contigo en Casa',
+                                    'areas_responsables':['Innovación'],
+                                    'tiempo_reenvio':24,
+                                    'responsables':['diana.vargas'],
+                                    'mensaje':"""Buen día,
+
+Envió notificación del paciente {nombre_paciente}-{documento} en el evento {evento} para gestión conjunta; con el fin de realizar seguimiento y monitoreo del paciente.
+
+Paciente potencial a enrutamiento a Contigo en casa.
+
+Comentarios Adicionales:
+{comentarios}
+
+Solicitante:
+{solicitante}
+"""
+                                    },
+        'Revision Justificacion Estancia':{
+                                    'nombre':'Revision Justificacion Estancia',
+                                    'areas_responsables':['Gestion Asistencial'],
+                                    'copia_predefinida':['maria.matiz'], 
+                                    'tiempo_reenvio':24,
+                                    'responsables':['AUDITORIAINTERNAFSFB', 'maria.matiz'],
+                                    'mensaje':"""Buen día,
+
+Envió notificación del paciente {nombre_paciente}-{documento} en el evento {evento} para gestión conjunta; con el fin de realizar una revision de la justificaion de la estancia del paciente.
+
+Comentarios Adicionales:
+{comentarios}
+
+Solicitante:
+{solicitante}
+"""
+                                    },
+        'Rechazo del paciente de rutas de egreso temprano':{
+                                    'nombre':'Rechazo del paciente de rutas de egreso temprano',
+                                    'areas_responsables':['Trabajo Social'],
+                                    'copia_predefinida':['jhon.rodriguez'], 
+                                    'tiempo_reenvio':24,
+                                    'responsables':['jhon.rodriguez', 'yazmin.torres'],
+                                    'mensaje':"""Buen día,
+
+Envió notificación del paciente {nombre_paciente}-{documento} en el evento {evento} para gestión conjunta; paciente y familiar quienes rechazan rutas de egreso temprano como PHD, oxigeno domiiliario, Contigo en casa.
+
+Comentarios Adicionales:
+{comentarios}
+
+Solicitante:
+{solicitante}
+"""
+                                    },
+    }
+
+
+// File: C:\Proyectos_software\Work\Amaris\fsfb\seguimiento_app\seguimiento_app\database_setup.py
+/===============================================================================
+
+import oracledb
+
+# Configura tus credenciales de Oracle
+DB_USER = "OUTCOMES"
+DB_PASSWORD = "n2p9m0m4m1t"
+DB_DSN = "hisisis-scan.fundacion.loc:1537/DWHFSFB"
+
+# Script de creación de tabla
+table_creation_script = """
+CREATE TABLE solicitudes (
+    id NUMBER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    tipo_documento VARCHAR2(50),
+    documento VARCHAR2(50),
+    evento NUMBER(9,0),
+    nombre_paciente VARCHAR2(100),
+    tipo_solicitud VARCHAR2(100),
+    solicitante VARCHAR2(100),
+    fecha_solicitud TIMESTAMP,
+    fecha_registro_solicitud TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    estado_solicitud VARCHAR2(50),
+    area_responsable VARCHAR2(100),
+    responsable VARCHAR2(100),
+    fecha_finalizacion TIMESTAMP,
+    fecha_registro_finalizacion TIMESTAMP,
+    resultado_solicitud VARCHAR2(200),
+    comentarios VARCHAR(255),
+    fecha_eliminacion TIMESTAMP
+)
+"""
+
+# Crear conexión y ejecutar script
+try:
+    conn = oracledb.connect(user=DB_USER, password=DB_PASSWORD, dsn=DB_DSN)
+    cursor = conn.cursor()
+    cursor.execute(table_creation_script)
+    conn.commit()
+    print("Tabla creada correctamente en Oracle.")
+except Exception as e:
+    print("Error:", e)
+finally:
+    cursor.close()
+    conn.close()
+
+
+
+// File: C:\Proyectos_software\Work\Amaris\fsfb\seguimiento_app\seguimiento_app\email_processor.py
+/===============================================================================
+
+import threading
+import queue
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from config import Config
+import oracledb
+from datetime import datetime
+
+oracle_pool = oracledb.create_pool(
+    user=Config.DB_USER,
+    password=Config.DB_PASSWORD,
+    dsn=Config.DB_DSN,
+    min=5,              # Minimum number of connections in the pool
+    max=20,             # Maximum number of connections in the pool
+    increment=1,        # Number of connections to add when more are needed
+    timeout=500,        # Time in seconds before a connection is considered idle
+    session_callback=None,  # Optional callback for initializing sessions
+)
+# Obtener una conexión desde el pool
+def get_db_connection():
+    return oracle_pool.acquire()
+
+
+
+class EmailQueueProcessor:
+    def __init__(self, sender, password):
+        self.sender = sender
+        self.password = password
+        self.email_queue = queue.Queue()
+        self.thread = None  # El thread no se inicializa hasta que sea necesario
+
+    def _send_email(self, recipient, subject, body, solicitud_id, cc=None):
+        """
+        Método interno para enviar un correo usando SMTP.
+        """
+        
+        try:
+            smtp_server = "smtp.office365.com"
+            smtp_port = 587
+
+            # Conectar y configurar el servidor SMTP
+            with smtplib.SMTP(smtp_server, smtp_port) as server:
+                server.starttls()
+                server.login(self.sender, self.password)
+
+                # Crear el mensaje de correo
+                message = MIMEMultipart()
+                message["From"] = self.sender
+                message["To"] = ", ".join(recipient)
+                if cc:
+                    message["Cc"] = ", ".join(cc)
+                message["Subject"] = subject
+                message.attach(MIMEText(body, "plain"))
+
+                # Combinar destinatarios To y Cc para el envío
+                all_recipients = recipient.copy()
+                if cc:
+                    all_recipients += cc
+
+                # Enviar el correo
+                server.sendmail(self.sender, all_recipients, message.as_string())
+
+            print(f"Correo enviado a {recipient}")
+            self._log_email_sent(solicitud_id, subject, body, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 'Enviado')
+            return True
+        except Exception as e:
+            print(f"Error al enviar correo a {recipient}: {e}")
+            self._log_email_sent(solicitud_id, subject, body, None, 'Error al Enviar')
+            return False
+
+    def _log_email_sent(self, solicitud_id, asunto, cuerpo, fecha_envio, estado):
+        """
+        Registra el envío del correo en la base de datos.
+        """
+        log_query = """
+            INSERT INTO SOLICITUDES_CORREOS (
+                SOLICITUD_ID, ASUNTO, CUERPO, FECHA_ENVIO, ESTADO
+            ) VALUES (:solicitud_id, :asunto, :cuerpo, TO_TIMESTAMP(:fecha_envio, 'YYYY-MM-DD HH24:MI:SS'), :estado)
+        """   
+        
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(log_query, {"solicitud_id": solicitud_id,
+                                           "asunto":asunto,
+                                           "cuerpo":cuerpo,
+                                           "fecha_envio":fecha_envio,
+                                           "estado":estado})
+                conn.commit()
+        
+        if estado=='Enviado':
+            update_query = """
+            UPDATE SOLICITUDES S
+            SET S.ESTADO_SOLICITUD = 'En Proceso'
+            WHERE S.ID = :id
+            """
+            with get_db_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(update_query, {"id":solicitud_id})
+                    conn.commit()  # Explicit commit to save changes
+                
+    def _process_queue(self):
+        """
+        Método que procesa la cola de correos.
+        Este método termina automáticamente cuando la cola está vacía.
+        """
+        print("Procesador de correos iniciado.")
+        while not self.email_queue.empty():
+            try:
+                # Intentar obtener un correo de la cola
+                email_data = self.email_queue.get_nowait()
+                recipient = email_data["recipient"]
+                cc = email_data["cc"]
+                subject = email_data["subject"]
+                body = email_data["body"]
+                solicitud_id = email_data["solicitud_id"]
+                
+                # Enviar el correo
+                success = self._send_email(recipient, subject, body, solicitud_id, cc=cc)
+                if success:
+                    print(f"Correo enviado: {subject} -> {recipient}")
+                else:
+                    print(f"Error al enviar correo: {subject} -> {recipient}")
+
+                # Marcar el correo como procesado
+                self.email_queue.task_done()
+            except queue.Empty:
+                # Si la cola está vacía, finalizar el procesamiento
+                break
+        print("No hay más correos en la cola. Procesador de correos detenido.")
+
+    def enqueue_email(self, recipient, subject, body, solicitud_id, cc):
+        """
+        Añade un correo a la cola y arranca el procesador si no está corriendo.
+        """
+        self.email_queue.put({
+            "recipient": recipient,
+            'cc':cc,
+            "subject": subject,
+            "body": body,
+            "solicitud_id": solicitud_id
+        })
+        print(f"Correo encolado: {subject} -> {recipient}")
+        self.start_processor()
+
+    def start_processor(self):
+        """
+        Inicia el hilo del procesador de correos si no está ya activo.
+        """
+        if not self.thread or not self.thread.is_alive():
+            self.thread = threading.Thread(target=self._process_queue)
+            self.thread.daemon = True  # Asegura que el hilo termine con la app
+            self.thread.start()
+
+#email_processor.enqueue_email(recipient, subject, body)
+
+
+// File: C:\Proyectos_software\Work\Amaris\fsfb\seguimiento_app\seguimiento_app\pruebas.ipynb
+/===============================================================================
+
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 38,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from snowflake.snowpark import Session\n",
+    "from snowflake.connector.errors import ProgrammingError\n",
+    "from config import Config"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 53,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "class SnowflakePool:\n",
+    "    \n",
+    "    def __init__(self,snow_conn_params):\n",
+    "        self.current_session = None\n",
+    "        self.connection_parameters = snow_conn_params\n",
+    "        self.get_session()\n",
+    "        \n",
+    "    def get_session(self):\n",
+    "        # Check if the session exists and is valid\n",
+    "        if self.current_session is not None:\n",
+    "            try:\n",
+    "                if self.current_session.get_active_session() is None:\n",
+    "                    self.current_session = (\n",
+    "                        Session.builder\n",
+    "                        .configs(self.connection_parameters)\n",
+    "                        .getOrCreate()\n",
+    "                        )\n",
+    "                # Test the session by running a lightweight query\n",
+    "            except (ProgrammingError, AttributeError):\n",
+    "                print(\"Snowflake session invalid, reinitializing...\")\n",
+    "                self.current_session = None  # Invalidate the session\n",
+    "        else:\n",
+    "            self.current_session = (\n",
+    "                    Session.builder\n",
+    "                    .configs(self.connection_parameters)\n",
+    "                    .getOrCreate()\n",
+    "                )\n",
+    "\n",
+    "    def close_session(self):\n",
+    "        if self.current_session:\n",
+    "            self.current_session.close()\n",
+    "            self.current_session = None\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 55,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "snowflake_pool = SnowflakePool(Config.SNOWFLAKE_CONN)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 56,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "snowflake_pool.get_session()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 54,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "snowflake_pool.close_session()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 66,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "623161123494058"
+      ]
+     },
+     "execution_count": 66,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "snowflake_pool.current_session.session_id"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 67,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<snowflake.snowpark.session.Session at 0x2b8873c7b90>"
+      ]
+     },
+     "execution_count": 67,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "snowflake_pool.current_session.get_active_session()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 69,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "[Row(1=1)]"
+      ]
+     },
+     "execution_count": 69,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "snowflake_pool.current_session.sql(\"select 1\").collect()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import smtplib\n",
+    "from email.mime.text import MIMEText\n",
+    "\n",
+    "def send_email(sender, recipient, subject, body):\n",
+    "    try:\n",
+    "        # Set up the SMTP server\n",
+    "        smtp = smtplib.SMTP(\"smtp.office365.com\", 587)\n",
+    "        smtp.starttls()\n",
+    "        smtp.login(sender, \"your_password\")\n",
+    "\n",
+    "        # Create the email\n",
+    "        msg = MIMEText(body)\n",
+    "        msg[\"Subject\"] = subject\n",
+    "        msg[\"From\"] = sender\n",
+    "        msg[\"To\"] = recipient\n",
+    "\n",
+    "        # Send the email\n",
+    "        smtp.sendmail(sender, recipient, msg.as_string())\n",
+    "        smtp.quit()\n",
+    "        print(f\"Email sent to {recipient}\")\n",
+    "        return True\n",
+    "    except Exception as e:\n",
+    "        print(f\"Failed to send email to {recipient}: {e}\")\n",
+    "        return False\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import threading\n",
+    "import time\n",
+    "\n",
+    "class EmailScheduler:\n",
+    "    def __init__(self):\n",
+    "        self.frequency = 5 * 60 * 60  # Default frequency: 5 hours in seconds\n",
+    "        self.stop_event = threading.Event()\n",
+    "        self.thread = None  # No thread is created initially\n",
+    "\n",
+    "    def start(self):\n",
+    "        \"\"\"\n",
+    "        Start the email scheduler thread if it's not already running.\n",
+    "        \"\"\"\n",
+    "        if self.thread and self.thread.is_alive():\n",
+    "            print(\"Email scheduler is already running.\")\n",
+    "            return\n",
+    "\n",
+    "        # If a thread exists but isn't running, clean it up\n",
+    "        if self.thread:\n",
+    "            self.thread.join()\n",
+    "\n",
+    "        # Create and start a new thread\n",
+    "        self.stop_event.clear()\n",
+    "        self.thread = threading.Thread(target=self._run)\n",
+    "        self.thread.daemon = True  # Ensure the thread stops when the app exits\n",
+    "        self.thread.start()\n",
+    "\n",
+    "    def stop(self):\n",
+    "        \"\"\"\n",
+    "        Gracefully stop the email scheduler thread.\n",
+    "        \"\"\"\n",
+    "        if not self.thread:\n",
+    "            print(\"No thread to stop.\")\n",
+    "            return\n",
+    "\n",
+    "        # Signal the thread to stop and wait for it to finish\n",
+    "        self.stop_event.set()\n",
+    "        self.thread.join()\n",
+    "        print(\"Email scheduler stopped.\")\n",
+    "\n",
+    "    def trigger_now(self):\n",
+    "        \"\"\"\n",
+    "        Immediately process emails by interrupting the current sleep.\n",
+    "        \"\"\"\n",
+    "        print(\"Triggering email scheduler now.\")\n",
+    "        self.frequency = 0  # Override the current sleep frequency\n",
+    "        self.stop_event.set()  # Interrupt the current wait (time.sleep)\n",
+    "        self.start()  # Ensure the thread is running\n",
+    "\n",
+    "    def _run(self):\n",
+    "        \"\"\"\n",
+    "        Main loop for the email scheduler.\n",
+    "        \"\"\"\n",
+    "        while not self.stop_event.is_set():\n",
+    "            print(\"Checking for pending emails...\")\n",
+    "\n",
+    "            # Check for pending emails\n",
+    "            with get_db_connection() as conn:\n",
+    "                with conn.cursor() as cursor:\n",
+    "                    cursor.execute(\"\"\"\n",
+    "                        SELECT ID, TO_EMAIL, SUBJECT, BODY FROM EMAIL_QUEUE\n",
+    "                        WHERE STATUS = 'Pending'\n",
+    "                    \"\"\")\n",
+    "                    pending_emails = cursor.fetchall()\n",
+    "\n",
+    "            if pending_emails:\n",
+    "                # Send all pending emails\n",
+    "                for email in pending_emails:\n",
+    "                    email_id, to_email, subject, body = email\n",
+    "                    if send_email(\"your_email@domain.com\", to_email, subject, body):\n",
+    "                        with get_db_connection() as conn:\n",
+    "                            with conn.cursor() as cursor:\n",
+    "                                cursor.execute(\"\"\"\n",
+    "                                    UPDATE EMAIL_QUEUE\n",
+    "                                    SET STATUS = 'Sent'\n",
+    "                                    WHERE ID = :id\n",
+    "                                \"\"\", {\"id\": email_id})\n",
+    "                            conn.commit()\n",
+    "\n",
+    "                # Adjust frequency to 5 minutes\n",
+    "                self.frequency = 5 * 60\n",
+    "            else:\n",
+    "                # No pending emails, revert to 5 hours\n",
+    "                self.frequency = 5 * 60 * 60\n",
+    "\n",
+    "            # Sleep until the next run or interrupted\n",
+    "            try:\n",
+    "                time.sleep(self.frequency)\n",
+    "            except Exception:\n",
+    "                pass  # Ignore interruptions\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "CREATE TABLE CORREOS (\n",
+    "    CORREO_ID NUMBER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,\n",
+    "    SOLICITUD_ID NUMBER NOT NULL,\n",
+    "    ASUNTO VARCHAR2(255),\n",
+    "    CUERPO VARCHAR2(4000),\n",
+    "    FECHA_ENVIO TIMESTAMP,\n",
+    "    ESTADO VARCHAR2(20),\n",
+    "    FECHA_CREACION TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n",
+    ");"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Email\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import smtplib\n",
+    "from email.mime.text import MIMEText\n",
+    "from email.mime.multipart import MIMEMultipart\n",
+    "\n",
+    "def send_email(sender, password, recipient, subject, body):\n",
+    "    try:\n",
+    "        # Set up the server connection\n",
+    "        smtp_server = \"smtp.office365.com\"\n",
+    "        smtp_port = 587\n",
+    "\n",
+    "        # Connect to the server and start TLS\n",
+    "        server = smtplib.SMTP(smtp_server, smtp_port)\n",
+    "        server.starttls()  # Start TLS for security\n",
+    "        server.login(sender, password)\n",
+    "\n",
+    "        # Create the email\n",
+    "        message = MIMEMultipart()\n",
+    "        message[\"From\"] = sender\n",
+    "        message[\"To\"] = recipient\n",
+    "        message[\"Subject\"] = subject\n",
+    "        message.attach(MIMEText(body, \"plain\"))\n",
+    "\n",
+    "        # Send the email\n",
+    "        server.sendmail(sender, recipient, message.as_string())\n",
+    "        print(f\"Email successfully sent to {recipient}\")\n",
+    "\n",
+    "        # Quit the server\n",
+    "        server.quit()\n",
+    "        return True\n",
+    "    except Exception as e:\n",
+    "        print(f\"Failed to send email: {e}\")\n",
+    "        return False\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Email successfully sent to andres.romero@fsfb.org.co\n",
+      "Email sent successfully.\n"
+     ]
+    }
+   ],
+   "source": [
+    "sender = \"subdir.metricas@fsfb.org.co\"\n",
+    "password = \"SantaFe2023*\"\n",
+    "recipient = \"andres.romero@fsfb.org.co\"\n",
+    "subject = \"Test Email from Python\"\n",
+    "body = \"This is a test email sent from a Python script using Outlook.\"\n",
+    "\n",
+    "success = send_email(sender, password, recipient, subject, body)\n",
+    "if success:\n",
+    "    print(\"Email sent successfully.\")\n",
+    "else:\n",
+    "    print(\"Email sending failed.\")\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from datetime import datetime"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from datetime import datetime\n",
+    "\n",
+    "current_date = datetime.now().strftime('%Y-%m-%d')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "'2024-12-27 09:09:01'"
+      ]
+     },
+     "execution_count": 5,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "datetime.now().strftime('%Y-%m-%d %H:%M:%S')"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.11.9"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}
+
+
