@@ -1,0 +1,4435 @@
+// Last update transaction car: 2025-07-10 08:38:37.368677
+// Total files: 49
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\.azuredevops\azure-pipeline.yml
+/===============================================================================
+
+trigger:
+  branches:
+    include:
+      - master
+  paths:
+    include:
+      - '**/*'  # Monitor all files in this repository
+
+stages:
+  - stage: DEV
+    variables:
+      project: dya-reports
+      environment: dev
+      service_name: creditos
+      working_directory: '$(System.DefaultWorkingDirectory)'
+      docker_repository: '${{ variables.project }}/${{ variables.service_name }}'
+      build_context: $(System.DefaultWorkingDirectory)
+      aws_region: us-east-1
+    jobs:
+    - job: deploy_app
+      displayName: Deploy application
+      pool: 'BTG Colombia - Azure DevOps'
+      steps:
+      - task: Docker@2
+        displayName: Build Docker image
+        inputs:
+          command: build
+          dockerfile: '${{ variables.working_directory }}/Dockerfile'
+          buildContext: '${{ variables.build_context }}'
+          repository: '${{ variables.docker_repository }}'
+
+      - task: ECRPushImage@1
+        displayName: Push Docker image
+        inputs:
+          awsCredentials: 'TERRAFORMDEVOPS-ANALYTICS-DEV-AWS'
+          regionName: '${{ variables.aws_region }}'
+          imageSource: 'imagename'
+          sourceImageName: '${{ variables.docker_repository }}'
+          sourceImageTag: $(Build.BuildId)
+          pushTag: $(Build.BuildNumber)
+          repositoryName: '${{ variables.docker_repository }}'
+
+  - stage: UAT
+    variables:
+      project: dya-reports
+      environment: uat
+      service_name: creditos
+      working_directory: '$(System.DefaultWorkingDirectory)'
+      docker_repository: '${{ variables.project }}/${{ variables.service_name }}'
+      build_context: $(System.DefaultWorkingDirectory)
+      aws_region: us-east-1
+    jobs:
+    - job: deploy_app
+      displayName: Deploy application
+      pool: 'BTG Colombia - Azure DevOps'
+      steps:
+      - task: Docker@2
+        displayName: Build Docker image
+        inputs:
+          command: build
+          dockerfile: '${{ variables.working_directory }}/Dockerfile'
+          buildContext: '${{ variables.build_context }}'
+          repository: '${{ variables.docker_repository }}'
+
+      - task: ECRPushImage@1
+        displayName: Push Docker image
+        inputs:
+          awsCredentials: 'TERRAFORMDEVOPS-ANALYTICS-UAT-AWS'
+          regionName: '${{ variables.aws_region }}'
+          imageSource: 'imagename'
+          sourceImageName: '${{ variables.docker_repository }}'
+          sourceImageTag: $(Build.BuildId)
+          pushTag: $(Build.BuildNumber)
+          repositoryName: '${{ variables.docker_repository }}'
+  
+  - stage: PDN
+    variables:
+      project: dya-reports
+      environment: pdn
+      service_name: creditos
+      working_directory: '$(System.DefaultWorkingDirectory)'
+      docker_repository: '${{ variables.project }}/${{ variables.service_name }}'
+      build_context: $(System.DefaultWorkingDirectory)
+      aws_region: us-east-1
+    jobs:
+    - job: deploy_app
+      displayName: Deploy application
+      pool: 'BTG Colombia - Azure DevOps'
+      steps:
+      - task: Docker@2
+        displayName: Build Docker image
+        inputs:
+          command: build
+          dockerfile: '${{ variables.working_directory }}/Dockerfile'
+          buildContext: '${{ variables.build_context }}'
+          repository: '${{ variables.docker_repository }}'
+
+      - task: ECRPushImage@1
+        displayName: Push Docker image
+        inputs:
+          awsCredentials: 'TERRAFORMDEVOPS-ANALYTICS-PDN-AWS'
+          regionName: '${{ variables.aws_region }}'
+          imageSource: 'imagename'
+          sourceImageName: '${{ variables.docker_repository }}'
+          sourceImageTag: $(Build.BuildId)
+          pushTag: $(Build.BuildNumber)
+          repositoryName: '${{ variables.docker_repository }}'
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\common\config\constants.py
+/===============================================================================
+
+"""
+This module defines constants used for database configurations.
+Classes:
+    DataBaseConstants (Enum): An enumeration that contains constants for database configurations.
+Attributes:
+    SQLALCHEMY_REDSHIFT_DRIVER (str): The driver string used for connecting to Redshift using SQLAlchemy.
+"""
+from enum import Enum
+
+class DataBaseConstants(Enum):
+    """
+    An enumeration that contains constants for database configurations.
+    Attributes:
+        SQLALCHEMY_REDSHIFT_DRIVER (str): The driver string used for connecting to Redshift using SQLAlchemy.
+    """
+    SQLALCHEMY_REDSHIFT_DRIVER='redshift+redshift_connector'
+
+class CloudConstants(Enum):
+    """
+    An enumeration that contains constants for cloud configurations.
+    Attributes:
+        SECRET_ERROR_MESSAGE (str): The error message displayed when the secret string is not found.
+    """
+    SECRET_ERROR_MESSAGE = "No SecretString"
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\common\config\env.py
+/===============================================================================
+
+"""
+This module defines the SessionEnv enumeration for managing environment-based session credentials.
+Classes:
+    SessionEnv (Enum): An enumeration that contains session credentials retrieved from environment variables.
+"""
+import os
+from enum import Enum
+
+class SessionEnv(Enum):
+    """
+    An enumeration that contains session credentials retrieved from environment variables.
+    Attributes:
+        DWH_USER (str): The username for the session, retrieved from the 'DWH_USER' environment variable.
+    """
+    DWH_SECRET=os.environ.get('DWH_SECRET_ARN', '')
+    
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\common\config\logger.py
+/===============================================================================
+
+"""
+This module configures the logging settings for the application.
+
+It sets up a logger instance with the INFO logging level.
+
+Attributes:
+    logger (logging.Logger): The logger instance used for logging messages.
+"""
+import logging
+logging.basicConfig(
+    level=logging.INFO
+)
+logger = logging.getLogger()
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\common\containers\database\session.py
+/===============================================================================
+
+"""
+This module defines the SessionDependencyContainer class for managing database sessions and credentials.
+
+Classes
+-------
+
+SessionDependencyContainer
+    A container class that manages the dependencies for database sessions, including credentials management.
+    It initializes the credentials manager and session, and provides a method to retrieve the session.
+"""
+
+#Interfaces
+from common.interfaces.resources.database.session import ISession
+from common.interfaces.resources.cloud.credentials import ICredentials
+
+#Resources
+from common.resources.database.session import Session
+from common.resources.cloud.credentials import Credentials
+
+
+class SessionDependencyContainer(object):
+    """
+    SessionDependencyContainer is responsible for managing session dependencies.
+    This class initializes and provides access to a session object, which is created using credentials managed by the credentials manager.
+    
+    Attributes
+    ----------
+    
+    credentials_manager : ICredentials
+        An instance of the credentials manager used to handle credentials.
+    session : ISession
+        An instance of the session created using the credentials manager.
+    
+    Methods
+    -------
+    
+    __init__()
+        Initializes the SessionDependencyContainer with a credentials manager and a session.
+    get_session() -> ISession
+        Returns the session instance.
+    """
+
+    credentials_manager: ICredentials
+    session: ISession
+
+    def __init__(self):
+        """
+        Initialize the session with credentials.
+        """
+        self.credentials_manager = Credentials()
+        self.session=Session(self.credentials_manager)
+
+    def get_session(self):
+        """
+        Return the session instance.
+        """
+        return self.session
+    
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\common\decorators\decorators.py
+/===============================================================================
+
+"""
+This module contains decorators for logging and exception handling.
+Decorators:
+    log_decorator(func):
+        Logs the start and successful completion of the decorated function's execution.
+    try_catch_decorator(func):
+        Catches and logs any exceptions raised during the execution of the decorated function.
+Functions:
+    get_parameters_as_message(args):
+        Constructs a message string from the provided keyword arguments.
+"""
+
+
+import functools
+# from venv import logger
+from common.config.logger import logger
+
+def log_decorator(func):
+    """
+    A decorator that logs the start and end of the execution of a function.
+    This decorator logs a message before the execution of the decorated function,
+    indicating the function's name and its parameters. After the function executes,
+    it logs another message indicating that the function has completed successfully.
+    Args:
+        func (Callable): The function to be decorated.
+    Returns:
+        Callable: The wrapped function with logging functionality.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        """
+        Wrapper function that logs the start and successful completion of the execution of the decorated function.
+        Args:
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+        Returns:
+            The result of the decorated function.
+        """
+        
+        logger.info(f"# Comienza la ejecución de la función logger{func.__name__}{get_parameters_as_message(kwargs)}")
+        print(f"# Comienza la ejecución de la función print {func.__name__}{get_parameters_as_message(kwargs)}")
+        result = func(*args, **kwargs)
+        logger.info(f"# Finaliza la ejecución de la función {func.__name__}")
+        print(f"# Finaliza la ejecución de la función print {func.__name__}")
+        return result
+    
+    return wrapper
+
+def get_parameters_as_message(args):
+    """
+    Constructs a message string based on the provided dictionary of arguments.
+    Args:
+        args (dict): A dictionary containing key-value pairs of parameters.
+    Returns:
+        str: A formatted string indicating the presence of parameters if the dictionary is not empty,
+             otherwise an empty string.
+    """
+    
+    if len(args.keys())>0:
+        return f" con parámetros {args}"
+    else:
+        return ""
+
+def try_catch_decorator(func):
+    """
+    A decorator that wraps the passed in function and logs exceptions should one occur.
+    """
+    @functools.wraps(func)
+    def exception_handler(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            # Intentar hacer rollback si hay una sesión
+            instance = args[0] if args else None
+            if instance and hasattr(instance, "session"):
+                session = getattr(instance, "session", None)
+                if session and hasattr(session, "session") and hasattr(session.session, "rollback"):
+                    try:
+                        session.session.rollback()
+                        logger.warning(f"[ROLLBACK] ejecutado para {func.__name__} tras excepción logger: {str(e)}")
+                        print(f"[ROLLBACK] ejecutado para {func.__name__} tras excepción print: {str(e)}")
+                    except Exception as rollback_error:
+                        logger.error(f"[ERROR] al intentar rollback en logger {func.__name__}: {rollback_error}")
+                        print(f"[ERROR] al intentar rollback en print {func.__name__}: {rollback_error}")
+
+            logger.error(f"[ERROR] en la función logger {func.__name__}: {str(e)}")
+            print(f"[ERROR] en la función print {func.__name__}: {str(e)}")
+            logger.error(f"[ERROR] Argumentos de la función logger: args={len(args) if args else 0}, kwargs={list(kwargs.keys()) if kwargs else []}")
+            print(f"[ERROR] Argumentos de la función print: args={len(args) if args else 0}, kwargs={list(kwargs.keys()) if kwargs else []}")
+            
+            # ✅ SOLUCIÓN: Re-lanzar la excepción en lugar de retornar None
+            raise e
+
+    return exception_handler
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\common\entities\models\base.py
+/===============================================================================
+
+"""
+This module defines the base model for the project using SQLAlchemy's declarative base.
+
+Classes:
+-------
+    Base: A base class for all ORM models in the project.
+    metadata: Contains the metadata for the base class.
+
+Usage:
+-------
+    Import this module to use the Base class for defining ORM models.
+
+Example:
+-------
+    class MyModel(Base):
+        __tablename__ = 'my_model'
+        id = Column(Integer, primary_key=True)
+        name = Column(String)
+"""
+from sqlalchemy.orm import declarative_base
+
+Base = declarative_base()
+metadata = Base.metadata
+
+class BaseModel(Base):
+    """
+    Base class for all ORM models in the project.
+    """
+    __abstract__ = True
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\common\interfaces\resources\cloud\credentials.py
+/===============================================================================
+
+"""
+This module defines the ICredentials abstract base class for credentials management.
+
+Classes
+-------
+
+ICredentials
+    Abstract base class for credentials management, providing an interface for retrieving secret values as a dictionary.
+"""
+from abc import ABC, abstractmethod
+
+class ICredentials(ABC):
+    """
+    Interface for credentials management.
+    This interface defines a method for retrieving secret values as a dictionary.
+    
+    Methods
+    -------
+    
+    get_as_dict(secret_id: str) -> str
+        Retrieve the secret value associated with the given secret ID.
+    """
+
+    @abstractmethod
+    def get_as_dict(self, secret_id: str) -> dict:
+        """
+        Retrieve the secret as a dictionary using the provided secret ID.
+
+        Parameters
+        ----------
+        secret_id : str
+            The ID of the secret to retrieve.
+
+        Returns
+        -------
+        dict
+            The secret data in dictionary format.
+        """
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\common\interfaces\resources\database\session.py
+/===============================================================================
+
+"""
+This module defines the ISession abstract base class for database session operations.
+
+Classes
+-------
+
+ISession
+    Abstract base class for database session operations, providing an interface for retrieving rows from a database table.
+
+"""
+from abc import ABC
+from abc import abstractmethod
+
+class ISession(ABC):
+    """
+    Abstract base class for database session operations.
+
+    Methods
+    -------
+
+    get_all(table, joins=None, where=None, order_by=None, pagination=None, options=None) -> list
+        Retrieve all rows from the specified table with optional filtering, ordering, pagination, and additional options.
+    Parameters
+    """
+
+    @abstractmethod
+    def get_all(
+        self, 
+        table: object, 
+        joins: list = None, 
+        where: list = None, 
+        order_by: list = None, 
+        pagination: dict = None, 
+        options: list = None,
+        distinct: bool = False
+    ) -> list:
+        """
+        Retrieve all rows from the specified table with optional filtering, ordering, pagination, and additional options.
+
+        Parameters
+        ----------
+
+        table : object
+            The table from which to retrieve rows.
+        joins : list, optional
+            List of join conditions to apply (default is None).
+        where : list, optional
+            List of conditions to filter the rows (default is None).
+        order_by : list, optional
+            List of columns to order the results by (default is None).
+        pagination : dict, optional
+            Dictionary containing pagination information such as 'limit' and 'offset' (default is None).
+        options : list, optional
+            Additional options for the query (default is None).
+        distinct : bool, optional
+            Whether to return distinct rows (default is False).
+
+        Returns
+        -------
+        
+        list
+            A list of rows retrieved from the table.
+    """
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\common\resources\cloud\credentials.py
+/===============================================================================
+
+"""
+This module defines the CredentialsResource class for handling AWS Secrets Manager credentials.
+
+Classes
+-------
+
+CredentialsResource
+    A resource class to handle AWS Secrets Manager credentials, providing methods to retrieve secrets from AWS Secrets Manager and return them as a dictionary.
+"""    
+import json
+import boto3
+import boto3.session
+import time
+from botocore.exceptions import ClientError, BotoCoreError
+from common.config.constants import CloudConstants
+from common.decorators.decorators import try_catch_decorator
+from common.interfaces.resources.cloud.credentials import ICredentials
+from common.config.env import SessionEnv
+from common.config.logger import logger
+
+class Credentials(ICredentials):
+    """
+    Manages credentials using AWS Secrets Manager.
+    This class provides methods to retrieve secret values from AWS Secrets Manager as dictionaries.
+    
+    Methods
+    -------
+    
+    get_as_dict(secret_id: str) -> dict
+        Retrieve the secret value associated with the given secret ID.
+    """
+    
+    def __init__(self):
+        """
+        Initializes the credentials class.
+        This constructor sets up a client for AWS Secrets Manager using boto3.
+        Attributes:
+            client (boto3.client): A low-level client representing AWS Secrets Manager.
+        """
+        
+        SessionEnv.validate_env_vars()
+        self.client = boto3.client(
+            'secretsmanager', 
+            region_name='us-east-1',
+            config=boto3.session.Config(
+                retries={'max_attempts': 3, 'mode': 'adaptive'},
+                read_timeout=60,
+                connect_timeout=60
+            )
+        )
+
+    def get_as_dict(self, secret_id: str, max_retries: int = 3, retry_delay: float = 1.0):
+        """
+        Retrieve the secret as a dictionary with retry logic.
+        """
+        if not secret_id or secret_id.strip() == "":
+            raise ValueError("Secret ID is empty or None")
+
+        last_exception = None
+        
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Attempting to retrieve secret (attempt logger {attempt + 1}/{max_retries})")
+                print(f"Attempting to retrieve secret (attempt print{attempt + 1}/{max_retries})")
+                
+                response = self.client.get_secret_value(SecretId=secret_id)
+                
+                if "SecretString" not in response:
+                    raise ValueError(CloudConstants.SECRET_ERROR_MESSAGE.value)
+                    
+                secret_string = response.get('SecretString')
+                if not secret_string:
+                    raise ValueError("SecretString is None or empty")
+                
+                logger.info("Secret retrieved successfully logger")
+                print("Secret retrieved successfully print")
+                return json.loads(secret_string)
+                
+            except (ClientError, BotoCoreError) as e:
+                last_exception = e
+                logger.warning(f"AWS error on attempt logger{attempt + 1}: {str(e)}")
+                print(f"AWS error on attempt print{attempt + 1}: {str(e)}")
+                
+                if attempt < max_retries - 1:
+                    sleep_time = retry_delay * (2 ** attempt)  # Exponential backoff
+                    logger.info(f"Retrying in {sleep_time} seconds... logger")
+                    print(f"Retrying in {sleep_time} seconds... print")
+                    time.sleep(sleep_time)
+                else:
+                    logger.error(f"Failed to retrieve secret after {max_retries} attempts logger")
+                    print(f"Failed to retrieve secret after {max_retries} attempts print")
+                    raise e
+                    
+            except json.JSONDecodeError as e:
+                logger.error(f"Invalid JSON in secret logger: {str(e)}")
+                print(f"Invalid JSON in secret print: {str(e)}")
+                raise ValueError(f"Invalid JSON in secret: {str(e)}")
+                
+            except Exception as e:
+                logger.error(f"Unexpected error retrieving secret logger: {str(e)}")
+                print(f"Unexpected error retrieving secret print: {str(e)}")
+                raise e
+        
+        # Si llegamos aquí, todos los reintentos fallaron
+        raise last_exception
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\common\resources\database\session.py
+/===============================================================================
+
+"""
+This module provides a singleton class `Session` to manage database connections using SQLAlchemy.
+It includes methods to create and manage a unique database session, and to retrieve records from the database.
+
+Classes:
+-------
+    Session: A singleton class to handle database connections and queries.
+
+Usage:
+-------
+    session = Session()
+    records = session.get_all(table=SomeTable, where=[SomeTable.column == value])
+"""
+
+from sqlalchemy.engine import URL
+from sqlalchemy.orm import sessionmaker, contains_eager
+from sqlalchemy.pool import NullPool
+from sqlalchemy import create_engine, select, text
+import time
+# Project Imports
+from common.config.env import SessionEnv
+from common.config.constants import DataBaseConstants
+from common.interfaces.resources.cloud.credentials import ICredentials
+from common.interfaces.resources.database.session import ISession
+from common.config.logger import logger
+
+class Session(ISession):
+    """
+    Singleton class to manage the SQLAlchemy session for database interactions.
+
+    Attributes:
+    -------
+        driver_name (str): The name of the database driver.
+        __instance (Session): The unique instance of the Session class.
+        session (Session): The SQLAlchemy session object.
+
+    Methods:
+    -------
+        __new__(cls, *args, **kwargs): Creates the unique instance of the database.
+        __init__(): Initializes the SQLAlchemy session URL.
+        __create_session(url: URL) -> object: Creates the SQLAlchemy session.
+        __del__(): Deletes the SQLAlchemy session.
+        get_all(table: object, joins: list = None, where: list = None, order_by: list = None, pagination: dict = None, options: list = None) -> list:
+            Retrieves all records from the database based on the provided parameters.
+    """
+
+    driver_name: str = DataBaseConstants.SQLALCHEMY_REDSHIFT_DRIVER.value
+    __instance = None
+    session = None
+    
+    def __new__(cls, *args, **kwargs):
+        """
+        Creates and returns the unique instance of the Session class.
+        This method ensures that only one instance of the Session class is created
+        (Singleton pattern). If an instance already exists, it returns the existing
+        instance; otherwise, it creates a new one.
+
+        Args:
+        -------
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+        
+        Returns:
+        -------
+            Session: The unique instance of the Session class.
+        """
+        if Session.__instance is None:
+            Session.__instance = object.__new__(cls)
+        return Session.__instance
+
+    def __init__(self, credentials_manager: ICredentials, max_retries: int = 3):
+        if self.session is None:
+            logger.info("Initializing database session... logger")
+            print("Initializing database session... print")
+            
+            # ✅ Obtener credenciales con reintentos
+            credentials = credentials_manager.get_as_dict(
+                SessionEnv.DWH_SECRET.value, 
+                max_retries=max_retries
+            )
+            
+            # ✅ Validar credenciales
+            required_keys = ['username', 'password', 'host', 'database']
+            missing_keys = [key for key in required_keys if key not in credentials or not credentials[key]]
+            if missing_keys:
+                raise ValueError(f"Missing required credential keys: {missing_keys}")
+            
+            url = URL.create(
+                drivername=self.driver_name,
+                username=credentials['username'],
+                password=credentials['password'],
+                host=credentials['host'],
+                database=credentials['database']
+            )
+            
+            self.session = self._create_session(url, max_retries=max_retries)
+            logger.info("Database session initialized successfully logger")
+            print("Database session initialized successfully print")
+
+    def _create_session(self, url: URL, max_retries: int = 3) -> object:
+        """Creates a SQLAlchemy session with retry logic."""
+        
+        # ✅ Configurar engine con timeouts
+        engine = create_engine(
+            url, 
+            poolclass=NullPool,
+            connect_args={
+                "sslmode": "require",  # ✅ AGREGAR: Forzar SSL
+                "application_name": "creditos-graphql-api"
+            
+            }
+        )
+        
+        # ✅ Probar la conexión con reintentos
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Testing database connection (attempt logger {attempt + 1}/{max_retries})")
+                print(f"Testing database connection (attempt print {attempt + 1}/{max_retries})")
+                
+                # Crear sesión
+                Session_class = sessionmaker(bind=engine)
+                session = Session_class()
+                
+                # ✅ SIMPLIFICAR: Prueba de conexión más simple
+                result = session.execute(text("SELECT 1 as test_column"))
+                row = result.fetchone()
+            
+                if not row or row[0] != 1:
+                    raise ValueError("Database health check failed - invalid response")
+            
+                # ✅ AGREGAR: Confirmar conexión exitosa
+                logger.info("Database connection test successful logger")
+                print("Database connection test successful print")
+                self.engine = engine
+                return session
+                
+            except Exception as e:
+                logger.warning(f"Database connection failed on attempt logger {attempt + 1}: {str(e)}")
+                print(f"Database connection failed on attempt print {attempt + 1}: {str(e)}")
+                
+                # Cerrar sesión fallida
+                if 'session' in locals():
+                    try:
+                        session.close()
+                    except:
+                        pass
+                
+                if attempt < max_retries - 1:
+                    sleep_time = 2 ** attempt  # Exponential backoff
+                    logger.info(f"Retrying database connection in logger {sleep_time} seconds...")
+                    print(f"Retrying database connection in print {sleep_time} seconds...")
+                    time.sleep(sleep_time)
+                else:
+                    logger.error(f"Failed to create database session after logger {max_retries} attempts")
+                    print(f"Failed to create database session after print {max_retries} attempts")
+                    raise e
+                
+    def __del__(self) -> None:
+        if self.session:
+            try:
+                self.session.close()
+            except:
+                pass
+
+    def get_all(
+            self, 
+            columns: list, 
+            joins: list = None, 
+            where: list = None, 
+            order_by: list = None, 
+            pagination: dict = None, 
+            options: list = None,
+            distinct: bool = False
+        ) -> list:
+        """
+        Retrieve all records from the database based on the provided parameters.
+
+        Args:
+        -------
+            columns: List of columns to query.
+            joins: List of join conditions.
+            where: List of filter conditions.
+            order_by: List of order by conditions.
+            pagination: Dictionary with 'limit' and 'offset' for pagination.
+            options: List of options for the query.
+            distinct: Boolean to return distinct records.
+
+        Returns:
+        -------
+            List of records matching the query.
+        """
+        try:
+            query = select(*columns)
+            if distinct:
+                query = query.distinct()
+            if joins:
+                for join_info in joins:
+                    query = query.join(
+                        join_info["table"],
+                        join_info["condition"]
+                    )
+            if where:
+                query = query.filter(*where)
+            if order_by:
+                query = query.order_by(*order_by)
+            if pagination:
+                query = query.limit(pagination["limit"]).offset(
+                    pagination["offset"])
+            if options:
+                for option in options:
+                    query = query.options(contains_eager(option))
+            return self.session.execute(query).mappings().all()
+        except Exception as e:
+            # ✅ ROLLBACK SEGURO: Verificar que session existe antes de hacer rollback
+            if self.session:
+                try:
+                    self.session.rollback()
+                except:
+                    pass
+            raise e
+
+    @property
+    def db(self):
+        return self.session
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\commons\settings.py
+/===============================================================================
+
+import os
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+class Settings:    
+    RUN_WITH_DOCKER: str = os.getenv("run_with_docker", "false")
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\config\constants.py
+/===============================================================================
+
+from enum import Enum
+
+class DataBaseConstants(Enum):
+    """
+    DataBaseConstants is an enumeration that defines constants related to the database schema and table names.
+    Attributes:
+        SCHEMA (str): The name of the database schema used for the application.
+        TBL_CLIENTS (str): The name of the table that stores client information.
+    """
+
+    SCHEMA = 'creditos'
+    TBL_PRODUCTS = 'tblproductos'
+    TBL_CARGOS = 'tblcargos'
+    TBL_CUENTAS = 'tblcuentas'
+    TBL_ENTIDADES = 'tblentidades'
+    TBL_CUOTAS = 'tblcuotas'
+    TBL_TASAS = 'tbltasas'
+    TBL_PAGOS = 'tblpagos'
+
+class ApiConstants(Enum):
+    """
+    ApiConstants is an enumeration that defines constants used throughout the API.
+    Attributes:
+        TITLE (str): The title or name of the API, describing its purpose.
+        DESCRIPTION (str): A brief description of the API and its functionality.
+        ENDPOINTS (dict): A dictionary containing the API's endpoint paths.
+            - 'health': Path for the health check endpoint.
+            - 'graphql': Path for the GraphQL endpoint.
+        HEALTH_CHECK_RESPONSE (dict): A predefined response for the health check endpoint.
+            - 'status': Indicates the health status of the API (e.g., "ok").
+    """
+
+    TITLE='Informacion de creditos en RedShift'
+    DESCRIPTION='API que proporciona informacion de creditos existentes en el Data LakeHouse de BTG Pactual'
+    ENDPOINTS={
+        'health': '/health',
+        'graphql': '/graphql'
+    }
+    CREDIT_ENDPOINT = '/graphql'
+    HEALTH_ENDPOINT = '/health'
+    CREDIT_ROUTER_TAG = 'graphql'
+    HEALTH_ROUTER_TAG = 'Healthcheck'
+    HEALTH_CHECK_RESPONSE={"status": "ok"}
+    SWAGGER_JSON = '/swagger.json'
+    SWAGGER_JSON_PATH = 'swagger.json'
+    SWAGGER_JSON_MEDIA_TYPE = 'application/json'
+
+class CreditConstants(Enum):
+    """
+    ClientConstants is an enumeration that defines constant values used for validation and error messages 
+    within the application.
+    Attributes:
+        PAGINATION_ERROR (str): An error message indicating that pagination must include both 'pagina' 
+            (page) and 'registros' (records).
+    """
+
+    PAGINATION_ERROR='pagination must contain both pagina and registros'
+    DATE_RANGE_ERROR = "You can only provide one or two dates for position_date filtering."
+    DEFAULT_PAGINATION_RECORDS = 10
+    DEFAULT_PAGINATION_PAGE = 0
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\config\lifespan.py
+/===============================================================================
+
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+
+from common.containers.database.session import SessionDependencyContainer  
+from src.resolvers.credits.credits_resolver import CreditsResolver
+from src.data_access.models.base import BaseModel
+
+
+"""
+Defines an asynchronous context manager for the lifespan of a FastAPI application.
+
+This function is used to manage the setup and teardown of resources required by the application.
+It initializes a database session, loads the machine learning model, and sets up a user service
+for the application. Upon exiting the context, it ensures proper cleanup of resources.
+
+Args:
+    app (FastAPI): The FastAPI application instance.
+
+Yields:
+    None: This function yields control back to the application during its lifespan.
+
+Raises:
+    Exception: If any error occurs during the setup or teardown process, it is logged and re-raised.
+"""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        session = SessionDependencyContainer().get_session()
+        # Load the ML model
+        BaseModel.metadata.create_all(session.engine)
+        app.state.user_service = CreditsResolver()
+        yield
+        # Clean up the ML models and release the resources
+        session.session.close()
+    except Exception as e:
+        print(e)
+        raise
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\data_access\models\accounts.py
+/===============================================================================
+
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, Float, ForeignKey
+from src.data_access.models.base import BaseModel
+from src.config.constants import DataBaseConstants
+from sqlalchemy.orm import relationship
+
+class TblCuentas(BaseModel):
+    __tablename__ = DataBaseConstants.TBL_CUENTAS.value
+    __table_args__ = {'schema': DataBaseConstants.SCHEMA.value}
+
+    contract_number = Column("numero_contrato", String, ForeignKey("creditos.tblproductos.numero_contrato"), primary_key=True)
+    operation_currency = Column("moneda_operacion", String)
+    disbursement_date = Column("fecha_desembolso", DateTime)
+    position_date = Column("fecha_posicion", DateTime)
+    passive_asset = Column("activo_pasivo", String)
+    company_id = Column("id_empresa", Integer)
+    file_name = Column("nombre_archivo", String)
+    account_type_description = Column("descripcion_tipo_cuenta", String)
+    agency_code = Column("codigo_agencia", Integer)
+    bank_code = Column("codigo_banco", Integer)
+    account_date = Column("fecha_cuenta", DateTime)
+    bank_description = Column("descripcion_banco", String)
+    account_number = Column("numero_cuenta", String)
+    payer_id = Column("id_pagador", Integer)
+    account_description = Column("descripcion_cuenta", String)
+    payment_method_description = Column("descripcion_metodo_pago", String)
+
+    product = relationship("TblProducts", back_populates="accounts")
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\data_access\models\base.py
+/===============================================================================
+
+from sqlalchemy.orm import declarative_base
+
+Base = declarative_base()
+metadata = Base.metadata
+
+class BaseModel(Base):
+    """
+    BaseModel serves as an abstract base class for all ORM models in the application.
+    Attributes:
+        __abstract__ (bool): Indicates that this class is abstract and should not be instantiated directly.
+    """
+    
+    __abstract__ = True
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\data_access\models\charges.py
+/===============================================================================
+
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, Float, ForeignKey
+from src.data_access.models.base import BaseModel
+from src.config.constants import DataBaseConstants
+from sqlalchemy.orm import relationship
+
+class TblCargos(BaseModel):
+    __tablename__ = DataBaseConstants.TBL_CARGOS.value
+    __table_args__ = {'schema': DataBaseConstants.SCHEMA.value}
+
+    contract_number = Column("numero_contrato", String, ForeignKey("creditos.tblproductos.numero_contrato"), primary_key=True)
+    operation_currency = Column("moneda_operacion", String)
+    disbursement_date = Column("fecha_desembolso", DateTime)
+    position_date = Column("fecha_posicion", DateTime)
+    passive_asset = Column("activo_pasivo", String)
+    company_id = Column("id_empresa", Integer)
+    file_name = Column("nombre_archivo", String)
+    charge_state = Column("estado_cargo", String)
+    charge_type = Column("tipo_cargo", String)
+    charge_date = Column("fecha_cargo", DateTime)
+    gross_value = Column("valor_bruto", Boolean)
+    financed = Column("financiado", Boolean)
+    has_withholding = Column("tiene_retencion", Boolean)
+    charge_value = Column("valor_cargo", Float)
+    has_financial_impact = Column("con_impacto_financiero", Boolean)
+
+    product = relationship("TblProducts", back_populates="charges")
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\data_access\models\entities.py
+/===============================================================================
+
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey
+from src.data_access.models.base import BaseModel
+from src.config.constants import DataBaseConstants
+from sqlalchemy.orm import relationship
+
+class TblEntidades(BaseModel):
+    __tablename__ = DataBaseConstants.TBL_ENTIDADES.value
+    __table_args__ = {'schema': DataBaseConstants.SCHEMA.value}
+
+    contract_number = Column("numero_contrato", String, ForeignKey("creditos.tblproductos.numero_contrato"), primary_key=True)
+    operation_currency = Column("moneda_operacion", String)
+    disbursement_date = Column("fecha_desembolso", DateTime)
+    position_date = Column("fecha_posicion", DateTime)
+    passive_asset = Column("activo_pasivo", String)
+    company_id = Column("id_empresa", Integer)
+    file_name = Column("nombre_archivo", String)
+    entity_id = Column("id_entidad", Integer)
+    entity_role = Column("rol_entidad", Integer)
+    entity_name = Column("nombre_entidad", String)
+    is_deleted = Column("esta_eliminada", Boolean)
+
+    product = relationship("TblProducts", back_populates="entities")
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\data_access\models\installments.py
+/===============================================================================
+
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, Float, ForeignKey
+from src.data_access.models.base import BaseModel
+from src.config.constants import DataBaseConstants
+from sqlalchemy.orm import relationship
+
+class TblCuotas(BaseModel):
+    __tablename__ = DataBaseConstants.TBL_CUOTAS.value
+    __table_args__ = {'schema': DataBaseConstants.SCHEMA.value}
+
+    contract_number = Column("numero_contrato", String, ForeignKey("creditos.tblproductos.numero_contrato"), primary_key=True)
+    operation_currency = Column("moneda_operacion", String)
+    disbursement_date = Column("fecha_desembolso", DateTime)
+    position_date = Column("fecha_posicion", DateTime)
+    passive_asset = Column("activo_pasivo", String)
+    company_id = Column("id_empresa", Integer)
+    file_name = Column("nombre_archivo", String)
+
+    commission_without_gross_value = Column("comision_sin_valor_bruto", Float)
+    total_installment_value = Column("valor_total_cuota", Float)
+    fixed_interest_value = Column("valor_interes_tasa_fija", Float)
+    variable_interest_value = Column("valor_interes_tasa_variable", Float)
+    has_interest_incorporation = Column("tiene_incorporacion_interes", Boolean)
+    has_unconfirmed_payments = Column("tiene_pagos_no_confirmados", Boolean)
+    overdue_interest_value = Column("valor_interes_vencido", Float)
+    effective_index_value = Column("valor_efectivo_indexador", Float)
+    installment_frequency = Column("frecuencia_cuota", Integer)
+    installment_number = Column("numero_cuota", Integer)
+    installment_type = Column("tipo_cuota", Integer)
+    overdue_interest_rate = Column("valor_interes_mora", Float)
+    effective_overdue_rate = Column("tasa_efectiva_mora", Float)
+    overdue_interest_due_value = Column("valor_interes_vencimiento", Float)
+    iof_value = Column("valor_iof", Float)
+    is_vnp = Column("es_vnp", Boolean)
+    business_due_date = Column("fecha_vencimiento_negocio", DateTime)
+    due_date = Column("fecha_vencimiento", DateTime)
+    principal_due_value = Column("valor_principal_vencimiento", Float)
+    prepayment_penalty_value = Column("valor_penalizacion_prepago", Float)
+    principal_value = Column("valor_capital", Float)
+    payment_method_description = Column("descripcion_metodo_pago", String)
+    accumulation_start = Column("inicio_acumulacion", DateTime)
+    state = Column("estado", Integer)
+    state_description = Column("descripcion_estado", String)
+
+    product = relationship("TblProducts", back_populates="installments")
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\data_access\models\operations.py
+/===============================================================================
+
+from sqlalchemy import Column, Integer, String, DateTime, Float, Date, ForeignKey
+from src.data_access.models.base import BaseModel
+from sqlalchemy.orm import relationship
+from src.config.constants import DataBaseConstants
+
+class TblOperaciones(BaseModel):
+    __tablename__ = "tbloperaciones"
+    __table_args__ = {"schema": "provisiones_test"}
+
+    id = Column(Integer, primary_key=True)
+    amount = Column("monto", Float)
+    exchange_rate_clp = Column("tasa_cambio_clp", Float)
+    exchange_rate_usd = Column("tasa_cambio_usd", Float)
+    business_type = Column("tipo", String)
+    country = Column("pais", String)
+    guarantee_amount = Column("monto_garantias", Float)
+    average_haircut = Column("haircut_promedio", Float)
+    query_date = Column("fecha_consulta", Date)
+    insertion_date = Column("aud_fecha_insercion", DateTime)
+    update_date = Column("aud_fecha_actualizacion", DateTime)
+    last_execution_user = Column("usuario_ultima_ejecucion", String)
+    client_id = Column("id_cliente", Integer)
+    contract_number = Column("numero", String, ForeignKey("creditos.tblproductos.numero_contrato"))
+
+    provisions = relationship("TblProvisionesColombia", back_populates="operation", lazy="select")
+    product = relationship("TblProducts", back_populates="operations", lazy="select")
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\data_access\models\payments.py
+/===============================================================================
+
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, Float, ForeignKey
+from src.data_access.models.base import BaseModel
+from src.config.constants import DataBaseConstants
+from sqlalchemy.orm import relationship
+
+class TblPagos(BaseModel):
+    __tablename__ = DataBaseConstants.TBL_PAGOS.value
+    __table_args__ = {'schema': DataBaseConstants.SCHEMA.value}
+
+    contract_number = Column("numero_contrato", String, ForeignKey("creditos.tblproductos.numero_contrato"), primary_key=True)
+    operation_currency = Column("moneda_operacion", String)
+    disbursement_date = Column("fecha_desembolso", DateTime)
+    position_date = Column("fecha_posicion", DateTime)
+    passive_asset = Column("activo_pasivo", String)
+    company_id = Column("id_empresa", Integer)
+    file_name = Column("nombre_archivo", String)
+    operation_payment_currency = Column("moneda_operacion_pago", String)
+
+    discount_value = Column("valor_descuento", Float)
+    fixed_rate_accumulated_interest = Column("interes_acumulado_tasa_fija", Float)
+    variable_accumulated_interest = Column("interes_acumulado_tasa_variable", Float)
+    installment_frequency = Column("frecuencia_cuota", Integer)
+    #installment_number = Column("numero_cuota", Integer)
+    installment_type = Column("tipo_cuota", Integer)
+    overdue_interest_rate = Column("valor_interes_mora", Float)
+    iof_value = Column("valor_iof", Float)
+    is_late_payment = Column("es_pago_atrasado", Boolean)
+    overdue_interest_value = Column("valor_interes_vencido", Float)
+    due_value = Column("valor_vencimiento", Float)
+    payment_value = Column("valor_pago", Float)
+    payment_date = Column("fecha_pago", DateTime)
+    payment_disbursement = Column("desembolso_pago", Float)
+    payment_number = Column("numero_pago", Integer)
+    payment_state_id = Column("id_estado_pago", Integer)
+    payment_state = Column("estado_pago", String)
+    prepayment_penalty_value = Column("valor_penalizacion_prepago", Float)
+    is_early_payment = Column("es_pago_adelantado", Boolean)
+    capital_value = Column("valor_capital", Float)
+    payment_reason = Column("razon_pago", String)
+    liquidation_method_id = Column("id_metodo_liquidacion", Integer)
+    liquidation_method = Column("metodo_liquidacion", String)
+    is_total_payment = Column("es_pago_total", Boolean)
+
+    product = relationship("TblProducts", back_populates="payments")
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\data_access\models\products.py
+/===============================================================================
+
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, Float
+from sqlalchemy.sql import func, distinct
+from src.data_access.models.base import BaseModel
+from src.config.constants import DataBaseConstants
+from sqlalchemy.orm import relationship
+
+class TblProducts(BaseModel):
+    __tablename__ = DataBaseConstants.TBL_PRODUCTS.value
+    __table_args__ = {'schema': DataBaseConstants.SCHEMA.value}
+
+    contract_number = Column("numero_contrato", String, primary_key=True)
+    operation_currency = Column("moneda_operacion", String)
+    disbursement_date = Column("fecha_desembolso", DateTime)
+    position_date = Column("fecha_posicion", DateTime)
+    passive_asset = Column("activo_pasivo", String)
+    amortization_type_code = Column("codigo_tipo_amortizacion", String)
+    amortization_type_description = Column("descripcion_tipo_amortizacion", String)
+    company_id = Column("id_empresa", Integer)
+    counterparty_id = Column("id_contraparte", Integer)
+
+    currency_quotation = Column("cotizacion_moneda", Float)
+    curve_value = Column("valor_curva", Float)
+    disbursement_value = Column("valor_desembolso", Float)
+    file_name = Column("nombre_archivo", String)
+    fixed_interest_rate = Column("valor_interes_fijo", Float)
+    variable_interest_rate = Column("valor_interes_variable", Float)
+
+    has_guarantee = Column("tiene_garantia", Boolean)
+    has_payment_processing = Column("tiene_procesamiento_pagos", Boolean)
+    index_periods = Column("periodos_indice", String)
+    iof_value = Column("valor_iof", Float)
+    is_undefined_bank_guarantee = Column("es_garantia_bancaria_indeterminada", Boolean)
+    is_heritage_flow = Column("es_flujo_herencia", Boolean)
+
+    installment_count = Column("cantidad_cuotas", Integer)
+    late_interest_rate = Column("valor_interes_mora", Float)
+    is_vnp = Column("es_vnp", Boolean)
+
+    late_payment_value = Column("valor_pago_tardio", Float)
+    expiration_date = Column("fecha_vencimiento", DateTime)
+    expiration_value = Column("valor_vencimiento", Float)
+
+    modality_id = Column("modalidad", Integer)
+    modality_description = Column("descripcion_modalidad", String)
+    operation_number = Column("numero_operacion", String)
+    principal_operation_value = Column("valor_principal_operacion", Float)
+
+    operation_date = Column("fecha_operacion", DateTime)
+    operation_purpose = Column("proposito_operacion", Integer)
+    operation_state = Column("estado_operacion", Integer)
+    original_disbursement_date = Column("fecha_desembolso_original", DateTime)
+
+    original_principal_value = Column("valor_principal_original", Float)
+    mora_value = Column("valor_mora", Float)
+    principal_value = Column("valor_principal", Float)
+
+    product_classification = Column("clasificacion_producto", Integer)
+    accumulation_start = Column("inicio_acumulacion", DateTime)
+
+    negotiation_date = Column("fecha_negociacion", DateTime)
+    negotiation_id = Column("id_negociacion", String)
+    operation_system = Column("sistema_operacion", String)
+
+    total_installments = Column("total_cuotas", Integer)
+    credit_type = Column("tipo", Integer)
+    operation_interest_rate = Column("tasa_interes_operacion", Float)
+
+    grace_frequency = Column("frecuencia_gracia_principal", String)
+    grace_value = Column("valor_gracia_principal", Integer)
+
+    is_current_record = Column("registro_vigente", Boolean)
+    strategy = Column("estrategia", String)
+
+
+    charges = relationship("TblCargos", back_populates="product", lazy="select")
+    accounts = relationship("TblCuentas", back_populates="product", lazy="select")
+    installments = relationship("TblCuotas", back_populates="product", lazy="select")
+    entities = relationship("TblEntidades", back_populates="product", lazy="select")
+    payments = relationship("TblPagos", back_populates="product", lazy="select")
+    rates = relationship("TblTasas", back_populates="product", lazy="select")
+    operations = relationship( "TblOperaciones", back_populates="product", lazy="select")
+
+    @classmethod
+    def get_records_size(cls):
+        return [
+            (func.count(distinct(cls.contract_number))).label('records')
+        ]
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\data_access\models\provisions.py
+/===============================================================================
+
+from sqlalchemy import Column, Integer, String, DateTime, Float, Date, ForeignKey
+from src.data_access.models.base import BaseModel
+from src.config.constants import DataBaseConstants
+from sqlalchemy.orm import relationship 
+
+class TblProvisionesColombia(BaseModel):
+    __tablename__ = "tblprovisiones_colombia"
+    __table_args__ = {"schema": "provisiones_test"}
+
+    id = Column(Integer, ForeignKey("provisiones_test.tbloperaciones.id"), primary_key=True)
+    business_type = Column("tipo_negocio", String)
+    state = Column("estado", String)
+    disbursement_date = Column("fecha_desembolso", Date)
+    credit_contract_expiration_date = Column("fecha_vencimiento_contrato_credito", Date)
+    overdue_days = Column("dias_mora", Integer)
+    principal = Column("capital", Float)
+    interest = Column("interes", Float)
+    provision_percentage = Column("porcentaje_provision", Float)
+    provision_amount = Column("monto_provision", Float)
+    net_amount = Column("monto_neto", Float)
+    capital_provision = Column("provision_capital", Float)
+    interest_provision = Column("provision_interes", Float)
+    pro_cyclical = Column("pro_ciclica", Float)
+    pro_cyclical_capital = Column("pro_capital", Float)
+    pro_cyclical_interest = Column("pro_interes", Float)
+    counter_cyclical = Column("contra_ciclica", Float)
+    counter_cyclical_capital = Column("contra_capital", Float)
+    counter_cyclical_interest = Column("contra_intereses", Float)
+    asset_size = Column("tamano_activos", String)
+    total_assets = Column("total_activos", Float)
+    pi_pro_cyclical = Column("pi_pro_ciclica", Float)
+    pi_counter_cyclical = Column("pi_contra_ciclica", Float)
+    guarantee = Column("garantia", Float)
+    loss_given_default = Column("perdida_dado_incumplimiento", Float)
+    active_adjustment_factor = Column("factor_ajuste_activo", Float)
+    exchange_adjustment_factor = Column("factor_ajuste_cambiario", Float)
+    operation_currency = Column("moneda_operacion", String)
+    guarantee_currency = Column("moneda_garantia", String)
+    exposure_value = Column("valor_exposicion", Float)
+    income_size = Column("tamano_ingresos", String)
+    total_income = Column("total_ingresos", Float)
+    sector = Column("sector", String)
+    section = Column("seccion", String)
+    weight = Column("ponderador", Float)
+    weighted_exposure = Column("exposicion_ponderada", Float)
+    validation = Column("validacion", String)
+    probability_of_default = Column("probabilidad_incumplimiento", Float)
+    external_lp_rating = Column("calificacion_lp_externa", String)
+    loan_to_value_ratio = Column("relacion_prestamo_valor", Float)
+    classification = Column("clasificacion", String)
+    segment_453 = Column("segmento453", String)
+    insertion_date = Column("aud_fecha_insercion", DateTime)
+    update_date = Column("aud_fecha_actualizacion", DateTime)
+    last_execution_user = Column("usuario_ultima_ejecucion", String)
+    operation_id = Column("id_operacion", Integer)
+    provision_date = Column("fecha_provision", Date)
+
+    operation = relationship("TblOperaciones", back_populates="provisions", lazy="select")
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\data_access\models\rates.py
+/===============================================================================
+
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, Float, ForeignKey
+from src.data_access.models.base import BaseModel
+from src.config.constants import DataBaseConstants
+from sqlalchemy.orm import relationship
+
+class TblTasas(BaseModel):
+    __tablename__ = DataBaseConstants.TBL_TASAS.value
+    __table_args__ = {'schema': DataBaseConstants.SCHEMA.value}
+
+    contract_number = Column("numero_contrato", String, ForeignKey("creditos.tblproductos.numero_contrato"), primary_key=True)
+    operation_currency = Column("moneda_operacion", String)
+    disbursement_date = Column("fecha_desembolso", DateTime)
+    position_date = Column("fecha_posicion", DateTime)
+    passive_asset = Column("activo_pasivo", String)
+    company_id = Column("id_empresa", Integer)
+    file_name = Column("nombre_archivo", String)
+    base_rate = Column("tasa_base", Integer)
+    interest_or_base_value = Column("interes_o_valor_base", Float)
+    currency_quotation = Column("cotizacion_moneda", Float)
+    day_count_convention = Column("convencion_recuento_dia", String)
+    rate_end_date = Column("fecha_fin_tasa", DateTime)
+    rate_type = Column("tipo_tasa", String)
+    rate_percentage = Column("porcentaje_tasa", Float)
+    installment_frequency = Column("frecuencia_cuota", Integer)
+    overdue_interest_base = Column("base_interes_atrasado", Integer)
+    overdue_interest_indexer = Column("indexador_interes_atrasado", String)
+    overdue_interest_percentage = Column("porcentaje_interes_atrasado", Float)
+    overdue_interest_method = Column("metodo_interes_atrasado", String)
+    overdue_interest_rate = Column("tasa_interes_atrasado", Float)
+    rounding_method = Column("metodo_redondeo_factor_interes", String)
+    interest_method = Column("metodo_interes", String)
+    interest_rate = Column("tasa_interes", Float)
+    is_pro_rata = Column("es_pro_rata", Boolean)
+    late_payment_calculation_method = Column("metodo_calculo_pago_atrasado", String)
+    penalty_rate = Column("tasa_penalizacion", Float)
+    rate_start_date = Column("fecha_inicio_tasa", DateTime)
+    interest_type = Column("tipo_interes", Integer)
+
+    product = relationship("TblProducts", back_populates="rates")
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\data_access\repositories\credits_repo.py
+/===============================================================================
+
+from typing import List, Optional, Union, Dict, Any
+from sqlalchemy import func, text
+from sqlalchemy.orm import joinedload, subqueryload
+from common.decorators.decorators import log_decorator, try_catch_decorator
+from common.interfaces.resources.database.session import ISession
+from src.config.constants import CreditConstants
+from src.data_access.repositories.icredits_repo import ICreditsRepository
+from src.data_access.models.products import TblProducts
+from src.data_access.models.charges import TblCargos
+from src.data_access.models.accounts import TblCuentas
+from src.data_access.models.installments import TblCuotas
+from src.data_access.models.entities import TblEntidades
+from src.data_access.models.payments import TblPagos
+from src.data_access.models.rates import TblTasas
+from src.data_access.models.operations import TblOperaciones
+from src.data_access.models.provisions import TblProvisionesColombia
+import time
+from common.config.logger import logger
+
+class CreditsRepository(ICreditsRepository):
+    def __init__(self, session: ISession):
+        self.session = session
+
+    def _apply_common_filters(self, query, model, contract_number, position_date):
+        if contract_number:
+            query = query.filter(model.contract_number.in_(contract_number))
+        if position_date:
+            if len(position_date) == 1:
+                query = query.filter(model.position_date == position_date[0])
+            elif len(position_date) == 2:
+                query = query.filter(model.position_date.between(position_date[0], position_date[1]))
+            else:
+                raise ValueError(CreditConstants.DATE_RANGE_ERROR.value)
+        return query
+
+    def _execute_query_with_retry(self, query, pagination: Optional[dict], key: str):
+        """
+        ✅ MÉTODO HELPER: Ejecutar consulta con reintentos y manejo robusto de errores
+        """
+        # ✅ VALIDACIONES BÁSICAS
+        if not self.session:
+            raise ValueError("Database session is None - CreditsRepository not properly initialized")
+        
+        if not hasattr(self.session, 'session') or not self.session.session:
+            raise ValueError("Database session.session is None - Database connection not established")
+
+        # ✅ MANEJO ROBUSTO DE CONEXIÓN CON REINTENTOS
+        max_retries = 3
+        
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Ejecutando consulta {key} (intento {attempt + 1}/{max_retries})")
+                print(f"Ejecutando consulta {key} (intento {attempt + 1}/{max_retries})")
+                
+                # ✅ VERIFICAR CONEXIÓN ANTES DE LA CONSULTA
+                try:
+                    test_result = self.session.session.execute(text("SELECT 1 as test"))
+                    test_row = test_result.fetchone()
+                    if not test_row or test_row[0] != 1:
+                        raise ValueError("Connection test failed")
+                    logger.info(f"Connection test successful (attempt {attempt + 1})")
+                    print(f"Connection test successful (attempt {attempt + 1})")
+                except Exception as conn_error:
+                    logger.warning(f"Connection test failed (attempt {attempt + 1}): {str(conn_error)}")
+                    print(f"Connection test failed (attempt {attempt + 1}): {str(conn_error)}")
+                    
+                    if attempt < max_retries - 1:
+                        logger.info(f"Recreating database session (attempt {attempt + 1})")
+                        print(f"Recreating database session (attempt {attempt + 1})")
+                        self._recreate_session()
+                        time.sleep(1 * (2 ** attempt))
+                        continue
+                    else:
+                        raise ValueError(f"Database connection is not active after {max_retries} attempts: {str(conn_error)}")
+
+                # ✅ APLICAR PAGINACIÓN
+                if pagination:
+                    limit = pagination.get("records", CreditConstants.DEFAULT_PAGINATION_RECORDS.value)
+                    page = pagination.get("page", CreditConstants.DEFAULT_PAGINATION_PAGE.value)
+                    
+                    # Validar y normalizar página
+                    if page < 1:
+                        logger.info(f"Página inválida recibida: {page}, usando página 1")
+                        page = 1
+                    if limit <= 0:
+                        logger.info(f"Limit inválido recibido: {limit}, usando valor por defecto")
+                        limit = CreditConstants.DEFAULT_PAGINATION_RECORDS.value
+                    
+                    # ✅ CALCULAR OFFSET CORRECTAMENTE
+                    offset = (page - 1) * limit
+                    logger.info(f"Aplicando paginación: page={page}, limit={limit}, offset={offset}")
+                    print(f"Aplicando paginación: page={page}, limit={limit}, offset={offset}")
+                else:
+                    limit = CreditConstants.DEFAULT_PAGINATION_RECORDS.value
+                    offset = 0
+
+                # ✅ EJECUTAR CONTEO CON MANEJO DE ERRORES
+                try:
+                    total_count = query.count()
+                    logger.info(f"Total de registros encontrados para {key}: {total_count}")
+                    print(f"Total de registros encontrados para {key}: {total_count}")
+                except Exception as count_error:
+                    logger.error(f"Error al contar registros para {key}: {str(count_error)}")
+                    print(f"Error al contar registros para {key}: {str(count_error)}")
+                    raise count_error
+
+                # ✅ EJECUTAR CONSULTA PRINCIPAL CON MANEJO DE ERRORES
+                try:
+                    results = query.limit(limit).offset(offset).all()
+                    logger.info(f"Registros obtenidos para {key}: {len(results)}")
+                    print(f"Registros obtenidos para {key}: {len(results)}")
+                except Exception as query_error:
+                    logger.error(f"Error al ejecutar consulta principal para {key}: {str(query_error)}")
+                    print(f"Error al ejecutar consulta principal para {key}: {str(query_error)}")
+                    raise query_error
+
+                # ✅ ÉXITO: Retornar resultados
+                return {key: results, "total_count": total_count}
+                
+            except Exception as e:
+                logger.warning(f"Error en intento {attempt + 1} para {key}: {str(e)}")
+                print(f"Error en intento {attempt + 1} para {key}: {str(e)}")
+                
+                if attempt < max_retries - 1:
+                    sleep_time = 2 ** attempt
+                    logger.info(f"Reintentando en {sleep_time} segundos...")
+                    print(f"Reintentando en {sleep_time} segundos...")
+                    time.sleep(sleep_time)
+                else:
+                    logger.error(f"Falló después de {max_retries} intentos para {key}")
+                    print(f"Falló después de {max_retries} intentos para {key}")
+                    raise e
+
+    def _recreate_session(self):
+        """Recrear la sesión de base de datos en caso de pérdida de conexión"""
+        try:
+            logger.info("Recreating database session...")
+            print("Recreating database session...")
+            
+            # Cerrar sesión actual si existe
+            if hasattr(self.session, 'session') and self.session.session:
+                try:
+                    self.session.session.close()
+                except:
+                    pass
+            
+            # Obtener nueva sesión del container
+            from common.containers.database.session import SessionDependencyContainer
+            session_container = SessionDependencyContainer()
+            self.session = session_container.get_session()
+            
+            logger.info("Database session recreated successfully")
+            print("Database session recreated successfully")
+            
+        except Exception as e:
+            logger.error(f"Error recreating session: {str(e)}")
+            print(f"Error recreating session: {str(e)}")
+            raise e
+
+    @try_catch_decorator
+    @log_decorator
+    def get_credits(self, pagination=None, contract_number=None, counterparty_id=None, position_date=None) -> Dict[str, Any]:
+        logger.info(f"get_credits called with pagination={pagination}, contract_number={contract_number}, counterparty_id={counterparty_id}, position_date={position_date}")
+        print(f"get_credits called with pagination={pagination}, contract_number={contract_number}, counterparty_id={counterparty_id}, position_date={position_date}")
+        
+        # ✅ VALIDACIONES BÁSICAS (mantenidas)
+        if not self.session:
+            error_msg = "Database session is None - CreditsRepository not properly initialized"
+            logger.error(error_msg)
+            print(error_msg)
+            raise ValueError(error_msg)
+        
+        if not hasattr(self.session, 'session') or not self.session.session:
+            error_msg = "Database session.session is None - Database connection not established"
+            logger.error(error_msg)
+            print(error_msg)
+            raise ValueError(error_msg)
+
+        # ✅ CONSTRUIR CONSULTA (lógica mantenida)
+        query = self.session.session.query(TblProducts).options(
+            subqueryload(TblProducts.charges),
+            subqueryload(TblProducts.accounts),
+            subqueryload(TblProducts.installments),
+            subqueryload(TblProducts.entities),
+            subqueryload(TblProducts.payments),
+            subqueryload(TblProducts.rates),
+            joinedload(TblProducts.operations).joinedload(TblOperaciones.provisions)
+        ).filter(TblProducts.is_current_record.is_(True))
+
+        if contract_number:
+            query = query.filter(TblProducts.contract_number.in_(contract_number))
+        if counterparty_id:
+            query = query.filter(TblProducts.counterparty_id.in_(counterparty_id))
+        if position_date:
+            query = self._apply_common_filters(query, TblProducts, [], position_date)
+
+        logger.info("About to execute query with retry logic")
+        print("About to execute query with retry logic")
+        
+        # ✅ USAR MÉTODO HELPER CON REINTENTOS
+        result = self._execute_query_with_retry(query, pagination, "credits")
+        
+        logger.info(f"Query executed successfully, returned: {type(result)}")
+        print(f"Query executed successfully, returned: {type(result)}")
+        
+        if result is None:
+            error_msg = "Query execution returned None - this should not happen"
+            logger.error(error_msg)
+            print(error_msg)
+            raise ValueError(error_msg)
+        
+        return result
+
+    @try_catch_decorator
+    @log_decorator
+    def get_products(self, pagination=None, contract_number=None, counterparty_id=None, position_date=None) -> Dict[str, Any]:
+        logger.info(f"get_products called with pagination={pagination}, contract_number={contract_number}")
+        print(f"get_products called with pagination={pagination}, contract_number={contract_number}")
+        
+        # ✅ VALIDACIONES BÁSICAS (mantenidas)
+        if not self.session:
+            error_msg = "Database session is None - CreditsRepository not properly initialized"
+            logger.error(error_msg)
+            print(error_msg)
+            raise ValueError(error_msg)
+        
+        if not hasattr(self.session, 'session') or not self.session.session:
+            error_msg = "Database session.session is None - Database connection not established"
+            logger.error(error_msg)
+            print(error_msg)
+            raise ValueError(error_msg)
+
+        # ✅ CONSTRUIR CONSULTA (lógica mantenida)
+        query = self.session.session.query(TblProducts).filter(TblProducts.is_current_record.is_(True))
+        
+        if contract_number:
+            query = query.filter(TblProducts.contract_number.in_(contract_number))
+        if counterparty_id:
+            query = query.filter(TblProducts.counterparty_id.in_(counterparty_id))
+        if position_date:
+            query = self._apply_common_filters(query, TblProducts, [], position_date)
+
+        logger.info("About to execute query with retry logic")
+        print("About to execute query with retry logic")
+        
+        # ✅ USAR MÉTODO HELPER CON REINTENTOS
+        result = self._execute_query_with_retry(query, pagination, "products")
+        
+        logger.info(f"Query executed successfully, returned: {type(result)}")
+        print(f"Query executed successfully, returned: {type(result)}")
+        
+        if result is None:
+            error_msg = "Query execution returned None - this should not happen"
+            logger.error(error_msg)
+            print(error_msg)
+            raise ValueError(error_msg)
+        
+        return result
+
+    def _get_joined_data(self, model, join_condition, pagination, contract_number, position_date, key):
+        # ✅ VALIDACIONES BÁSICAS (mantenidas)
+        if not self.session:
+            raise ValueError("Database session is None - CreditsRepository not properly initialized")
+        
+        if not hasattr(self.session, 'session') or not self.session.session:
+            raise ValueError("Database session.session is None - Database connection not established")
+
+        # ✅ CONSTRUIR CONSULTA (lógica mantenida)
+        query = self.session.session.query(model).join(
+            TblProducts, join_condition
+        ).filter(TblProducts.is_current_record.is_(True))
+        query = self._apply_common_filters(query, model, contract_number, position_date)
+        
+        # ✅ USAR MÉTODO HELPER CON REINTENTOS
+        return self._execute_query_with_retry(query, pagination, key)
+
+    @try_catch_decorator
+    @log_decorator
+    def get_charges(self, pagination=None, contract_number=None, position_date=None) -> Dict[str, Any]:
+        return self._get_joined_data(TblCargos, TblCargos.file_name == TblProducts.file_name, pagination, contract_number, position_date, "charges")
+
+    @try_catch_decorator
+    @log_decorator
+    def get_accounts(self, pagination=None, contract_number=None, position_date=None) -> Dict[str, Any]:
+        return self._get_joined_data(TblCuentas, TblCuentas.file_name == TblProducts.file_name, pagination, contract_number, position_date, "accounts")
+
+    @try_catch_decorator
+    @log_decorator
+    def get_installments(self, pagination=None, contract_number=None, position_date=None) -> Dict[str, Any]:
+        return self._get_joined_data(TblCuotas, TblCuotas.file_name == TblProducts.file_name, pagination, contract_number, position_date, "installments")
+
+    @try_catch_decorator
+    @log_decorator
+    def get_entities(self, pagination=None, contract_number=None, position_date=None) -> Dict[str, Any]:
+        return self._get_joined_data(TblEntidades, TblEntidades.file_name == TblProducts.file_name, pagination, contract_number, position_date, "entities")
+
+    @try_catch_decorator
+    @log_decorator
+    def get_payments(self, pagination=None, contract_number=None, position_date=None) -> Dict[str, Any]:
+        return self._get_joined_data(TblPagos, TblPagos.file_name == TblProducts.file_name, pagination, contract_number, position_date, "payments")
+
+    @try_catch_decorator
+    @log_decorator
+    def get_rates(self, pagination=None, contract_number=None, position_date=None) -> Dict[str, Any]:
+        return self._get_joined_data(TblTasas, TblTasas.file_name == TblProducts.file_name, pagination, contract_number, position_date, "rates")
+
+    @try_catch_decorator
+    @log_decorator
+    def get_operations(self, pagination=None, contract_number=None, operation_ids=None) -> Dict[str, Any]:
+        # ✅ VALIDACIONES BÁSICAS (mantenidas)
+        if not self.session:
+            raise ValueError("Database session is None - CreditsRepository not properly initialized")
+        
+        if not hasattr(self.session, 'session') or not self.session.session:
+            raise ValueError("Database session.session is None - Database connection not established")
+
+        # ✅ CONSTRUIR CONSULTA (lógica mantenida)
+        query = self.session.session.query(TblOperaciones).filter(
+            TblOperaciones.contract_number.in_(
+                self.session.session.query(TblProducts.contract_number).filter(
+                    TblProducts.is_current_record.is_(True)
+                )
+            )
+        )
+
+        if contract_number:
+            query = query.filter(TblOperaciones.contract_number.in_(contract_number))
+        if operation_ids:
+            query = query.filter(TblOperaciones.id.in_(operation_ids))
+
+        # ✅ USAR MÉTODO HELPER CON REINTENTOS
+        return self._execute_query_with_retry(query, pagination, "operations")
+
+    @try_catch_decorator
+    @log_decorator
+    def get_provisions(self, pagination=None, contract_number=None, operation_ids=None, provision_date=None) -> Dict[str, Any]:
+        # ✅ VALIDACIONES BÁSICAS (mantenidas)
+        if not self.session:
+            raise ValueError("Database session is None - CreditsRepository not properly initialized")
+        
+        if not hasattr(self.session, 'session') or not self.session.session:
+            raise ValueError("Database session.session is None - Database connection not established")
+
+        # ✅ CONSTRUIR CONSULTA (lógica mantenida)
+        query = self.session.session.query(TblProvisionesColombia).filter(
+            TblProvisionesColombia.operation_id.in_(
+                self.session.session.query(TblOperaciones.id).join(
+                    TblProducts, TblOperaciones.contract_number == TblProducts.contract_number
+                ).filter(TblProducts.is_current_record.is_(True))
+            )
+        )
+
+        if contract_number:
+            query = query.filter(TblOperaciones.contract_number.in_(contract_number))
+        if operation_ids:
+            query = query.filter(TblOperaciones.id.in_(operation_ids))
+        if provision_date:
+            if len(provision_date) == 1:
+                query = query.filter(
+                    TblProvisionesColombia.provision_date >= provision_date[0],
+                    TblProvisionesColombia.provision_date < f"{provision_date[0]} 23:59:59"
+                )
+            elif len(provision_date) == 2:
+                query = query.filter(
+                    TblProvisionesColombia.provision_date >= provision_date[0],
+                    TblProvisionesColombia.provision_date <= provision_date[1]
+                )
+            else:
+                raise ValueError(CreditConstants.DATE_RANGE_ERROR.value)
+
+        # ✅ USAR MÉTODO HELPER CON REINTENTOS
+        return self._execute_query_with_retry(query, pagination, "provisions")
+ 
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\data_access\repositories\icredits_repo.py
+/===============================================================================
+
+from abc import ABC, abstractmethod
+from typing import List, Optional
+
+class ICreditsRepository(ABC):
+    """
+    Interface for the Credits Repository.
+
+    This abstract base class defines the contract for accessing credit-related data.
+    Implementations of this interface must provide the following method:
+
+    Methods:
+        get_credits(pagination: Optional[dict] = None, 
+                    position_date: Optional[List[str]] = None) -> dict:
+            Retrieves credit data based on the provided filters and pagination options.
+
+            Args:
+                pagination (Optional[dict]): A dictionary containing pagination details such as
+                    page number and page size. Defaults to None.
+                contract_number (Optional[List[str]]): A list of contract numbers to filter the credits.
+                    Defaults to None.
+                counterparty_id (Optional[List[int]]): A list of counterparty IDs to filter the credits.
+                    Defaults to None.
+                position_date (Optional[List[str]]): A list of position dates to filter the credits.
+                    Defaults to None.
+
+            Returns:
+                dict: A dictionary containing the retrieved credit data.
+    """
+    @abstractmethod
+    def get_credits(
+        self,
+        pagination: Optional[dict] = None,
+        contract_number: Optional[List[str]] = None,
+        counterparty_id: Optional[List[int]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> dict:
+        pass
+
+
+    @abstractmethod
+    def get_products(
+        self,
+        pagination: Optional[dict] = None,
+        contract_number: Optional[List[str]] = None,
+        counterparty_id: Optional[List[int]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> dict:
+        """
+        Retrieves product data based on the provided filters and pagination options.
+        """
+        pass
+
+    @abstractmethod
+    def get_charges(
+        self,
+        pagination: Optional[dict] = None,
+        contract_number: Optional[List[str]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> dict:
+        """
+        Retrieves charge data joined with products to ensure current records, filtered by contract number and position date.
+        """
+        pass
+
+    @abstractmethod
+    def get_accounts(
+        self,
+        pagination: Optional[dict] = None,
+        contract_number: Optional[List[str]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> dict:
+        """
+        Retrieves account data joined with products to ensure current records,
+        filtered by contract number and position date.
+
+        Args:
+            pagination (Optional[dict]): Pagination details.
+            contract_number (Optional[List[str]]): List of contract numbers to filter.
+            position_date (Optional[List[str]]): List of position dates to filter.
+
+        Returns:
+            dict: A dictionary with the retrieved accounts and total count.
+        """
+        pass
+
+    @abstractmethod
+    def get_installments(
+        self,
+        pagination: Optional[dict] = None,
+        contract_number: Optional[List[str]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> dict:
+        """
+        Retrieves installment data joined with products to ensure current records,
+        filtered by contract number and position date.
+
+        Args:
+            pagination (Optional[dict]): Pagination details.
+            contract_number (Optional[List[str]]): List of contract numbers to filter.
+            position_date (Optional[List[str]]): List of position dates to filter.
+
+        Returns:
+            dict: A dictionary with the retrieved installments and total count.
+        """
+        pass
+
+    @abstractmethod
+    def get_entities(
+        self,
+        pagination: Optional[dict] = None,
+        contract_number: Optional[List[str]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> dict:
+        """
+        Retrieves entity data joined with products to ensure current records,
+        filtered by contract number and position date.
+
+        Args:
+            pagination (Optional[dict]): Pagination details.
+            contract_number (Optional[List[str]]): List of contract numbers to filter.
+            position_date (Optional[List[str]]): List of position dates to filter.
+
+        Returns:
+            dict: A dictionary with the retrieved entities and total count.
+        """
+        pass
+
+    @abstractmethod
+    def get_payments(
+        self,
+        pagination: Optional[dict] = None,
+        contract_number: Optional[List[str]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> dict:
+        """
+        Retrieves payment data joined with products to ensure current records,
+        filtered by contract number and position date.
+
+        Args:
+            pagination (Optional[dict]): Pagination details.
+            contract_number (Optional[List[str]]): List of contract numbers to filter.
+            position_date (Optional[List[str]]): List of position dates to filter.
+
+        Returns:
+            dict: A dictionary with the retrieved payments and total count.
+        """
+        pass
+
+    @abstractmethod
+    def get_rates(
+        self,
+        pagination: Optional[dict] = None,
+        contract_number: Optional[List[str]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> dict:
+        """
+        Retrieves rate data joined with products to ensure current records,
+        filtered by contract number and position date.
+
+        Args:
+            pagination (Optional[dict]): Pagination details.
+            contract_number (Optional[List[str]]): List of contract numbers to filter.
+            position_date (Optional[List[str]]): List of position dates to filter.
+
+        Returns:
+            dict: A dictionary with the retrieved rates and total count.
+        """
+        pass
+
+    @abstractmethod
+    def get_operations(
+        self,
+        pagination: Optional[dict] = None,
+        contract_number: Optional[List[str]] = None,
+        operation_ids: Optional[List[int]] = None
+    ) -> dict:
+        """
+        Retrieves operation data joined with products to ensure current records,
+        filtered by contract number and operation ID.
+    
+        Args:
+            pagination (Optional[dict]): Pagination details.
+            contract_number (Optional[List[str]]): List of contract numbers to filter.
+            operation_ids (Optional[List[int]]): List of operation IDs to filter.
+    
+        Returns:
+            dict: A dictionary with the retrieved operations and total count.
+        """
+        pass
+    
+    @abstractmethod
+    def get_provisions(
+        self,
+        pagination: Optional[dict] = None,
+        contract_number: Optional[List[str]] = None,
+        operation_ids: Optional[List[int]] = None,
+        provision_date: Optional[List[str]] = None
+    ) -> dict:
+        """
+        Retrieves provision data joined with operations and products to ensure current records,
+        filtered by contract number and operation ID.
+
+        Args:
+            pagination (Optional[dict]): Pagination details.
+            contract_number (Optional[List[str]]): List of contract numbers to filter.
+            operation_ids (Optional[List[int]]): List of operation IDs to filter.
+
+        Returns:
+            dict: A dictionary with the retrieved provisions and total count.
+        """
+        pass
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\Graphql\queries\credits\credits_query.py
+/===============================================================================
+
+import strawberry
+from typing import List, Optional
+from src.Graphql.schemas.credits import CreditsSchema
+from src.Graphql.schemas.pagination import PaginationInput
+from src.Graphql.schemas.response import ResponseCredits
+from src.resolvers.credits.credits_resolver import CreditsResolver
+from src.config.constants import CreditConstants
+from src.Graphql.schemas.responses import (
+    ResponseProducts, ResponseCharges, ResponseAccounts, ResponseInstallments,
+    ResponseEntities, ResponsePayments, ResponseRates, ResponseOperations, ResponseProvisions
+)
+
+"""
+CreditsQuery class that defines a GraphQL query for retrieving credit information.
+Methods:
+    get_credits(pagination: PaginationInput, contract_number: Optional[List[str]] = None, 
+                counterparty_id: Optional[List[int]] = None, position_date: Optional[List[str]] = None) -> ResponseCredits:
+        Retrieves a list of credits based on the provided filters and pagination.
+        Args:
+            pagination (PaginationInput): Pagination details for the query.
+            contract_number (Optional[List[str]]): List of contract numbers to filter the credits (optional).
+            counterparty_id (Optional[List[int]]): List of counterparty IDs to filter the credits (optional).
+            position_date (Optional[List[str]]): List of position dates to filter the credits (optional).
+        Returns:
+            ResponseCredits: A response object containing the filtered list of credits.
+"""
+
+@strawberry.type
+class CreditsQuery:
+
+    @strawberry.field
+    def get_credits(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        counterparty_id: Optional[List[int]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> ResponseCredits:
+        if pagination is None:
+            pagination = PaginationInput(records=CreditConstants.DEFAULT_PAGINATION_RECORDS.value, 
+                                         page=CreditConstants.DEFAULT_PAGINATION_PAGE.value)
+        resolver = CreditsResolver()
+        return resolver.get_credits(
+            pagination=pagination,
+            contract_number=contract_number,
+            counterparty_id=counterparty_id,
+            position_date=position_date
+        )
+
+
+    @strawberry.field
+    def get_products(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        counterparty_id: Optional[List[int]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> ResponseProducts:
+        if pagination is None:
+            pagination = PaginationInput(
+                records=CreditConstants.DEFAULT_PAGINATION_RECORDS.value, 
+                page=CreditConstants.DEFAULT_PAGINATION_PAGE.value
+            )
+        resolver = CreditsResolver()
+        return resolver.get_products(
+            pagination=pagination,
+            contract_number=contract_number,
+            counterparty_id=counterparty_id,
+            position_date=position_date
+        )
+    
+    @strawberry.field
+    def get_charges(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> ResponseCharges:
+        if pagination is None:
+            pagination = PaginationInput(
+                records=CreditConstants.DEFAULT_PAGINATION_RECORDS.value,
+                page=CreditConstants.DEFAULT_PAGINATION_PAGE.value
+            )
+        resolver = CreditsResolver()
+        return resolver.get_charges(
+            pagination=pagination,
+            contract_number=contract_number,
+            position_date=position_date
+        )
+    
+    @strawberry.field
+    def get_accounts(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> ResponseAccounts:
+        if pagination is None:
+            pagination = PaginationInput(
+                records=CreditConstants.DEFAULT_PAGINATION_RECORDS.value,
+                page=CreditConstants.DEFAULT_PAGINATION_PAGE.value
+            )
+        resolver = CreditsResolver()
+        return resolver.get_accounts(
+            pagination=pagination,
+            contract_number=contract_number,
+            position_date=position_date
+        )
+
+    @strawberry.field
+    def get_installments(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> ResponseInstallments:
+        if pagination is None:
+            pagination = PaginationInput(
+                records=CreditConstants.DEFAULT_PAGINATION_RECORDS.value,
+                page=CreditConstants.DEFAULT_PAGINATION_PAGE.value
+            )
+        resolver = CreditsResolver()
+        return resolver.get_installments(
+            pagination=pagination,
+            contract_number=contract_number,
+            position_date=position_date
+        )
+
+    @strawberry.field
+    def get_entities(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> ResponseEntities:
+        if pagination is None:
+            pagination = PaginationInput(
+                records=CreditConstants.DEFAULT_PAGINATION_RECORDS.value,
+                page=CreditConstants.DEFAULT_PAGINATION_PAGE.value
+            )
+        resolver = CreditsResolver()
+        return resolver.get_entities(
+            pagination=pagination,
+            contract_number=contract_number,
+            position_date=position_date
+        )
+
+    @strawberry.field
+    def get_payments(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> ResponsePayments:
+        if pagination is None:
+            pagination = PaginationInput(
+                records=CreditConstants.DEFAULT_PAGINATION_RECORDS.value,
+                page=CreditConstants.DEFAULT_PAGINATION_PAGE.value
+            )
+        resolver = CreditsResolver()
+        return resolver.get_payments(
+            pagination=pagination,
+            contract_number=contract_number,
+            position_date=position_date
+        )
+
+    @strawberry.field
+    def get_rates(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> ResponseRates:
+        if pagination is None:
+            pagination = PaginationInput(
+                records=CreditConstants.DEFAULT_PAGINATION_RECORDS.value,
+                page=CreditConstants.DEFAULT_PAGINATION_PAGE.value
+            )
+        resolver = CreditsResolver()
+        return resolver.get_rates(
+            pagination=pagination,
+            contract_number=contract_number,
+            position_date=position_date
+        )
+    
+    @strawberry.field
+    def get_operations(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        operation_ids: Optional[List[int]] = None
+    ) -> ResponseOperations:
+        if pagination is None:
+            pagination = PaginationInput(
+                records=CreditConstants.DEFAULT_PAGINATION_RECORDS.value,
+                page=CreditConstants.DEFAULT_PAGINATION_PAGE.value
+            )
+        resolver = CreditsResolver()
+        return resolver.get_operations(
+            pagination=pagination,
+            contract_number=contract_number,
+            operation_ids=operation_ids
+        )
+
+    @strawberry.field
+    def get_provisions(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        operation_ids: Optional[List[int]] = None,
+        provision_date: Optional[List[str]] = None
+    ) -> ResponseProvisions:
+        if pagination is None:
+            pagination = PaginationInput(
+                records=CreditConstants.DEFAULT_PAGINATION_RECORDS.value,
+                page=CreditConstants.DEFAULT_PAGINATION_PAGE.value
+            )
+        resolver = CreditsResolver()
+        return resolver.get_provisions(
+            pagination=pagination,
+            contract_number=contract_number,
+            operation_ids=operation_ids,
+            provision_date=provision_date
+        )
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\Graphql\router\credits.py
+/===============================================================================
+
+from fastapi import APIRouter
+from strawberry.fastapi import GraphQLRouter
+from src.Graphql.queries.credits.credits_query import CreditsQuery
+from src.config.constants import ApiConstants
+import strawberry
+
+"""
+This module defines the FastAPI router for handling GraphQL requests related to credits.
+
+Modules:
+    - fastapi.APIRouter: Used to create a FastAPI router instance.
+    - strawberry.fastapi.GraphQLRouter: Provides integration of Strawberry GraphQL with FastAPI.
+    - src.Graphql.queries.credits.credits_query.CreditsQuery: Defines the GraphQL query schema for credit-related operations.
+
+Attributes:
+    schema (strawberry.Schema): The GraphQL schema defined using the `CreditsQuery` class.
+    graphql_app (GraphQLRouter): The Strawberry GraphQL router configured with the defined schema.
+    router (APIRouter): The FastAPI router that includes the GraphQL router with a prefix of "/graphql".
+
+Usage:
+    This module sets up the routing for GraphQL queries related to credits. The `router` object can be included in the main FastAPI application to enable GraphQL functionality.
+"""
+
+schema = strawberry.Schema(query=CreditsQuery)
+graphql_app = GraphQLRouter(schema=schema)
+
+router = APIRouter()
+router.include_router(graphql_app, prefix=ApiConstants.CREDIT_ENDPOINT.value)
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\Graphql\router\health.py
+/===============================================================================
+
+import json
+from fastapi import APIRouter, Response, status
+from src.config.constants import ApiConstants
+
+"""
+Endpoint to perform a health check for the API.
+
+Returns:
+    Response: A JSON response with the health check status and details.
+"""
+
+health_check_router = APIRouter()
+
+@health_check_router.get(ApiConstants.HEALTH_ENDPOINT.value, status_code=status.HTTP_200_OK)
+async def health_check():
+    return Response(
+        content=json.dumps(ApiConstants.HEALTH_CHECK_RESPONSE.value),
+        media_type=ApiConstants.SWAGGER_JSON_MEDIA_TYPE.value,
+    )
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\Graphql\schemas\account.py
+/===============================================================================
+
+import strawberry
+from typing import Optional
+from datetime import datetime
+
+@strawberry.type
+class AccountSchema:
+    contract_number: Optional[str]
+    operation_currency: Optional[str]
+    disbursement_date: Optional[datetime]
+    position_date: Optional[datetime]
+    passive_asset: Optional[str]
+    company_id: Optional[int]
+    file_name: Optional[str]
+    account_type_description: Optional[str]
+    agency_code: Optional[str]
+    bank_code: Optional[str]
+    account_date: Optional[datetime]
+    bank_description: Optional[str]
+    account_number: Optional[str]
+    payer_id: Optional[str]
+    account_description: Optional[str]
+    payment_method_description: Optional[str]
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\Graphql\schemas\charge.py
+/===============================================================================
+
+import strawberry
+from typing import Optional
+from datetime import datetime
+
+@strawberry.type
+class ChargeSchema:
+    contract_number: Optional[str]
+    operation_currency: Optional[str]
+    disbursement_date: Optional[datetime]
+    position_date: Optional[datetime]
+    passive_asset: Optional[str]
+    company_id: Optional[int]
+    file_name: Optional[str]
+    charge_state: Optional[str]
+    charge_type: Optional[str]
+    charge_date: Optional[datetime]
+    gross_value: Optional[float]
+    financed: Optional[bool]
+    has_withholding: Optional[bool]
+    charge_value: Optional[float]
+    has_financial_impact: Optional[bool]
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\Graphql\schemas\credits.py
+/===============================================================================
+
+from typing import Optional, List
+from datetime import datetime
+import strawberry
+from src.Graphql.schemas.payment import PaymentSchema
+from src.Graphql.schemas.charge import ChargeSchema
+from src.Graphql.schemas.account import AccountSchema
+from src.Graphql.schemas.installment import InstallmentSchema
+from src.Graphql.schemas.entity import EntitySchema
+from src.Graphql.schemas.rate import RateSchema
+from src.Graphql.schemas.product import ProductSchema
+from src.Graphql.schemas.operation import OperationSchema
+from src.Graphql.schemas.provision import ProvisionSchema
+
+@strawberry.type
+class CreditsSchema:
+    products: Optional[List[ProductSchema]] = None
+    payments: Optional[List[PaymentSchema]] = None
+    charges: Optional[List[ChargeSchema]] = None
+    accounts: Optional[List[AccountSchema]] = None
+    installments: Optional[List[InstallmentSchema]] = None
+    entities: Optional[List[EntitySchema]] = None
+    rates: Optional[List[RateSchema]] = None
+    operations: Optional[List[OperationSchema]] = None
+    provisions: Optional[List[ProvisionSchema]] = None
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\Graphql\schemas\entity.py
+/===============================================================================
+
+import strawberry
+from typing import Optional
+from datetime import datetime
+
+@strawberry.type
+class EntitySchema:
+    contract_number: Optional[str]
+    operation_currency: Optional[str]
+    disbursement_date: Optional[datetime]
+    position_date: Optional[datetime]
+    passive_asset: Optional[str]
+    company_id: Optional[int]
+    file_name: Optional[str]
+    entity_id: Optional[int]
+    entity_role: Optional[int]
+    entity_name: Optional[str]
+    is_deleted: Optional[bool]
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\Graphql\schemas\installment.py
+/===============================================================================
+
+import strawberry
+from typing import Optional
+from datetime import datetime
+
+@strawberry.type
+class InstallmentSchema:
+    contract_number: Optional[str]
+    operation_currency: Optional[str]
+    disbursement_date: Optional[datetime]
+    position_date: Optional[datetime]
+    passive_asset: Optional[str]
+    company_id: Optional[int]
+    file_name: Optional[str]
+
+    commission_without_gross_value: Optional[float]
+    total_installment_value: Optional[float]
+    fixed_interest_value: Optional[float]
+    variable_interest_value: Optional[float]
+    has_interest_incorporation: Optional[bool]
+    has_unconfirmed_payments: Optional[bool]
+    overdue_interest_value: Optional[float]
+    effective_index_value: Optional[float]
+    installment_frequency: Optional[int]
+    installment_number: Optional[int]
+    installment_type: Optional[int]
+    overdue_interest_rate: Optional[float]
+    effective_overdue_rate: Optional[float]
+    overdue_interest_due_value: Optional[float]
+    iof_value: Optional[float]
+    is_vnp: Optional[bool]
+    business_due_date: Optional[datetime]
+    due_date: Optional[datetime]
+    principal_due_value: Optional[float]
+    prepayment_penalty_value: Optional[float]
+    principal_value: Optional[float]
+    payment_method_description: Optional[str]
+    accumulation_start: Optional[datetime]
+    state: Optional[int]
+    state_description: Optional[str]
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\Graphql\schemas\operation.py
+/===============================================================================
+
+import strawberry
+from typing import Optional, List
+from datetime import datetime, date
+
+@strawberry.type
+class OperationSchema:
+    id: Optional[int]
+    amount: Optional[float]
+    exchange_rate_clp: Optional[float]
+    exchange_rate_usd: Optional[float]
+    business_type: Optional[str]
+    country: Optional[str]
+    guarantee_amount: Optional[float]
+    average_haircut: Optional[float]
+    query_date: Optional[date]
+    insertion_date: Optional[datetime]
+    update_date: Optional[datetime]
+    last_execution_user: Optional[str]
+    client_id: Optional[int]
+    contract_number: Optional[str]
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\Graphql\schemas\pagination.py
+/===============================================================================
+
+"""
+This module defines the input and output types for pagination and responses related to clients in a GraphQL schema.
+Classes:
+    PaginationInput: Defines the input type for pagination parameters.
+    PaginationOutput: Defines the output type for pagination details.
+    ResponseClients: Defines the response type for clients with pagination.
+"""
+import strawberry
+from typing import List, Optional
+from src.Graphql.schemas.credits import CreditsSchema
+
+@strawberry.input
+class PaginationInput:
+    """
+    PaginationInput: Class for handling pagination input parameters.
+    Attributes:
+        page (int): The current page number.
+        records (int): The number of records per page.
+    """
+    page: int
+    records: int
+
+@strawberry.type
+class PaginationOutput:
+    """
+    PaginationOutput: Class for handling pagination output.
+    Attributes:
+        count (int): The total number of items.
+        next (Optional[int]): The next page number, if available.
+        previous (Optional[int]): The previous page number, if available.
+    """
+    count: int
+    next: Optional[int] = None
+    previous: Optional[int] = None
+
+# @strawberry.type
+# class ResponseCredits:
+#     """
+#     ResponseCredits: GraphQL response class for handling credit-related queries.
+#     Attributes:
+#         clients (List[CreditsSchema]): A list of Credits schema objects representing the Credits.
+#         pagination (Optional[PaginationOutput]): An object containing pagination information for the response.
+#     """
+#     credits: List[CreditsSchema]
+#     pagination: Optional[PaginationOutput] = None
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\Graphql\schemas\payment.py
+/===============================================================================
+
+import strawberry
+from typing import Optional
+from datetime import datetime
+
+@strawberry.type
+class PaymentSchema:
+    contract_number: Optional[str]
+    operation_currency: Optional[str]
+    disbursement_date: Optional[datetime]
+    position_date: Optional[datetime]
+    passive_asset: Optional[str]
+    company_id: Optional[int]
+    file_name: Optional[str]
+    operation_payment_currency: Optional[str]
+    discount_value: Optional[float]
+    fixed_rate_accumulated_interest: Optional[float]
+    variable_accumulated_interest: Optional[float]
+    installment_frequency: Optional[int]
+    installment_type: Optional[int]
+    overdue_interest_rate: Optional[float]
+    iof_value: Optional[float]
+    is_late_payment: Optional[bool]
+    overdue_interest_value: Optional[float]
+    due_value: Optional[float]
+    payment_value: Optional[float]
+    payment_date: Optional[datetime]
+    payment_disbursement: Optional[float]
+    payment_number: Optional[int]
+    payment_state_id: Optional[int]
+    payment_state: Optional[str]
+    prepayment_penalty_value: Optional[float]
+    is_early_payment: Optional[bool]
+    capital_value: Optional[float]
+    payment_reason: Optional[str]
+    liquidation_method_id: Optional[int]
+    liquidation_method: Optional[str]
+    is_total_payment: Optional[bool]
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\Graphql\schemas\product.py
+/===============================================================================
+
+from typing import Optional, List
+from datetime import datetime
+import strawberry
+
+@strawberry.type
+class ProductSchema:
+    contract_number: Optional[str]
+    operation_currency: Optional[str]
+    disbursement_date: Optional[datetime]
+    position_date: Optional[datetime]
+    passive_asset: Optional[str]
+    amortization_type_code: Optional[str]
+    amortization_type_description: Optional[str]
+    company_id: Optional[int]
+    counterparty_id: Optional[int]
+    currency_quotation: Optional[float]
+    curve_value: Optional[float]
+    disbursement_value: Optional[float]
+    file_name: Optional[str]
+    fixed_interest_rate: Optional[float]
+    variable_interest_rate: Optional[float]
+    has_guarantee: Optional[bool]
+    has_payment_processing: Optional[bool]
+    index_periods: Optional[str]
+    iof_value: Optional[float]
+    is_undefined_bank_guarantee: Optional[bool]
+    is_heritage_flow: Optional[bool]
+    installment_count: Optional[int]
+    late_interest_rate: Optional[float]
+    is_vnp: Optional[bool]
+    late_payment_value: Optional[float]
+    expiration_date: Optional[datetime]
+    expiration_value: Optional[float]
+    modality_id: Optional[int]
+    modality_description: Optional[str]
+    operation_number: Optional[str]
+    principal_operation_value: Optional[float]
+    operation_date: Optional[datetime]
+    operation_purpose: Optional[int]
+    operation_state: Optional[int]
+    original_disbursement_date: Optional[datetime]
+    original_principal_value: Optional[float]
+    mora_value: Optional[float]
+    principal_value: Optional[float]
+    product_classification: Optional[int]
+    accumulation_start: Optional[datetime]
+    negotiation_date: Optional[datetime]
+    negotiation_id: Optional[str]
+    operation_system: Optional[str]
+    total_installments: Optional[int]
+    credit_type: Optional[int]
+    operation_interest_rate: Optional[float]
+    grace_frequency: Optional[str]
+    grace_value: Optional[int]
+    is_current_record: Optional[bool]
+    strategy: Optional[str] = None
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\Graphql\schemas\provision.py
+/===============================================================================
+
+import strawberry
+from typing import Optional
+from datetime import datetime, date
+
+@strawberry.type
+class ProvisionSchema:
+    id: Optional[int]
+    business_type: Optional[str]
+    state: Optional[str]
+    disbursement_date: Optional[date]
+    credit_contract_expiration_date: Optional[date]
+    overdue_days: Optional[int]
+    principal: Optional[float]
+    interest: Optional[float]
+    provision_percentage: Optional[float]
+    provision_amount: Optional[float]
+    net_amount: Optional[float]
+    capital_provision: Optional[float]
+    interest_provision: Optional[float]
+    pro_cyclical: Optional[float]
+    pro_cyclical_capital: Optional[float]
+    pro_cyclical_interest: Optional[float]
+    counter_cyclical: Optional[float]
+    counter_cyclical_capital: Optional[float]
+    counter_cyclical_interest: Optional[float]
+    asset_size: Optional[str]
+    total_assets: Optional[float]
+    pi_pro_cyclical: Optional[float]
+    pi_counter_cyclical: Optional[float]
+    guarantee: Optional[float]
+    loss_given_default: Optional[float]
+    active_adjustment_factor: Optional[float]
+    exchange_adjustment_factor: Optional[float]
+    operation_currency: Optional[str]
+    guarantee_currency: Optional[str]
+    exposure_value: Optional[float]
+    income_size: Optional[str]
+    total_income: Optional[float]
+    sector: Optional[str]
+    section: Optional[str]
+    weight: Optional[float]
+    weighted_exposure: Optional[float]
+    validation: Optional[str]
+    probability_of_default: Optional[float]
+    external_lp_rating: Optional[str]
+    loan_to_value_ratio: Optional[float]
+    classification: Optional[str]
+    segment_453: Optional[str]
+    insertion_date: Optional[datetime]
+    update_date: Optional[datetime]
+    last_execution_user: Optional[str]
+    operation_id: Optional[int]
+    provision_date: Optional[date]
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\Graphql\schemas\rate.py
+/===============================================================================
+
+import strawberry
+from typing import Optional
+from datetime import datetime
+
+@strawberry.type
+class RateSchema:
+    contract_number: Optional[str]
+    operation_currency: Optional[str]
+    disbursement_date: Optional[datetime]
+    position_date: Optional[datetime]
+    passive_asset: Optional[str]
+    company_id: Optional[int]
+    file_name: Optional[str]
+    base_rate: Optional[int]
+    interest_or_base_value: Optional[float]
+    currency_quotation: Optional[float]
+    day_count_convention: Optional[str]
+    rate_end_date: Optional[datetime]
+    rate_type: Optional[str]
+    rate_percentage: Optional[float]
+    installment_frequency: Optional[int]
+    overdue_interest_base: Optional[int]
+    overdue_interest_indexer: Optional[str]
+    overdue_interest_percentage: Optional[float]
+    overdue_interest_method: Optional[str]
+    overdue_interest_rate: Optional[float]
+    rounding_method: Optional[str]
+    interest_method: Optional[str]
+    interest_rate: Optional[float]
+    is_pro_rata: Optional[bool]
+    late_payment_calculation_method: Optional[str]
+    penalty_rate: Optional[float]
+    rate_start_date: Optional[datetime]
+    interest_type: Optional[int]
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\Graphql\schemas\response.py
+/===============================================================================
+
+import strawberry
+from typing import List, Optional
+from src.Graphql.schemas.credits import CreditsSchema
+from src.Graphql.schemas.pagination import PaginationInput, PaginationOutput
+
+@strawberry.type
+class ResponseCredits:
+    """
+    ResponseCredits: GraphQL response class for handling credit-related queries.
+    Attributes:
+        clients (List[CreditsSchema]): A list of Credits schema objects representing the Credits.
+        pagination (Optional[PaginationOutput]): An object containing pagination information for the response.
+    """
+    credits: List[CreditsSchema]
+    pagination: Optional[PaginationOutput] = None
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\Graphql\schemas\responses.py
+/===============================================================================
+
+import strawberry
+from typing import List, Optional
+from src.Graphql.schemas.pagination import PaginationOutput
+from src.Graphql.schemas.product import ProductSchema
+from src.Graphql.schemas.charge import ChargeSchema
+from src.Graphql.schemas.account import AccountSchema
+from src.Graphql.schemas.installment import InstallmentSchema
+from src.Graphql.schemas.entity import EntitySchema
+from src.Graphql.schemas.payment import PaymentSchema
+from src.Graphql.schemas.rate import RateSchema
+from src.Graphql.schemas.operation import OperationSchema
+from src.Graphql.schemas.provision import ProvisionSchema
+
+@strawberry.type
+class ResponseProducts:
+    products: List[ProductSchema]
+    pagination: Optional[PaginationOutput] = None
+
+@strawberry.type
+class ResponseCharges:
+    charges: List[ChargeSchema]
+    pagination: Optional[PaginationOutput] = None
+
+@strawberry.type
+class ResponseAccounts:
+    accounts: List[AccountSchema]
+    pagination: Optional[PaginationOutput] = None
+
+@strawberry.type
+class ResponseInstallments:
+    installments: List[InstallmentSchema]
+    pagination: Optional[PaginationOutput] = None
+
+@strawberry.type
+class ResponseEntities:
+    entities: List[EntitySchema]
+    pagination: Optional[PaginationOutput] = None
+
+@strawberry.type
+class ResponsePayments:
+    payments: List[PaymentSchema]
+    pagination: Optional[PaginationOutput] = None
+
+@strawberry.type
+class ResponseRates:
+    rates: List[RateSchema]
+    pagination: Optional[PaginationOutput] = None
+
+@strawberry.type
+class ResponseOperations:
+    operations: List[OperationSchema]
+    pagination: Optional[PaginationOutput] = None
+
+@strawberry.type
+class ResponseProvisions:
+    provisions: List[ProvisionSchema]
+    pagination: Optional[PaginationOutput] = None
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\resolvers\credits\credits_resolver.py
+/===============================================================================
+
+from typing import List, Optional
+from src.resolvers.credits.icredits_resolver import ICreditsResolver
+from src.data_access.repositories.credits_repo import CreditsRepository
+from src.Graphql.schemas.credits import CreditsSchema
+from src.Graphql.schemas.pagination import PaginationInput, PaginationOutput
+from src.Graphql.schemas.response import ResponseCredits
+from src.utils.mapper import map_credit_model_to_schema
+from common.containers.database.session import SessionDependencyContainer
+from src. config.constants import CreditConstants
+from common.config.logger import logger
+
+from src.Graphql.schemas.responses import (
+    ResponseProducts, ResponseCharges, ResponseAccounts, ResponseInstallments,
+    ResponseEntities, ResponsePayments, ResponseRates, ResponseOperations, ResponseProvisions
+)
+from src.utils.mapper import (
+#     map_credit_model_to_schema,
+     map_products,
+     map_charges,
+     map_accounts,
+     map_installments,
+     map_entities,
+     map_payments,
+     map_rates,
+     map_operations,
+     map_provisions,
+ )
+
+
+class CreditsResolver(ICreditsResolver):
+    """
+    Resolver class for handling credit-related operations.
+    Methods:
+        __init__():
+            Initializes the CreditsResolver with a session and a credits repository.
+        get_credits(pagination: PaginationInput, contract_number: Optional[List[str]] = None, 
+                    counterparty_id: Optional[List[int]] = None, position_date: Optional[List[str]] = None) -> ResponseCredits:
+            Retrieves a paginated list of credits based on the provided filters.
+    Attributes:
+        session:
+            The database session used for querying data.
+        credits_repo:
+            The repository instance for accessing credit-related data.
+    """
+    def __init__(self):
+        try:
+            print("Initializing CreditsResolver")
+            logger.info("Initializing CreditsResolver")
+            self.session = SessionDependencyContainer().get_session()
+            # ✅ VALIDACIÓN: Verificar que la sesión se obtuvo correctamente
+            if not self.session:
+                raise ValueError("Failed to obtain database session from SessionDependencyContainer")
+            print("Session obteined successfully")
+            self.credits_repo = CreditsRepository(session=self.session)
+            print("CreditsRepository initialized successfully print")
+            logger.info("CreditsRepository initialized successfully logger")
+        except Exception as e:
+            logger.error(f"Error inicializando CreditsResolver: {str(e)}")
+            # ✅ Re-lanzar la excepción para que el error sea visible
+            raise ValueError(f"CreditsResolver initialization failed: {str(e)}")
+
+    def get_credits(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        counterparty_id: Optional[List[int]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> ResponseCredits:
+        try:
+            if pagination is None:
+                pagination = PaginationInput(records=CreditConstants.DEFAULT_PAGINATION_RECORDS.value, 
+                                            page=CreditConstants.DEFAULT_PAGINATION_PAGE.value)
+                
+            normalized_page = max(1, pagination.page)
+            if pagination.page != normalized_page:
+                print(f"Página normalizada print: {pagination.page} → {normalized_page}")
+                logger.info(f"Página normalizada logger: {pagination.page} → {normalized_page}")
+
+            pagination_dict = {
+                'page': normalized_page,   
+                'records': pagination.records
+            }
+
+            print(f"Consultando créditos con paginación print: {pagination_dict}")
+            logger.info(f"Consultando créditos con paginación logger: {pagination_dict}")
+
+            logger.info(f"Calling get_credits with pagination: {pagination_dict}")
+            print(f"Calling get_credits with pagination: {pagination_dict}")
+            
+            result = self.credits_repo.get_credits(
+                pagination=pagination_dict,
+                contract_number=contract_number,
+                counterparty_id=counterparty_id,
+                position_date=position_date
+            )
+            
+            # ✅ VALIDACIONES MEJORADAS
+            logger.info(f"Repository result type: {type(result)}, value: {result}")
+            print(f"Repository result type: {type(result)}, value: {result}")
+            
+            if result is None:
+                logger.error("Repository returned None - this should not happen if exceptions are properly raised")
+                print("Repository returned None - this should not happen if exceptions are properly raised")
+                raise ValueError("Repository returned None result - database connection or query failed")
+            
+            if not isinstance(result, dict):
+                logger.error(f"Repository returned non-dict result: {type(result)}")
+                print(f"Repository returned non-dict result: {type(result)}")
+                raise ValueError(f"Repository returned invalid result type: {type(result)}")
+            
+            if "credits" not in result:
+                logger.error(f"Repository result missing 'credits' key. Available keys: {list(result.keys())}")
+                print(f"Repository result missing 'credits' key. Available keys: {list(result.keys())}")
+                raise ValueError("Repository result missing 'credits' key")
+
+            if "total_count" not in result:
+                logger.error(f"Repository result missing 'total_count' key. Available keys: {list(result.keys())}")
+                print(f"Repository result missing 'total_count' key. Available keys: {list(result.keys())}")
+                raise ValueError("Repository result missing 'total_count' key")
+
+            mapped_credits = [map_credit_model_to_schema(credit) for credit in result["credits"]]
+            total = result["total_count"]
+            
+            # ✅ CORRECCIÓN: Cálculo correcto de paginación
+            current_page = normalized_page
+            records_per_page = pagination.records
+            
+            # Calcular páginas correctamente
+            total_pages = (total + records_per_page - 1) // records_per_page
+
+            next_page = current_page + 1 if current_page < total_pages else None
+            previous_page = current_page - 1 if current_page > 1 else None
+            
+            pagination_output = PaginationOutput(
+                count=total,
+                next=next_page,
+                previous=previous_page
+            )
+
+            response = ResponseCredits(
+                credits=mapped_credits,
+                pagination=pagination_output
+            )
+
+            return response
+        
+        except Exception as e:
+            logger.error(f"Error en get_credits: {str(e)}")
+            raise
+
+    def get_products(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        counterparty_id: Optional[List[int]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> ResponseProducts:
+        try:
+            if not self.credits_repo:
+                raise ValueError("CreditsRepository is not initialized")
+                
+            if pagination is None:
+                pagination = PaginationInput(
+                    records=CreditConstants.DEFAULT_PAGINATION_RECORDS.value, 
+                    page=CreditConstants.DEFAULT_PAGINATION_PAGE.value
+                )
+
+            # ✅ CORRECCIÓN: Paginación correcta
+            normalized_page = max(1, pagination.page)
+            pagination_dict = {
+                'page': normalized_page,
+                'records': pagination.records
+            }
+
+            logger.info(f"Calling get_products with pagination: {pagination_dict}")
+            print(f"Calling get_products with pagination: {pagination_dict}")
+            
+            result = self.credits_repo.get_products(
+                pagination=pagination_dict,
+                contract_number=contract_number,
+                counterparty_id=counterparty_id,
+                position_date=position_date
+            )
+
+            # ✅ VALIDACIONES MEJORADAS
+            logger.info(f"Repository result type: {type(result)}, value: {result}")
+            print(f"Repository result type: {type(result)}, value: {result}")
+            
+            if result is None:
+                logger.error("Repository returned None - this should not happen if exceptions are properly raised")
+                print("Repository returned None - this should not happen if exceptions are properly raised")
+                raise ValueError("Repository returned None result - database connection or query failed")
+            
+            if not isinstance(result, dict):
+                logger.error(f"Repository returned non-dict result: {type(result)}")
+                print(f"Repository returned non-dict result: {type(result)}")
+                raise ValueError(f"Repository returned invalid result type: {type(result)}")
+            
+            if "products" not in result:
+                logger.error(f"Repository result missing 'products' key. Available keys: {list(result.keys())}")
+                print(f"Repository result missing 'products' key. Available keys: {list(result.keys())}")
+                raise ValueError("Repository result missing 'products' key")
+            
+            if "total_count" not in result:
+                logger.error(f"Repository result missing 'total_count' key. Available keys: {list(result.keys())}")
+                print(f"Repository result missing 'total_count' key. Available keys: {list(result.keys())}")
+                raise ValueError("Repository result missing 'total_count' key")
+
+            mapped_products = [map_products(product) for product in result["products"]]
+            total = result["total_count"]
+
+            # ✅ CORRECCIÓN: Cálculo de paginación
+            total_pages = (total + pagination.records - 1) // pagination.records
+            next_page = normalized_page + 1 if normalized_page < total_pages else None
+            previous_page = normalized_page - 1 if normalized_page > 1 else None
+
+            pagination_output = PaginationOutput(
+                count=total,
+                next=next_page,
+                previous=previous_page
+            )
+
+            return ResponseProducts(
+                products=mapped_products,
+                pagination=pagination_output
+            )
+
+        except Exception as e:
+            logger.error(f"Error en get_products: {str(e)}")
+            raise
+
+    def get_charges(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> ResponseCharges:
+        try:
+            if not self.credits_repo:
+                raise ValueError("CreditsRepository is not initialized")
+                
+            if pagination is None:
+                pagination = PaginationInput(
+                    records=CreditConstants.DEFAULT_PAGINATION_RECORDS.value,
+                    page=CreditConstants.DEFAULT_PAGINATION_PAGE.value
+                )
+
+            # ✅ CORRECCIÓN: Paginación correcta
+            normalized_page = max(1, pagination.page)
+            pagination_dict = {
+                'page': normalized_page,
+                'records': pagination.records
+            }
+
+            result = self.credits_repo.get_charges(
+                pagination=pagination_dict,
+                contract_number=contract_number,
+                position_date=position_date
+            )
+
+            # ✅ VALIDACIONES
+            if not result or "charges" not in result:
+                raise ValueError("Repository returned invalid result")
+
+            mapped = [map_charges(c) for c in result["charges"]]
+            total = result["total_count"]
+
+            # ✅ CORRECCIÓN: Cálculo de paginación
+            total_pages = (total + pagination.records - 1) // pagination.records
+            next_page = normalized_page + 1 if normalized_page < total_pages else None
+            previous_page = normalized_page - 1 if normalized_page > 1 else None
+
+            return ResponseCharges(
+                charges=mapped,
+                pagination=PaginationOutput(
+                    count=total,
+                    next=next_page,
+                    previous=previous_page
+                )
+            )
+
+        except Exception as e:
+            logger.error(f"Error en get_charges: {str(e)}")
+            raise
+
+    # ✅ APLICA EL MISMO PATRÓN PARA LOS DEMÁS MÉTODOS...
+    # (Por brevedad, muestro solo los primeros 3, pero aplica la misma lógica a todos)
+
+    def get_accounts(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> ResponseAccounts:
+        try:
+            if not self.credits_repo:
+                raise ValueError("CreditsRepository is not initialized")
+                
+            if pagination is None:
+                pagination = PaginationInput(
+                    records=CreditConstants.DEFAULT_PAGINATION_RECORDS.value,
+                    page=CreditConstants.DEFAULT_PAGINATION_PAGE.value
+                )
+
+            normalized_page = max(1, pagination.page)
+            pagination_dict = {
+                'page': normalized_page,
+                'records': pagination.records
+            }
+
+            result = self.credits_repo.get_accounts(
+                pagination=pagination_dict,
+                contract_number=contract_number,
+                position_date=position_date
+            )
+
+            if not result or "accounts" not in result:
+                raise ValueError("Repository returned invalid result")
+
+            mapped = [map_accounts(b) for b in result["accounts"]]
+            total = result["total_count"]
+
+            total_pages = (total + pagination.records - 1) // pagination.records
+            next_page = normalized_page + 1 if normalized_page < total_pages else None
+            previous_page = normalized_page - 1 if normalized_page > 1 else None
+
+            return ResponseAccounts(
+                accounts=mapped,
+                pagination=PaginationOutput(
+                    count=total,
+                    next=next_page,
+                    previous=previous_page
+                )
+            )
+
+        except Exception as e:
+            logger.error(f"Error en get_accounts: {str(e)}")
+            raise
+
+    def get_installments(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> ResponseInstallments:
+        try:
+            # ✅ VALIDACIÓN: Verificar repository
+            if not self.credits_repo:
+                raise ValueError("CreditsRepository is not initialized")
+                
+            if pagination is None:
+                pagination = PaginationInput(
+                    records=CreditConstants.DEFAULT_PAGINATION_RECORDS.value,
+                    page=CreditConstants.DEFAULT_PAGINATION_PAGE.value
+                )
+
+            # ✅ CORRECCIÓN: Paginación correcta
+            normalized_page = max(1, pagination.page)
+            pagination_dict = {
+                'page': normalized_page,
+                'records': pagination.records
+            }
+
+            result = self.credits_repo.get_installments(
+                pagination=pagination_dict,
+                contract_number=contract_number,
+                position_date=position_date
+            )
+
+            # ✅ VALIDACIONES
+            if not result or "installments" not in result:
+                raise ValueError("Repository returned invalid result")
+
+            mapped = [map_installments(i) for i in result["installments"]]
+            total = result["total_count"]
+
+            # ✅ CORRECCIÓN: Cálculo de paginación
+            total_pages = (total + pagination.records - 1) // pagination.records
+            next_page = normalized_page + 1 if normalized_page < total_pages else None
+            previous_page = normalized_page - 1 if normalized_page > 1 else None
+
+            return ResponseInstallments(
+                installments=mapped,
+                pagination=PaginationOutput(
+                    count=total,
+                    next=next_page,
+                    previous=previous_page
+                )
+            )
+
+        except Exception as e:
+            logger.error(f"Error en get_installments: {str(e)}")
+            raise
+
+    def get_entities(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> ResponseEntities:
+        try:
+            # ✅ VALIDACIÓN: Verificar repository
+            if not self.credits_repo:
+                raise ValueError("CreditsRepository is not initialized")
+                
+            if pagination is None:
+                pagination = PaginationInput(
+                    records=CreditConstants.DEFAULT_PAGINATION_RECORDS.value,
+                    page=CreditConstants.DEFAULT_PAGINATION_PAGE.value
+                )
+
+            # ✅ CORRECCIÓN: Paginación correcta
+            normalized_page = max(1, pagination.page)
+            pagination_dict = {
+                'page': normalized_page,
+                'records': pagination.records
+            }
+
+            result = self.credits_repo.get_entities(
+                pagination=pagination_dict,
+                contract_number=contract_number,
+                position_date=position_date
+            )
+
+            # ✅ VALIDACIONES
+            if not result or "entities" not in result:
+                raise ValueError("Repository returned invalid result")
+
+            mapped = [map_entities(e) for e in result["entities"]]
+            total = result["total_count"]
+
+            # ✅ CORRECCIÓN: Cálculo de paginación
+            total_pages = (total + pagination.records - 1) // pagination.records
+            next_page = normalized_page + 1 if normalized_page < total_pages else None
+            previous_page = normalized_page - 1 if normalized_page > 1 else None
+
+            return ResponseEntities(
+                entities=mapped,
+                pagination=PaginationOutput(
+                    count=total,
+                    next=next_page,
+                    previous=previous_page
+                )
+            )
+
+        except Exception as e:
+            logger.error(f"Error en get_entities: {str(e)}")
+            raise
+
+    def get_payments(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> ResponsePayments:
+        try:
+            # ✅ VALIDACIÓN: Verificar repository
+            if not self.credits_repo:
+                raise ValueError("CreditsRepository is not initialized")
+                
+            if pagination is None:
+                pagination = PaginationInput(
+                    records=CreditConstants.DEFAULT_PAGINATION_RECORDS.value,
+                    page=CreditConstants.DEFAULT_PAGINATION_PAGE.value
+                )
+
+            # ✅ CORRECCIÓN: Paginación correcta
+            normalized_page = max(1, pagination.page)
+            pagination_dict = {
+                'page': normalized_page,
+                'records': pagination.records
+            }
+
+            result = self.credits_repo.get_payments(
+                pagination=pagination_dict,
+                contract_number=contract_number,
+                position_date=position_date
+            )
+
+            # ✅ VALIDACIONES
+            if not result or "payments" not in result:
+                raise ValueError("Repository returned invalid result")
+
+            mapped = [map_payments(p) for p in result["payments"]]
+            total = result["total_count"]
+
+            # ✅ CORRECCIÓN: Cálculo de paginación
+            total_pages = (total + pagination.records - 1) // pagination.records
+            next_page = normalized_page + 1 if normalized_page < total_pages else None
+            previous_page = normalized_page - 1 if normalized_page > 1 else None
+
+            return ResponsePayments(
+                payments=mapped,
+                pagination=PaginationOutput(
+                    count=total,
+                    next=next_page,
+                    previous=previous_page
+                )
+            )
+
+        except Exception as e:
+            logger.error(f"Error en get_payments: {str(e)}")
+            raise
+
+    def get_rates(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> ResponseRates:
+        try:
+            # ✅ VALIDACIÓN: Verificar repository
+            if not self.credits_repo:
+                raise ValueError("CreditsRepository is not initialized")
+                
+            if pagination is None:
+                pagination = PaginationInput(
+                    records=CreditConstants.DEFAULT_PAGINATION_RECORDS.value,
+                    page=CreditConstants.DEFAULT_PAGINATION_PAGE.value
+                )
+
+            # ✅ CORRECCIÓN: Paginación correcta
+            normalized_page = max(1, pagination.page)
+            pagination_dict = {
+                'page': normalized_page,
+                'records': pagination.records
+            }
+
+            result = self.credits_repo.get_rates(
+                pagination=pagination_dict,
+                contract_number=contract_number,
+                position_date=position_date
+            )
+
+            # ✅ VALIDACIONES
+            if not result or "rates" not in result:
+                raise ValueError("Repository returned invalid result")
+
+            mapped = [map_rates(r) for r in result["rates"]]
+            total = result["total_count"]
+
+            # ✅ CORRECCIÓN: Cálculo de paginación
+            total_pages = (total + pagination.records - 1) // pagination.records
+            next_page = normalized_page + 1 if normalized_page < total_pages else None
+            previous_page = normalized_page - 1 if normalized_page > 1 else None
+
+            return ResponseRates(
+                rates=mapped,
+                pagination=PaginationOutput(
+                    count=total,
+                    next=next_page,
+                    previous=previous_page
+                )
+            )
+
+        except Exception as e:
+            logger.error(f"Error en get_rates: {str(e)}")
+            raise
+
+    def get_operations(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        operation_ids: Optional[List[int]] = None
+    ) -> ResponseOperations:
+        try:
+            # ✅ VALIDACIÓN: Verificar repository
+            if not self.credits_repo:
+                raise ValueError("CreditsRepository is not initialized")
+                
+            if pagination is None:
+                pagination = PaginationInput(
+                    records=CreditConstants.DEFAULT_PAGINATION_RECORDS.value,
+                    page=CreditConstants.DEFAULT_PAGINATION_PAGE.value
+                )
+
+            # ✅ CORRECCIÓN: Paginación correcta
+            normalized_page = max(1, pagination.page)
+            pagination_dict = {
+                'page': normalized_page,
+                'records': pagination.records
+            }
+
+            result = self.credits_repo.get_operations(
+                pagination=pagination_dict,
+                contract_number=contract_number,
+                operation_ids=operation_ids
+            )
+
+            # ✅ VALIDACIONES
+            if not result or "operations" not in result:
+                raise ValueError("Repository returned invalid result")
+
+            mapped = [map_operations(o) for o in result["operations"]]
+            total = result["total_count"]
+
+            # ✅ CORRECCIÓN: Cálculo de paginación
+            total_pages = (total + pagination.records - 1) // pagination.records
+            next_page = normalized_page + 1 if normalized_page < total_pages else None
+            previous_page = normalized_page - 1 if normalized_page > 1 else None
+
+            return ResponseOperations(
+                operations=mapped,
+                pagination=PaginationOutput(
+                    count=total,
+                    next=next_page,
+                    previous=previous_page
+                )
+            )
+
+        except Exception as e:
+            logger.error(f"Error en get_operations: {str(e)}")
+            raise
+
+    def get_provisions(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        operation_ids: Optional[List[int]] = None,
+        provision_date: Optional[List[str]] = None
+    ) -> ResponseProvisions:
+        try:
+            # ✅ VALIDACIÓN: Verificar repository
+            if not self.credits_repo:
+                raise ValueError("CreditsRepository is not initialized")
+                
+            if pagination is None:
+                pagination = PaginationInput(
+                    records=CreditConstants.DEFAULT_PAGINATION_RECORDS.value,
+                    page=CreditConstants.DEFAULT_PAGINATION_PAGE.value
+                )
+
+            # ✅ CORRECCIÓN: Paginación correcta
+            normalized_page = max(1, pagination.page)
+            pagination_dict = {
+                'page': normalized_page,
+                'records': pagination.records
+            }
+
+            result = self.credits_repo.get_provisions(
+                pagination=pagination_dict,
+                contract_number=contract_number,
+                operation_ids=operation_ids,
+                provision_date=provision_date
+            )
+
+            # ✅ VALIDACIONES
+            if not result or "provisions" not in result:
+                raise ValueError("Repository returned invalid result")
+
+            mapped = [map_provisions(p) for p in result["provisions"]]
+            total = result["total_count"]
+
+            # ✅ CORRECCIÓN: Cálculo de paginación
+            total_pages = (total + pagination.records - 1) // pagination.records
+            next_page = normalized_page + 1 if normalized_page < total_pages else None
+            previous_page = normalized_page - 1 if normalized_page > 1 else None
+
+            return ResponseProvisions(
+                provisions=mapped,
+                pagination=PaginationOutput(
+                    count=total,
+                    next=next_page,
+                    previous=previous_page
+                )
+            )
+
+        except Exception as e:
+            logger.error(f"Error en get_provisions: {str(e)}")
+            raise
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\resolvers\credits\icredits_resolver.py
+/===============================================================================
+
+from abc import ABC, abstractmethod
+from typing import List, Optional
+from src.Graphql.schemas.pagination import PaginationInput
+from src.Graphql.schemas.response import ResponseCredits
+from src.Graphql.schemas.responses import (
+    ResponseProducts, ResponseCharges, ResponseAccounts, ResponseInstallments,
+    ResponseEntities, ResponsePayments, ResponseRates, ResponseOperations, ResponseProvisions
+)
+
+class ICreditsResolver(ABC):
+    """
+    Interface for a resolver class handling credit-related GraphQL operations.
+    Defines the contract for fetching credit information with optional filters and pagination.
+    """
+
+    @abstractmethod
+    def get_credits(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        counterparty_id: Optional[List[int]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> ResponseCredits:
+        """
+        Retrieves a paginated list of credits based on optional filters.
+
+        Args:
+            pagination (PaginationInput): Details for paginating the result set.
+            contract_number (Optional[List[str]]): List of contract numbers to filter.
+            counterparty_id (Optional[List[int]]): List of counterparty IDs to filter.
+
+        Returns:
+            ResponseCredits: The list of filtered and paginated credits.
+        """
+        pass
+
+
+    @abstractmethod
+    def get_products(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        counterparty_id: Optional[List[int]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> ResponseProducts:
+        """
+        Retrieves a paginated list of products based on optional filters.
+
+        Args:
+            pagination (PaginationInput): Details for paginating the result set.
+            contract_number (Optional[List[str]]): List of contract numbers to filter.
+            counterparty_id (Optional[List[int]]): List of counterparty IDs to filter.
+            position_date (Optional[List[str]]): List of position dates to filter.
+
+        Returns:
+            ResponseProducts: The list of filtered and paginated products.
+        """
+        pass
+
+    @abstractmethod
+    def get_charges(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> ResponseCharges:
+        """
+        Retrieves a paginated list of charges joined with products to validate current record,
+        based on contract number and position date filters.
+        """
+        pass
+
+    @abstractmethod
+    def get_accounts(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> ResponseAccounts:
+        """
+        Retrieves a paginated list of accounts joined with products to validate current record,
+        based on contract number and position date filters.
+
+        Args:
+            pagination (PaginationInput): Details for paginating the result set.
+            contract_number (Optional[List[str]]): List of contract numbers to filter.
+            position_date (Optional[List[str]]): List of position dates to filter.
+
+        Returns:
+            ResponseAccounts: The list of filtered and paginated accounts.
+        """
+        pass
+
+    @abstractmethod
+    def get_installments(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> ResponseInstallments:
+        """
+        Retrieves a paginated list of installments joined with products to validate current record,
+        based on contract number and position date filters.
+
+        Args:
+            pagination (PaginationInput): Details for paginating the result set.
+            contract_number (Optional[List[str]]): List of contract numbers to filter.
+            position_date (Optional[List[str]]): List of position dates to filter.
+
+        Returns:
+            ResponseInstallments: The list of filtered and paginated installments.
+        """
+        pass
+
+    @abstractmethod
+    def get_entities(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> ResponseEntities:
+        """
+        Retrieves a paginated list of entities joined with products to validate current record,
+        based on contract number and position date filters.
+
+        Args:
+            pagination (PaginationInput): Details for paginating the result set.
+            contract_number (Optional[List[str]]): List of contract numbers to filter.
+            position_date (Optional[List[str]]): List of position dates to filter.
+
+        Returns:
+            ResponseEntities: The list of filtered and paginated entities.
+        """
+        pass
+
+    @abstractmethod
+    def get_payments(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> ResponsePayments:
+        """
+        Retrieves a paginated list of payments joined with products to validate current record,
+        based on contract number and position date filters.
+
+        Args:
+            pagination (PaginationInput): Details for paginating the result set.
+            contract_number (Optional[List[str]]): List of contract numbers to filter.
+            position_date (Optional[List[str]]): List of position dates to filter.
+
+        Returns:
+            ResponsePayments: The list of filtered and paginated payments.
+        """
+        pass
+
+    @abstractmethod
+    def get_rates(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        position_date: Optional[List[str]] = None
+    ) -> ResponseRates:
+        """
+        Retrieves a paginated list of rates joined with products to validate current record,
+        based on contract number and position date filters.
+
+        Args:
+            pagination (PaginationInput): Details for paginating the result set.
+            contract_number (Optional[List[str]]): List of contract numbers to filter.
+            position_date (Optional[List[str]]): List of position dates to filter.
+
+        Returns:
+            ResponseRates: The list of filtered and paginated rates.
+        """
+        pass
+
+    @abstractmethod
+    def get_operations(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        operation_ids: Optional[List[int]] = None
+    ) -> ResponseOperations:
+        """
+        Retrieves a paginated list of operations joined with products to validate current record,
+        based on contract number and operation ID filters.
+    
+        Args:
+            pagination (PaginationInput): Details for paginating the result set.
+            contract_number (Optional[List[str]]): List of contract numbers to filter.
+            operation_ids (Optional[List[int]]): List of operation IDs to filter.
+    
+        Returns:
+            ResponseOperations: The list of filtered and paginated operations.
+        """
+        pass
+
+    @abstractmethod
+    def get_provisions(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        contract_number: Optional[List[str]] = None,
+        operation_ids: Optional[List[int]] = None,
+        provision_date: Optional[List[str]] = None
+    ) -> ResponseProvisions:
+        """
+        Retrieves a paginated list of provisions joined with operations and products to validate current record,
+        based on contract number and operation ID filters.
+
+        Args:
+            pagination (PaginationInput): Details for paginating the result set.
+            contract_number (Optional[List[str]]): List of contract numbers to filter.
+            operation_ids (Optional[List[int]]): List of operation IDs to filter.
+
+        Returns:
+            ResponseProvisions: The list of filtered and paginated provisions.
+        """
+        pass
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\src\utils\mapper.py
+/===============================================================================
+
+from src.Graphql.schemas.credits import CreditsSchema
+from src.data_access.models.products import TblProducts
+from src.data_access.models.charges import TblCargos
+from src.data_access.models.accounts import TblCuentas
+from src.data_access.models.installments import TblCuotas
+from src.data_access.models.entities import TblEntidades
+from src.data_access.models.payments import TblPagos
+from src.data_access.models.rates import TblTasas
+from src.data_access.models.operations import TblOperaciones
+from src.data_access.models.provisions import TblProvisionesColombia
+from src.Graphql.schemas.account import AccountSchema
+from src.Graphql.schemas.charge import ChargeSchema
+from src.Graphql.schemas.entity import EntitySchema
+from src.Graphql.schemas.installment import InstallmentSchema
+from src.Graphql.schemas.payment import PaymentSchema
+from src.Graphql.schemas.rate import RateSchema
+from src.Graphql.schemas.product import ProductSchema
+from src.Graphql.schemas.operation import OperationSchema
+from src.Graphql.schemas.provision import ProvisionSchema
+
+
+def map_credit_model_to_schema(credit: TblProducts) -> CreditsSchema:
+    return CreditsSchema(
+        products=[
+            ProductSchema(
+                contract_number=credit.contract_number,
+                operation_currency=credit.operation_currency,
+                disbursement_date=credit.disbursement_date,
+                position_date=credit.position_date,
+                passive_asset=credit.passive_asset,
+                amortization_type_code=credit.amortization_type_code,
+                amortization_type_description=credit.amortization_type_description,
+                company_id=credit.company_id,
+                counterparty_id=credit.counterparty_id,
+                currency_quotation=credit.currency_quotation,
+                curve_value=credit.curve_value,
+                disbursement_value=credit.disbursement_value,
+                file_name=credit.file_name,
+                fixed_interest_rate=credit.fixed_interest_rate,
+                variable_interest_rate=credit.variable_interest_rate,
+                has_guarantee=credit.has_guarantee,
+                has_payment_processing=credit.has_payment_processing,
+                index_periods=credit.index_periods,
+                iof_value=credit.iof_value,
+                is_undefined_bank_guarantee=credit.is_undefined_bank_guarantee,
+                is_heritage_flow=credit.is_heritage_flow,
+                installment_count=credit.installment_count,
+                late_interest_rate=credit.late_interest_rate,
+                is_vnp=credit.is_vnp,
+                late_payment_value=credit.late_payment_value,
+                expiration_date=credit.expiration_date,
+                expiration_value=credit.expiration_value,
+                modality_id=credit.modality_id,
+                modality_description=credit.modality_description,
+                operation_number=credit.operation_number,
+                principal_operation_value=credit.principal_operation_value,
+                operation_date=credit.operation_date,
+                operation_purpose=credit.operation_purpose,
+                operation_state=credit.operation_state,
+                original_disbursement_date=credit.original_disbursement_date,
+                original_principal_value=credit.original_principal_value,
+                mora_value=credit.mora_value,
+                principal_value=credit.principal_value,
+                product_classification=credit.product_classification,
+                accumulation_start=credit.accumulation_start,
+                negotiation_date=credit.negotiation_date,
+                negotiation_id=credit.negotiation_id,
+                operation_system=credit.operation_system,
+                total_installments=credit.total_installments,
+                credit_type=credit.credit_type,
+                operation_interest_rate=credit.operation_interest_rate,
+                grace_frequency=credit.grace_frequency,
+                grace_value=credit.grace_value,
+                is_current_record=credit.is_current_record,
+                strategy=credit.strategy,
+            )
+        ],
+        charges=[
+            ChargeSchema(
+                contract_number=charge.contract_number,
+                operation_currency=charge.operation_currency,
+                disbursement_date=charge.disbursement_date,
+                position_date=charge.position_date,
+                passive_asset=charge.passive_asset,
+                company_id=charge.company_id,
+                file_name=charge.file_name,
+                charge_state=charge.charge_state,
+                charge_type=charge.charge_type,
+                charge_date=charge.charge_date,
+                gross_value=charge.gross_value,
+                financed=charge.financed,
+                has_withholding=charge.has_withholding,
+                charge_value=charge.charge_value,
+                has_financial_impact=charge.has_financial_impact,
+            )
+            for charge in credit.charges
+        ],
+        accounts=[
+            AccountSchema(
+                contract_number=account.contract_number,
+                operation_currency=account.operation_currency,
+                disbursement_date=account.disbursement_date,
+                position_date=account.position_date,
+                passive_asset=account.passive_asset,
+                company_id=account.company_id,
+                file_name=account.file_name,
+                account_type_description=account.account_type_description,
+                agency_code=account.agency_code,
+                bank_code=account.bank_code,
+                account_date=account.account_date,
+                bank_description=account.bank_description,
+                account_number=account.account_number,
+                payer_id=account.payer_id,
+                account_description=account.account_description,
+                payment_method_description=account.payment_method_description,
+            )
+            for account in credit.accounts
+        ],
+        installments=[
+            InstallmentSchema(
+                contract_number=installment.contract_number,
+                operation_currency=installment.operation_currency,
+                disbursement_date=installment.disbursement_date,
+                position_date=installment.position_date,
+                passive_asset=installment.passive_asset,
+                company_id=installment.company_id,
+                file_name=installment.file_name,
+                commission_without_gross_value=installment.commission_without_gross_value,
+                total_installment_value=installment.total_installment_value,
+                fixed_interest_value=installment.fixed_interest_value,
+                variable_interest_value=installment.variable_interest_value,
+                has_interest_incorporation=installment.has_interest_incorporation,
+                has_unconfirmed_payments=installment.has_unconfirmed_payments,
+                overdue_interest_value=installment.overdue_interest_value,
+                effective_index_value=installment.effective_index_value,
+                installment_frequency=installment.installment_frequency,
+                installment_number=installment.installment_number,
+                installment_type=installment.installment_type,
+                overdue_interest_rate=installment.overdue_interest_rate,
+                effective_overdue_rate=installment.effective_overdue_rate,
+                overdue_interest_due_value=installment.overdue_interest_due_value,
+                iof_value=installment.iof_value,
+                is_vnp=installment.is_vnp,
+                business_due_date=installment.business_due_date,
+                due_date=installment.due_date,
+                principal_due_value=installment.principal_due_value,
+                prepayment_penalty_value=installment.prepayment_penalty_value,
+                principal_value=installment.principal_value,
+                payment_method_description=installment.payment_method_description,
+                accumulation_start=installment.accumulation_start,
+                state=installment.state,
+                state_description=installment.state_description,
+            )
+            for installment in credit.installments
+        ],
+        entities=[
+            EntitySchema(
+                contract_number=entity.contract_number,
+                operation_currency=entity.operation_currency,
+                disbursement_date=entity.disbursement_date,
+                position_date=entity.position_date,
+                passive_asset=entity.passive_asset,
+                company_id=entity.company_id,
+                file_name=entity.file_name,
+                entity_id=entity.entity_id,
+                entity_role=entity.entity_role,
+                entity_name=entity.entity_name,
+                is_deleted=entity.is_deleted,
+            )
+            for entity in credit.entities
+        ],
+        payments=[
+            PaymentSchema(
+                contract_number=payment.contract_number,
+                operation_currency=payment.operation_currency,
+                disbursement_date=payment.disbursement_date,
+                position_date=payment.position_date,
+                passive_asset=payment.passive_asset,
+                company_id=payment.company_id,
+                file_name=payment.file_name,
+                operation_payment_currency=payment.operation_payment_currency,
+                discount_value=payment.discount_value,
+                fixed_rate_accumulated_interest=payment.fixed_rate_accumulated_interest,
+                variable_accumulated_interest=payment.variable_accumulated_interest,
+                installment_frequency=payment.installment_frequency,
+                installment_type=payment.installment_type,
+                overdue_interest_rate=payment.overdue_interest_rate,
+                iof_value=payment.iof_value,
+                is_late_payment=payment.is_late_payment,
+                overdue_interest_value=payment.overdue_interest_value,
+                due_value=payment.due_value,
+                payment_value=payment.payment_value,
+                payment_date=payment.payment_date,
+                payment_disbursement=payment.payment_disbursement,
+                payment_number=payment.payment_number,
+                payment_state_id=payment.payment_state_id,
+                payment_state=payment.payment_state,
+                prepayment_penalty_value=payment.prepayment_penalty_value,
+                is_early_payment=payment.is_early_payment,
+                capital_value=payment.capital_value,
+                payment_reason=payment.payment_reason,
+                liquidation_method_id=payment.liquidation_method_id,
+                liquidation_method=payment.liquidation_method,
+                is_total_payment=payment.is_total_payment,
+            )
+            for payment in credit.payments
+        ],
+        rates=[
+            RateSchema(
+                contract_number=rate.contract_number,
+                operation_currency=rate.operation_currency,
+                disbursement_date=rate.disbursement_date,
+                position_date=rate.position_date,
+                passive_asset=rate.passive_asset,
+                company_id=rate.company_id,
+                file_name=rate.file_name,
+                base_rate=rate.base_rate,
+                interest_or_base_value=rate.interest_or_base_value,
+                currency_quotation=rate.currency_quotation,
+                day_count_convention=rate.day_count_convention,
+                rate_end_date=rate.rate_end_date,
+                rate_type=rate.rate_type,
+                rate_percentage=rate.rate_percentage,
+                installment_frequency=rate.installment_frequency,
+                overdue_interest_base=rate.overdue_interest_base,
+                overdue_interest_indexer=rate.overdue_interest_indexer,
+                overdue_interest_percentage=rate.overdue_interest_percentage,
+                overdue_interest_method=rate.overdue_interest_method,
+                overdue_interest_rate=rate.overdue_interest_rate,
+                rounding_method=rate.rounding_method,
+                interest_method=rate.interest_method,
+                interest_rate=rate.interest_rate,
+                is_pro_rata=rate.is_pro_rata,
+                late_payment_calculation_method=rate.late_payment_calculation_method,
+                penalty_rate=rate.penalty_rate,
+                rate_start_date=rate.rate_start_date,
+                interest_type=rate.interest_type,
+            )
+            for rate in credit.rates
+        ],
+        operations=[
+            OperationSchema(
+                id=op.id,
+                amount=op.amount,
+                exchange_rate_clp=op.exchange_rate_clp,
+                exchange_rate_usd=op.exchange_rate_usd,
+                business_type=op.business_type,
+                country=op.country,
+                guarantee_amount=op.guarantee_amount,
+                average_haircut=op.average_haircut,
+                query_date=op.query_date,
+                insertion_date=op.insertion_date,
+                update_date=op.update_date,
+                last_execution_user=op.last_execution_user,
+                client_id=op.client_id,
+                contract_number=op.contract_number,
+            )
+            for op in credit.operations
+        ],
+        provisions=[
+            ProvisionSchema(
+                id=prov.id,
+                business_type=prov.business_type,
+                state=prov.state,
+                disbursement_date=prov.disbursement_date,
+                credit_contract_expiration_date=prov.credit_contract_expiration_date,
+                overdue_days=prov.overdue_days,
+                principal=prov.principal,
+                interest=prov.interest,
+                provision_percentage=prov.provision_percentage,
+                provision_amount=prov.provision_amount,
+                net_amount=prov.net_amount,
+                capital_provision=prov.capital_provision,
+                interest_provision=prov.interest_provision,
+                pro_cyclical=prov.pro_cyclical,
+                pro_cyclical_capital=prov.pro_cyclical_capital,
+                pro_cyclical_interest=prov.pro_cyclical_interest,
+                counter_cyclical=prov.counter_cyclical,
+                counter_cyclical_capital=prov.counter_cyclical_capital,
+                counter_cyclical_interest=prov.counter_cyclical_interest,
+                asset_size=prov.asset_size,
+                total_assets=prov.total_assets,
+                pi_pro_cyclical=prov.pi_pro_cyclical,
+                pi_counter_cyclical=prov.pi_counter_cyclical,
+                guarantee=prov.guarantee,
+                loss_given_default=prov.loss_given_default,
+                active_adjustment_factor=prov.active_adjustment_factor,
+                exchange_adjustment_factor=prov.exchange_adjustment_factor,
+                operation_currency=prov.operation_currency,
+                guarantee_currency=prov.guarantee_currency,
+                exposure_value=prov.exposure_value,
+                income_size=prov.income_size,
+                total_income=prov.total_income,
+                sector=prov.sector,
+                section=prov.section,
+                weight=prov.weight,
+                weighted_exposure=prov.weighted_exposure,
+                validation=prov.validation,
+                probability_of_default=prov.probability_of_default,
+                external_lp_rating=prov.external_lp_rating,
+                loan_to_value_ratio=prov.loan_to_value_ratio,
+                classification=prov.classification,
+                segment_453=prov.segment_453,
+                insertion_date=prov.insertion_date,
+                update_date=prov.update_date,
+                last_execution_user=prov.last_execution_user,
+                operation_id=prov.operation_id,
+                provision_date=prov.provision_date,
+            )
+            for op in credit.operations
+            for prov in op.provisions
+        ]
+    )
+
+
+def map_products(product: TblProducts) -> ProductSchema:
+    return ProductSchema(
+        contract_number=product.contract_number,
+        operation_currency=product.operation_currency,
+        disbursement_date=product.disbursement_date,
+        position_date=product.position_date,
+        passive_asset=product.passive_asset,
+        amortization_type_code=product.amortization_type_code,
+        amortization_type_description=product.amortization_type_description,
+        company_id=product.company_id,
+        counterparty_id=product.counterparty_id,
+        currency_quotation=product.currency_quotation,
+        curve_value=product.curve_value,
+        disbursement_value=product.disbursement_value,
+        file_name=product.file_name,
+        fixed_interest_rate=product.fixed_interest_rate,
+        variable_interest_rate=product.variable_interest_rate,
+        has_guarantee=product.has_guarantee,
+        has_payment_processing=product.has_payment_processing,
+        index_periods=product.index_periods,
+        iof_value=product.iof_value,
+        is_undefined_bank_guarantee=product.is_undefined_bank_guarantee,
+        is_heritage_flow=product.is_heritage_flow,
+        installment_count=product.installment_count,
+        late_interest_rate=product.late_interest_rate,
+        is_vnp=product.is_vnp,
+        late_payment_value=product.late_payment_value,
+        expiration_date=product.expiration_date,
+        expiration_value=product.expiration_value,
+        modality_id=product.modality_id,
+        modality_description=product.modality_description,
+        operation_number=product.operation_number,
+        principal_operation_value=product.principal_operation_value,
+        operation_date=product.operation_date,
+        operation_purpose=product.operation_purpose,
+        operation_state=product.operation_state,
+        original_disbursement_date=product.original_disbursement_date,
+        original_principal_value=product.original_principal_value,
+        mora_value=product.mora_value,
+        principal_value=product.principal_value,
+        product_classification=product.product_classification,
+        accumulation_start=product.accumulation_start,
+        negotiation_date=product.negotiation_date,
+        negotiation_id=product.negotiation_id,
+        operation_system=product.operation_system,
+        total_installments=product.total_installments,
+        credit_type=product.credit_type,
+        operation_interest_rate=product.operation_interest_rate,
+        grace_frequency=product.grace_frequency,
+        grace_value=product.grace_value,
+        is_current_record=product.is_current_record,
+        strategy=product.strategy,
+    )
+
+def map_charges(charge: TblCargos) -> ChargeSchema:
+    return ChargeSchema(
+        contract_number=charge.contract_number,
+        operation_currency=charge.operation_currency,
+        disbursement_date=charge.disbursement_date,
+        position_date=charge.position_date,
+        passive_asset=charge.passive_asset,
+        company_id=charge.company_id,
+        file_name=charge.file_name,
+        charge_state=charge.charge_state,
+        charge_type=charge.charge_type,
+        charge_date=charge.charge_date,
+        gross_value=charge.gross_value,
+        financed=charge.financed,
+        has_withholding=charge.has_withholding,
+        charge_value=charge.charge_value,
+        has_financial_impact=charge.has_financial_impact,
+    )
+
+
+def map_accounts(account: TblCuentas) -> AccountSchema:
+    return AccountSchema(
+        contract_number=account.contract_number,
+        operation_currency=account.operation_currency,
+        disbursement_date=account.disbursement_date,
+        position_date=account.position_date,
+        passive_asset=account.passive_asset,
+        company_id=account.company_id,
+        file_name=account.file_name,
+        account_type_description=account.account_type_description,
+        agency_code=account.agency_code,
+        bank_code=account.bank_code,
+        account_date=account.account_date,
+        bank_description=account.bank_description,
+        account_number=account.account_number,
+        payer_id=account.payer_id,
+        account_description=account.account_description,
+        payment_method_description=account.payment_method_description,
+    )
+
+def map_installments(installment: TblCuotas) -> InstallmentSchema:
+    return InstallmentSchema(
+        contract_number=installment.contract_number,
+        operation_currency=installment.operation_currency,
+        disbursement_date=installment.disbursement_date,
+        position_date=installment.position_date,
+        passive_asset=installment.passive_asset,
+        company_id=installment.company_id,
+        file_name=installment.file_name,
+        commission_without_gross_value=installment.commission_without_gross_value,
+        total_installment_value=installment.total_installment_value,
+        fixed_interest_value=installment.fixed_interest_value,
+        variable_interest_value=installment.variable_interest_value,
+        has_interest_incorporation=installment.has_interest_incorporation,
+        has_unconfirmed_payments=installment.has_unconfirmed_payments,
+        overdue_interest_value=installment.overdue_interest_value,
+        effective_index_value=installment.effective_index_value,
+        installment_frequency=installment.installment_frequency,
+        installment_number=installment.installment_number,
+        installment_type=installment.installment_type,
+        overdue_interest_rate=installment.overdue_interest_rate,
+        effective_overdue_rate=installment.effective_overdue_rate,
+        overdue_interest_due_value=installment.overdue_interest_due_value,
+        iof_value=installment.iof_value,
+        is_vnp=installment.is_vnp,
+        business_due_date=installment.business_due_date,
+        due_date=installment.due_date,
+        principal_due_value=installment.principal_due_value,
+        prepayment_penalty_value=installment.prepayment_penalty_value,
+        principal_value=installment.principal_value,
+        payment_method_description=installment.payment_method_description,
+        accumulation_start=installment.accumulation_start,
+        state=installment.state,
+        state_description=installment.state_description,
+    )
+
+def map_entities(entity: TblEntidades) -> EntitySchema:
+    return EntitySchema(
+        contract_number=entity.contract_number,
+        operation_currency=entity.operation_currency,
+        disbursement_date=entity.disbursement_date,
+        position_date=entity.position_date,
+        passive_asset=entity.passive_asset,
+        company_id=entity.company_id,
+        file_name=entity.file_name,
+        entity_id=entity.entity_id,
+        entity_role=entity.entity_role,
+        entity_name=entity.entity_name,
+        is_deleted=entity.is_deleted,
+    )
+
+def map_payments(payment: TblPagos) -> PaymentSchema:
+    return PaymentSchema(
+        contract_number=payment.contract_number,
+        operation_currency=payment.operation_currency,
+        disbursement_date=payment.disbursement_date,
+        position_date=payment.position_date,
+        passive_asset=payment.passive_asset,
+        company_id=payment.company_id,
+        file_name=payment.file_name,
+        operation_payment_currency=payment.operation_payment_currency,
+        discount_value=payment.discount_value,
+        fixed_rate_accumulated_interest=payment.fixed_rate_accumulated_interest,
+        variable_accumulated_interest=payment.variable_accumulated_interest,
+        installment_frequency=payment.installment_frequency,
+        installment_type=payment.installment_type,
+        overdue_interest_rate=payment.overdue_interest_rate,
+        iof_value=payment.iof_value,
+        is_late_payment=payment.is_late_payment,
+        overdue_interest_value=payment.overdue_interest_value,
+        due_value=payment.due_value,
+        payment_value=payment.payment_value,
+        payment_date=payment.payment_date,
+        payment_disbursement=payment.payment_disbursement,
+        payment_number=payment.payment_number,
+        payment_state_id=payment.payment_state_id,
+        payment_state=payment.payment_state,
+        prepayment_penalty_value=payment.prepayment_penalty_value,
+        is_early_payment=payment.is_early_payment,
+        capital_value=payment.capital_value,
+        payment_reason=payment.payment_reason,
+        liquidation_method_id=payment.liquidation_method_id,
+        liquidation_method=payment.liquidation_method,
+        is_total_payment=payment.is_total_payment,
+    )
+
+def map_rates(rate: TblTasas) -> RateSchema:
+    return RateSchema(
+        contract_number=rate.contract_number,
+        operation_currency=rate.operation_currency,
+        disbursement_date=rate.disbursement_date,
+        position_date=rate.position_date,
+        passive_asset=rate.passive_asset,
+        company_id=rate.company_id,
+        file_name=rate.file_name,
+        base_rate=rate.base_rate,
+        interest_or_base_value=rate.interest_or_base_value,
+        currency_quotation=rate.currency_quotation,
+        day_count_convention=rate.day_count_convention,
+        rate_end_date=rate.rate_end_date,
+        rate_type=rate.rate_type,
+        rate_percentage=rate.rate_percentage,
+        installment_frequency=rate.installment_frequency,
+        overdue_interest_base=rate.overdue_interest_base,
+        overdue_interest_indexer=rate.overdue_interest_indexer,
+        overdue_interest_percentage=rate.overdue_interest_percentage,
+        overdue_interest_method=rate.overdue_interest_method,
+        overdue_interest_rate=rate.overdue_interest_rate,
+        rounding_method=rate.rounding_method,
+        interest_method=rate.interest_method,
+        interest_rate=rate.interest_rate,
+        is_pro_rata=rate.is_pro_rata,
+        late_payment_calculation_method=rate.late_payment_calculation_method,
+        penalty_rate=rate.penalty_rate,
+        rate_start_date=rate.rate_start_date,
+        interest_type=rate.interest_type
+    )
+
+def map_operations(operation: TblOperaciones) -> OperationSchema:
+    return OperationSchema(
+        id=operation.id,
+        amount=operation.amount,
+        exchange_rate_clp=operation.exchange_rate_clp,
+        exchange_rate_usd=operation.exchange_rate_usd,
+        business_type=operation.business_type,
+        country=operation.country,
+        guarantee_amount=operation.guarantee_amount,
+        average_haircut=operation.average_haircut,
+        query_date=operation.query_date,
+        insertion_date=operation.insertion_date,
+        update_date=operation.update_date,
+        last_execution_user=operation.last_execution_user,
+        client_id=operation.client_id,
+        contract_number=operation.contract_number
+    )
+
+def map_provisions(provision: TblProvisionesColombia) -> ProvisionSchema:
+    return ProvisionSchema(
+        id=provision.id,
+        business_type=provision.business_type,
+        state=provision.state,
+        disbursement_date=provision.disbursement_date,
+        credit_contract_expiration_date=provision.credit_contract_expiration_date,
+        overdue_days=provision.overdue_days,
+        principal=provision.principal,
+        interest=provision.interest,
+        provision_percentage=provision.provision_percentage,
+        provision_amount=provision.provision_amount,
+        net_amount=provision.net_amount,
+        capital_provision=provision.capital_provision,
+        interest_provision=provision.interest_provision,
+        pro_cyclical=provision.pro_cyclical,
+        pro_cyclical_capital=provision.pro_cyclical_capital,
+        pro_cyclical_interest=provision.pro_cyclical_interest,
+        counter_cyclical=provision.counter_cyclical,
+        counter_cyclical_capital=provision.counter_cyclical_capital,
+        counter_cyclical_interest=provision.counter_cyclical_interest,
+        asset_size=provision.asset_size,
+        total_assets=provision.total_assets,
+        pi_pro_cyclical=provision.pi_pro_cyclical,
+        pi_counter_cyclical=provision.pi_counter_cyclical,
+        guarantee=provision.guarantee,
+        loss_given_default=provision.loss_given_default,
+        active_adjustment_factor=provision.active_adjustment_factor,
+        exchange_adjustment_factor=provision.exchange_adjustment_factor,
+        operation_currency=provision.operation_currency,
+        guarantee_currency=provision.guarantee_currency,
+        exposure_value=provision.exposure_value,
+        income_size=provision.income_size,
+        total_income=provision.total_income,
+        sector=provision.sector,
+        section=provision.section,
+        weight=provision.weight,
+        weighted_exposure=provision.weighted_exposure,
+        validation=provision.validation,
+        probability_of_default=provision.probability_of_default,
+        external_lp_rating=provision.external_lp_rating,
+        loan_to_value_ratio=provision.loan_to_value_ratio,
+        classification=provision.classification,
+        segment_453=provision.segment_453,
+        insertion_date=provision.insertion_date,
+        update_date=provision.update_date,
+        last_execution_user=provision.last_execution_user,
+        operation_id=provision.operation_id,
+        provision_date=provision.provision_date,
+    )
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\.env
+/===============================================================================
+
+run_with_docker=""
+
+DWH_SECRET_ARN=""
+AWS_ACCESS_KEY_ID=""
+AWS_SECRET_ACCESS_KEY=""
+AWS_SESSION_TOKEN=""
+AWS_DEFAULT_REGION=""
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\Dockerfile
+/===============================================================================
+
+FROM python:3.12-alpine@sha256:54bec49592c8455de8d5983d984efff76b6417a6af9b5dcc8d0237bf6ad3bd20
+
+WORKDIR /app
+
+COPY /requirements.txt /app/requirements.txt
+
+# Actualiza los índices de los paquetes y agrega las dependencias necesarias:
+# - gcc: el compilador de C
+# - musl-dev: las bibliotecas de desarrollo de musl
+# - postgresql-dev: las bibliotecas de desarrollo de PostgreSQL
+# - python3-dev: las bibliotecas de desarrollo de Python 3
+# Luego, elimina la caché de apk para reducir el tamaño de la imagen.
+# Finalmente, instala las dependencias de Python listadas en requirements.txt sin usar la caché de pip.
+RUN apk add --no-cache gcc musl-dev postgresql-dev python3-dev && \
+    pip install --no-cache-dir --upgrade -r /app/requirements.txt
+
+COPY  /commons /app/commons
+COPY  /common /app/common
+COPY  /src /app/src
+COPY  /main.py /app/main.py
+
+
+ARG RUN_WITH_DOCKER=true
+
+RUN adduser \
+  --disabled-password \
+  "app"
+USER app
+
+EXPOSE 3000
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "3000"]
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\main.py
+/===============================================================================
+
+import os
+import uvicorn
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
+from src.config.constants import ApiConstants
+from src.config.lifespan import lifespan
+from src.Graphql.router.health import health_check_router
+from src.Graphql.router.credits import graphql_app 
+
+def init_app():
+    """
+    Initializes and configures the FastAPI application for the Credits service.
+    This function sets up the FastAPI application with the following:
+    - Title, description, and version metadata.
+    - Lifespan configuration for application lifecycle events.
+    - Inclusion of the GraphQL router under the "/graphql" prefix with the "graphql" tag.
+    - Inclusion of the health check router with the "Healthcheck" tag.
+    Returns:
+        FastAPI: The configured FastAPI application instance.
+    """
+    app = FastAPI(
+        title="Credits API",
+        description="API GraphQL de créditos con FastAPI",
+        version="0.1",
+        lifespan=lifespan
+    )
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    app.include_router(graphql_app, prefix=ApiConstants.CREDIT_ENDPOINT.value, tags=[ApiConstants.CREDIT_ROUTER_TAG.value])
+    app.include_router(health_check_router, tags=[ApiConstants.HEALTH_ROUTER_TAG.value])
+
+    @app.get(ApiConstants.SWAGGER_JSON.value, include_in_schema=False)
+    def get_swagger_json():
+        return FileResponse(ApiConstants.SWAGGER_JSON_PATH.value, media_type=ApiConstants.SWAGGER_JSON_MEDIA_TYPE.value)
+
+    return app
+
+app = init_app()
+
+if __name__ == "__main__" and os.getenv("RUN_WITH_DOCKER") != "true":
+    uvicorn.run("main:app", host="localhost", port=8000, reload=True)
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-creditos-api-graph-back\requirements.txt
+/===============================================================================
+
+# Core
+fastapi[standard]
+uvicorn
+strawberry-graphql[fastapi]
+python-dotenv
+sqlalchemy==1.4.41
+sqlmodel==0.0.8
+redshift-connector
+sqlalchemy-redshift
+
+# PostgreSQL / Redshift
+psycopg2-binary
+asyncpg
+
+# AWS
+boto3
+
+# Networking / Security
+pyOpenSSL==24.0.0
+requests==2.32.2
+urllib3==2.2.1
+
+# Testing
+pytest
+pytest-cov
+httpx
+anyio
+
+# Dev utils
+pip-check
+
+

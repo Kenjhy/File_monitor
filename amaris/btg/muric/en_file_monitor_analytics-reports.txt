@@ -1,0 +1,4554 @@
+// Last update transaction car: 2025-07-16 05:27:19.510969
+// Total files: 76
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\.azuredevops\azure-pipeline-pr.yml
+/===============================================================================
+
+trigger: none  # No ejecuta el pipeline en pushes directos
+
+pr:
+  branches:
+    include:
+      - development  # El pipeline se ejecutará cuando haya un PR hacia 'main'
+
+
+pool: 'BTG Colombia - Azure DevOps'
+
+resources:
+  repositories:
+    - repository: devops-terraform-modules
+      type: git
+      name: devops-terraform-modules
+variables:
+  - name: stage 
+    value: dev
+stages:
+- stage: VALIDATE
+  variables:
+    tf_working_directory: '$(System.DefaultWorkingDirectory)/$(Build.Repository.Name)/iac/terraform/general/'
+    tf_vars_file: '$(System.DefaultWorkingDirectory)/$(Build.Repository.Name)/iac/terraform/general/environments/dev.tfvars'
+  jobs:
+  - job: TerraformPlanandApply
+    displayName: Deploy general infrastructure
+    steps:
+    - checkout: self
+      displayName: ⬇️ Checkout self
+    - checkout: devops-terraform-modules
+      displayName: ⬇️ Checkout terraform-modules
+    - task: TerraformInstaller@1
+      displayName: install
+      inputs:
+        terraformVersion: 'latest'
+    - script: |
+        GIT_CONFIG_PARAMETERS="'url.https://$(System.AccessToken)@dev.azure.com.insteadof=https://BTGColombia@dev.azure.com'"
+        echo "##vso[task.setvariable variable=GIT_CONFIG_PARAMETERS;]$GIT_CONFIG_PARAMETERS"
+      displayName: 💬 git config
+      workingDirectory: ${{ variables.tf_working_directory }}
+
+    - task: TerraformTaskV4@4
+      displayName: init
+      inputs:
+        provider: 'aws'
+        command: 'init'
+        workingDirectory: ${{ variables.tf_working_directory }}
+        backendServiceAWS: 'TERRAFORMDEVOPS-ANALYTICS-DEV'
+        backendAWSBucketName: 'btg.dev.analytics.terraform'
+        backendAWSKey: 'analytics/reports/general/terraform.tfstate'
+    - task: TerraformTaskV4@4
+      displayName: validate
+      inputs:
+        provider: 'aws'
+        command: 'validate'
+        workingDirectory: ${{ variables.tf_working_directory }}
+    - task: TerraformTaskV4@4
+      displayName: plan
+      inputs:
+        provider: 'aws'
+        command: 'plan'
+        workingDirectory: ${{ variables.tf_working_directory }}
+        environmentServiceNameAWS: 'TERRAFORMDEVOPS-ANALYTICS-DEV'
+        commandOptions: -var-file=${{ variables.tf_vars_file }}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\.azuredevops\azure-pipelines-general-infra.yml
+/===============================================================================
+
+trigger:
+  branches:
+    include:
+      - master
+  paths:
+    include:
+      - iac/terraform/general/*
+
+pool: 'BTG Colombia - Azure DevOps'
+
+resources:
+  repositories:
+    - repository: devops-terraform-modules
+      type: git
+      name: devops-terraform-modules
+variables:
+  - name: stage 
+    ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/development') }}:
+      value: dev
+    ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/release') }}:
+      value: uat
+    ${{ elseif eq(variables['Build.SourceBranch'], 'refs/heads/master') }}:
+      value: pdn
+stages:
+- stage: DEPLOY
+  variables:
+    tf_working_directory: '$(System.DefaultWorkingDirectory)/$(Build.Repository.Name)/iac/terraform/general/'
+    tf_vars_file: '$(System.DefaultWorkingDirectory)/$(Build.Repository.Name)/iac/terraform/general/environments/$(stage).tfvars'
+  jobs:
+  - job: TerraformPlanandApply
+    displayName: Deploy general infrastructure
+    steps:
+    - checkout: self
+      displayName: ⬇️ Checkout self
+    - checkout: devops-terraform-modules
+      displayName: ⬇️ Checkout terraform-modules
+    - task: TerraformInstaller@1
+      displayName: install
+      inputs:
+        terraformVersion: 'latest'
+    - script: |
+        GIT_CONFIG_PARAMETERS="'url.https://$(System.AccessToken)@dev.azure.com.insteadof=https://BTGColombia@dev.azure.com'"
+        echo "##vso[task.setvariable variable=GIT_CONFIG_PARAMETERS;]$GIT_CONFIG_PARAMETERS"
+      displayName: 💬 git config
+      workingDirectory: ${{ variables.tf_working_directory }}
+
+    - task: TerraformTaskV4@4
+      displayName: init
+      inputs:
+        provider: 'aws'
+        command: 'init'
+        workingDirectory: ${{ variables.tf_working_directory }}
+        backendServiceAWS: 'TERRAFORMDEVOPS-ANALYTICS-${{upper(variables.stage)}}'
+        backendAWSBucketName: 'btg.$(stage).analytics.terraform'
+        backendAWSKey: 'analytics/reports/general/terraform.tfstate'
+    - task: TerraformTaskV4@4
+      displayName: validate
+      inputs:
+        provider: 'aws'
+        command: 'validate'
+        workingDirectory: ${{ variables.tf_working_directory }}
+    - task: TerraformTaskV4@4
+      displayName: plan
+      inputs:
+        provider: 'aws'
+        command: 'plan'
+        workingDirectory: ${{ variables.tf_working_directory }}
+        environmentServiceNameAWS: 'TERRAFORMDEVOPS-ANALYTICS-${{upper(variables.stage)}}'
+        commandOptions: -var-file=${{ variables.tf_vars_file }}
+    - task: TerraformTaskV4@4
+      displayName: apply
+      inputs:
+        provider: 'aws'
+        command: 'apply'
+        workingDirectory: ${{ variables.tf_working_directory }}
+        environmentServiceNameAWS: 'TERRAFORMDEVOPS-ANALYTICS-${{upper(variables.stage)}}'
+        commandOptions: -var-file=${{ variables.tf_vars_file }}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\common\config\constants.py
+/===============================================================================
+
+"""
+This module defines constants used for database configurations.
+Classes:
+    DataBaseConstants (Enum): An enumeration that contains constants for database configurations.
+Attributes:
+    SQLALCHEMY_REDSHIFT_DRIVER (str): The driver string used for connecting to Redshift using SQLAlchemy.
+"""
+from enum import Enum
+
+class DataBaseConstants(Enum):
+    """
+    An enumeration that contains constants for database configurations.
+    Attributes:
+        SQLALCHEMY_REDSHIFT_DRIVER (str): The driver string used for connecting to Redshift using SQLAlchemy.
+    """
+    SQLALCHEMY_REDSHIFT_DRIVER='redshift+psycopg2'
+
+class CloudConstants(Enum):
+    """
+    An enumeration that contains constants for cloud configurations.
+    Attributes:
+        SECRET_ERROR_MESSAGE (str): The error message displayed when the secret string is not found.
+    """
+    SECRET_ERROR_MESSAGE = "No SecretString"
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\common\config\env.py
+/===============================================================================
+
+"""
+This module defines the SessionEnv enumeration for managing environment-based session credentials.
+Classes:
+    SessionEnv (Enum): An enumeration that contains session credentials retrieved from environment variables.
+"""
+import os
+from enum import Enum
+
+class SessionEnv(Enum):
+    """
+    An enumeration that contains session credentials retrieved from environment variables.
+    Attributes:
+        DWH_USER (str): The username for the session, retrieved from the 'DWH_USER' environment variable.
+    """
+    DWH_SECRET=os.environ.get('DWH_SECRET_ARN', '')
+    
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\common\config\logger.py
+/===============================================================================
+
+"""
+This module configures the logging settings for the application.
+
+It sets up a logger instance with the INFO logging level.
+
+Attributes:
+    logger (logging.Logger): The logger instance used for logging messages.
+"""
+import logging
+logging.basicConfig(
+    level=logging.INFO
+)
+logger = logging.getLogger()
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\common\containers\database\session.py
+/===============================================================================
+
+"""
+This module defines the SessionDependencyContainer class for managing database sessions and credentials.
+
+Classes
+-------
+
+SessionDependencyContainer
+    A container class that manages the dependencies for database sessions, including credentials management.
+    It initializes the credentials manager and session, and provides a method to retrieve the session.
+"""
+
+#Interfaces
+from common.interfaces.resources.database.session import ISession
+from common.interfaces.resources.cloud.credentials import ICredentials
+
+#Resources
+from common.resources.database.session import Session
+from common.resources.cloud.credentials import Credentials
+
+
+class SessionDependencyContainer(object):
+    """
+    SessionDependencyContainer is responsible for managing session dependencies.
+    This class initializes and provides access to a session object, which is created using credentials managed by the credentials manager.
+    
+    Attributes
+    ----------
+    
+    credentials_manager : ICredentials
+        An instance of the credentials manager used to handle credentials.
+    session : ISession
+        An instance of the session created using the credentials manager.
+    
+    Methods
+    -------
+    
+    __init__()
+        Initializes the SessionDependencyContainer with a credentials manager and a session.
+    get_session() -> ISession
+        Returns the session instance.
+    """
+
+    credentials_manager: ICredentials
+    session: ISession
+
+    def __init__(self):
+        """
+        Initialize the session with credentials.
+        """
+        self.credentials_manager = Credentials()
+        self.session=Session(self.credentials_manager)
+
+    def get_session(self):
+        """
+        Return the session instance.
+        """
+        return self.session
+    
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\common\decorators\decorators.py
+/===============================================================================
+
+"""
+This module contains decorators for logging and exception handling.
+Decorators:
+    log_decorator(func):
+        Logs the start and successful completion of the decorated function's execution.
+    try_catch_decorator(func):
+        Catches and logs any exceptions raised during the execution of the decorated function.
+Functions:
+    get_parameters_as_message(args):
+        Constructs a message string from the provided keyword arguments.
+"""
+
+
+import functools
+from venv import logger
+
+def log_decorator(func):
+    """
+    A decorator that logs the start and end of the execution of a function.
+    This decorator logs a message before the execution of the decorated function,
+    indicating the function's name and its parameters. After the function executes,
+    it logs another message indicating that the function has completed successfully.
+    Args:
+        func (Callable): The function to be decorated.
+    Returns:
+        Callable: The wrapped function with logging functionality.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        """
+        Wrapper function that logs the start and successful completion of the execution of the decorated function.
+        Args:
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+        Returns:
+            The result of the decorated function.
+        """
+        
+        logger.info(f"# Comienza la ejecución de la función {func.__name__}{get_parameters_as_message(kwargs)}")
+        result = func(*args, **kwargs)
+        logger.info(f"# Finaliza la ejecución de la función {func.__name__}")
+        return result
+    
+    return wrapper
+
+def get_parameters_as_message(args):
+    """
+    Constructs a message string based on the provided dictionary of arguments.
+    Args:
+        args (dict): A dictionary containing key-value pairs of parameters.
+    Returns:
+        str: A formatted string indicating the presence of parameters if the dictionary is not empty,
+             otherwise an empty string.
+    """
+    
+    if len(args.keys())>0:
+        return f" con parámetros {args}"
+    else:
+        return ""
+
+def try_catch_decorator(func):
+    """
+    A decorator that wraps the passed in function and logs exceptions should one occur.
+    Args:
+        func (function): The function to be wrapped by the decorator.
+    Returns:
+        function: The wrapped function that includes exception handling.
+    The decorator logs an error message with the function name and the exception message if an exception is raised during the function execution.
+    """
+
+    @functools.wraps(func)
+    def exception_handler(*args, **kwargs):
+        """
+        A decorator that wraps a function to handle exceptions.
+        Args:
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+        Returns:
+            The result of the wrapped function if no exception occurs.
+        Logs:
+            An error message if an exception is raised during the execution of the wrapped function.
+            The log includes the function name and the exception message.
+        """
+
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            logger.error(f"[ERROR] en la función funcion {func.__name__}: {str(e)}")
+    return exception_handler
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\common\entities\models\base.py
+/===============================================================================
+
+"""
+This module defines the base model for the project using SQLAlchemy's declarative base.
+
+Classes:
+-------
+    Base: A base class for all ORM models in the project.
+    metadata: Contains the metadata for the base class.
+
+Usage:
+-------
+    Import this module to use the Base class for defining ORM models.
+
+Example:
+-------
+    class MyModel(Base):
+        __tablename__ = 'my_model'
+        id = Column(Integer, primary_key=True)
+        name = Column(String)
+"""
+from sqlalchemy.orm import declarative_base
+
+Base = declarative_base()
+metadata = Base.metadata
+
+class BaseModel(Base):
+    """
+    Base class for all ORM models in the project.
+    """
+    __abstract__ = True
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\common\interfaces\resources\cloud\credentials.py
+/===============================================================================
+
+"""
+This module defines the ICredentials abstract base class for credentials management.
+
+Classes
+-------
+
+ICredentials
+    Abstract base class for credentials management, providing an interface for retrieving secret values as a dictionary.
+"""
+from abc import ABC, abstractmethod
+
+class ICredentials(ABC):
+    """
+    Interface for credentials management.
+    This interface defines a method for retrieving secret values as a dictionary.
+    
+    Methods
+    -------
+    
+    get_as_dict(secret_id: str) -> str
+        Retrieve the secret value associated with the given secret ID.
+    """
+
+    @abstractmethod
+    def get_as_dict(self, secret_id: str) -> dict:
+        """
+        Retrieve the secret as a dictionary using the provided secret ID.
+
+        Parameters
+        ----------
+        secret_id : str
+            The ID of the secret to retrieve.
+
+        Returns
+        -------
+        dict
+            The secret data in dictionary format.
+        """
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\common\interfaces\resources\database\session.py
+/===============================================================================
+
+"""
+This module defines the ISession abstract base class for database session operations.
+
+Classes
+-------
+
+ISession
+    Abstract base class for database session operations, providing an interface for retrieving rows from a database table.
+
+"""
+from abc import ABC
+from abc import abstractmethod
+
+class ISession(ABC):
+    """
+    Abstract base class for database session operations.
+
+    Methods
+    -------
+
+    get_all(table, joins=None, where=None, order_by=None, pagination=None, options=None) -> list
+        Retrieve all rows from the specified table with optional filtering, ordering, pagination, and additional options.
+    Parameters
+    """
+
+    @abstractmethod
+    def get_all(
+        self, 
+        table: object, 
+        joins: list = None, 
+        where: list = None, 
+        order_by: list = None, 
+        pagination: dict = None, 
+        options: list = None,
+        distinct: bool = False
+    ) -> list:
+        """
+        Retrieve all rows from the specified table with optional filtering, ordering, pagination, and additional options.
+
+        Parameters
+        ----------
+
+        table : object
+            The table from which to retrieve rows.
+        joins : list, optional
+            List of join conditions to apply (default is None).
+        where : list, optional
+            List of conditions to filter the rows (default is None).
+        order_by : list, optional
+            List of columns to order the results by (default is None).
+        pagination : dict, optional
+            Dictionary containing pagination information such as 'limit' and 'offset' (default is None).
+        options : list, optional
+            Additional options for the query (default is None).
+        distinct : bool, optional
+            Whether to return distinct rows (default is False).
+
+        Returns
+        -------
+        
+        list
+            A list of rows retrieved from the table.
+    """
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\common\resources\cloud\credentials.py
+/===============================================================================
+
+"""
+This module defines the CredentialsResource class for handling AWS Secrets Manager credentials.
+
+Classes
+-------
+
+CredentialsResource
+    A resource class to handle AWS Secrets Manager credentials, providing methods to retrieve secrets from AWS Secrets Manager and return them as a dictionary.
+"""    
+import json
+import boto3
+import boto3.session
+from common.config.constants import CloudConstants
+from common.decorators.decorators import try_catch_decorator
+from common.interfaces.resources.cloud.credentials import ICredentials
+
+class Credentials(ICredentials):
+    """
+    Manages credentials using AWS Secrets Manager.
+    This class provides methods to retrieve secret values from AWS Secrets Manager as dictionaries.
+    
+    Methods
+    -------
+    
+    get_as_dict(secret_id: str) -> dict
+        Retrieve the secret value associated with the given secret ID.
+    """
+    
+    def __init__(self):
+        """
+        Initializes the credentials class.
+        This constructor sets up a client for AWS Secrets Manager using boto3.
+        Attributes:
+            client (boto3.client): A low-level client representing AWS Secrets Manager.
+        """
+        
+        self.client = boto3.client('secretsmanager')
+
+    @try_catch_decorator
+    def get_as_dict(self, secret_id: str):
+        """
+        Retrieve the secret as a dictionary using the provided secret ID.
+
+        Parameters
+        ----------
+        secret_id : str
+            The ID of the secret to retrieve.
+
+        Returns
+        -------
+        dict
+            The secret data in dictionary format.
+        """
+        response = self.client.get_secret_value(SecretId=secret_id)
+       
+        if "SecretString" not in response:
+            raise ValueError(CloudConstants.SECRET_ERROR_MESSAGE.value)
+        return json.loads(response['SecretString'])
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\common\resources\database\session.py
+/===============================================================================
+
+"""
+This module provides a singleton class `Session` to manage database connections using SQLAlchemy.
+It includes methods to create and manage a unique database session, and to retrieve records from the database.
+
+Classes:
+-------
+    Session: A singleton class to handle database connections and queries.
+
+Usage:
+-------
+    session = Session()
+    records = session.get_all(table=SomeTable, where=[SomeTable.column == value])
+"""
+from sqlalchemy.engine import URL
+from sqlalchemy.orm import sessionmaker, contains_eager
+from sqlalchemy.pool import NullPool
+from sqlalchemy import create_engine, select
+from sqlalchemy.exc import OperationalError
+
+
+# Project Imports
+from common.config.logger import logger
+from common.config.env import SessionEnv
+from common.config.constants import DataBaseConstants
+from common.interfaces.resources.cloud.credentials import ICredentials
+from common.interfaces.resources.database.session import ISession
+
+class Session(ISession):
+    """
+    Singleton class to manage the SQLAlchemy session for database interactions.
+
+    Attributes:
+    -------
+        driver_name (str): The name of the database driver.
+        __instance (Session): The unique instance of the Session class.
+        session (Session): The SQLAlchemy session object.
+
+    Methods:
+    -------
+        __new__(cls, *args, **kwargs): Creates the unique instance of the database.
+        __init__(): Initializes the SQLAlchemy session URL.
+        __create_session(url: URL) -> object: Creates the SQLAlchemy session.
+        __del__(): Deletes the SQLAlchemy session.
+        get_all(table: object, joins: list = None, where: list = None, order_by: list = None, pagination: dict = None, options: list = None) -> list:
+            Retrieves all records from the database based on the provided parameters.
+    """
+
+    driver_name: str = DataBaseConstants.SQLALCHEMY_REDSHIFT_DRIVER.value
+    __instance = None
+    session = None
+
+    def __new__(cls, *args, **kwargs):
+        """
+        Creates and returns the unique instance of the Session class.
+        This method ensures that only one instance of the Session class is created
+        (Singleton pattern). If an instance already exists, it returns the existing
+        instance; otherwise, it creates a new one.
+
+        Args:
+        -------
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+        
+        Returns:
+        -------
+            Session: The unique instance of the Session class.
+        """
+        if Session.__instance is None:
+            Session.__instance = object.__new__(cls)
+        return Session.__instance
+
+    def __init__(self, credentials_manager: ICredentials):
+        """
+        Initializes the session with the provided credentials manager.
+        Args:
+            credentials_manager (ICredentials): An instance of ICredentials to manage and provide database credentials.
+        Raises:
+            ValueError: If the session could not be created.
+        """        
+        credentials = credentials_manager.get_as_dict(SessionEnv.DWH_SECRET.value)
+
+        self._url = URL.create(
+            drivername=self.driver_name,
+            username=credentials['username'],
+            password=credentials['password'],
+            host=credentials['host'],
+            database=credentials['database'],
+            port=credentials['port'],
+            query={"sslmode": "require"}
+        )
+
+        if self.session is None:
+            self.session = self._create_session(self._url)
+
+    def _create_session(self, url: URL) -> object:
+        """
+        Creates a SQLAlchemy session.
+
+        Args:
+        -------
+            url (URL): The URL used to connect to a database.
+
+        Returns:
+        -------
+            object: A SQLAlchemy session object to interact with the database.
+            sqlalchemy.exc.SQLAlchemyError: If there is an issue creating the session.
+        """
+        engine = create_engine(
+            url, 
+            poolclass=NullPool,
+            connect_args={
+                "keepalives": 1,
+                "keepalives_idle": 30,
+                "keepalives_interval": 10,
+                "keepalives_count": 5
+            }
+        )
+        session = sessionmaker(bind=engine)
+        return session()
+
+    def _is_session_alive(self) -> bool:
+        """
+        Check if the session is alive by executing a simple query.
+        
+        Returns:
+        -------
+            bool: True if the session is alive, False otherwise.
+        
+        Raises:
+        -------
+            OperationalError: If there is an issue with the database connection.
+        """
+        try:
+            self.session.execute("SELECT 1")
+            return True
+        except OperationalError as e:
+            if "SSL connection has been closed" in str(e) or "server closed the connection unexpectedly" in str(e):
+                return False
+            raise
+
+    def _ensure_session(self):
+        """
+        Ensure that the session is alive. If not, close the current session and create a new one.
+        This method is useful for maintaining a valid session during long-running operations.
+        """
+        if not self._is_session_alive():
+            logger.info("Session is not alive, closing and creating a new one")
+            try:
+                self.session.close()
+            except Exception:
+                pass 
+            self.session = self._create_session(self._url)
+
+    def __del__(self) -> None:
+        """
+        delete the SqlAlchemy session
+        """
+
+        if self.session:
+            self.session.close()
+
+    def get_all(
+            self, 
+            columns: list, 
+            joins: list = None, 
+            where: list = None, 
+            order_by: list = None, 
+            pagination: dict = None, 
+            options: list = None,
+            distinct: bool = False
+        ) -> list:
+        """
+        Retrieve all records from the database based on the provided parameters.
+
+        Args:
+        -------
+            columns: List of columns to query.
+            joins: List of join conditions.
+            where: List of filter conditions.
+            order_by: List of order by conditions.
+            pagination: Dictionary with 'limit' and 'offset' for pagination.
+            options: List of options for the query.
+            distinct: Boolean to return distinct records.
+
+        Returns:
+        -------
+            List of records matching the query.
+        """
+        try:
+            self._ensure_session()
+            query = select(*columns)
+            if distinct:
+                query = query.distinct()
+            if joins:
+                for join_info in joins:
+                    query = query.join(
+                        join_info["table"],
+                        join_info["condition"],
+                        isouter=join_info.get("type", "inner").lower() == "left"
+                    )
+            if where:
+                query = query.filter(*where)
+            if order_by:
+                query = query.order_by(*order_by)
+            if pagination:
+                query = query.limit(pagination["limit"]).offset(
+                    pagination["offset"])
+            if options:
+                for option in options:
+                    query = query.options(contains_eager(option))
+            return self.session.execute(query).mappings().all()
+        except Exception as e:
+            self.session.rollback()
+            raise e
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\general\environments\dev.tfvars
+/===============================================================================
+
+environment     = "dev"
+bucket_name     = "btg.dev.analytics.terraform"
+bucket_key      = "analytics/reports/general/terraform.tfstate"
+region          = "us-east-1"
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\general\environments\pdn.tfvars
+/===============================================================================
+
+environment     = "pdn"
+bucket_name     = "btg.pdn.analytics.terraform"
+bucket_key      = "analytics/reports/general/terraform.tfstate"
+region          = "us-east-1"
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\general\environments\uat.tfvars
+/===============================================================================
+
+environment     = "uat"
+bucket_name     = "btg.uat.analytics.terraform"
+bucket_key      = "analytics/reports/general/terraform.tfstate"
+region          = "us-east-1"
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\general\backend.tf
+/===============================================================================
+
+terraform {
+  backend "s3" {
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\general\inputs.tf
+/===============================================================================
+
+data "aws_cloudformation_export" "az_1" {
+  name = "AZ1"
+}
+
+data "aws_cloudformation_export" "az_2" {
+  name = "AZ2"
+}
+
+data "aws_cloudformation_export" "az_3" {
+  name = "AZ3"
+}
+
+data "aws_cloudformation_export" "vpc_id" {
+  name = "mainVpcId"
+}
+
+data "aws_cloudformation_export" "lb_snet_01" {
+  name = "PrivateSubnet1ELB"
+}
+
+data "aws_cloudformation_export" "lb_snet_02" {
+  name = "PrivateSubnet2ELB"
+}
+
+data "aws_cloudformation_export" "lb_snet_03" {
+  name = "PrivateSubnet3ELB"
+}
+
+data "aws_cloudformation_export" "apigw_id" {
+  name = "dya-reports-ApiId"
+}
+
+data "aws_cloudformation_export" "domain_name" {
+  name = "transversal-resources-ApiDomainName"
+}
+
+
+variable "environment" {
+  description = "Environment name"
+  type        = string
+}
+
+variable "region" {
+  description = "AWS region"
+  type        = string
+  default     = "us-east-1"
+}
+
+locals {
+  project                   = "dya-reports"
+  namespace                 = "report"
+  environment               = var.environment
+  region                    = var.region  
+  vpc_id                    = data.aws_cloudformation_export.vpc_id.value
+  public_load_balancer      = false
+  enable_vpc_link           = true
+  enable_api_mapping = true
+  lb_subnet_ids = [
+    data.aws_cloudformation_export.lb_snet_01.value,
+    data.aws_cloudformation_export.lb_snet_02.value,
+    data.aws_cloudformation_export.lb_snet_03.value
+  ]
+  tags = {
+    Ambiente       = local.environment
+    Despliegue     = "Terraform"
+    Disponibilidad = "LU-DO-24:00"
+    Celula         = "Infraestructura"
+    Aplicativo     = "Infraestructura"
+    Compania       = "Transversal"
+    Producto       = "Transversal"
+  }
+  apigw_id                    = data.aws_cloudformation_export.apigw_id.value
+  apigw_custom_domain_name    = data.aws_cloudformation_export.domain_name.value
+  apigw_custom_domain_path    = "reports"
+
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\general\main.tf
+/===============================================================================
+
+module "cluster" {
+  source      = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecs_cluster?ref=ecs_cluster/0.0.7"
+  project     = local.project
+  environment = local.environment
+  vpc_id      = local.vpc_id
+}
+
+module "namespace" {
+  source      = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//service_discovery_namespace?ref=service_discovery_namespace/0.0.5"
+  project     = local.namespace
+  environment = local.environment
+  name        = local.environment == "prod" ? "${local.project}.io" : "${local.environment}.${local.project}.io"
+  vpc_id      = local.vpc_id
+}
+
+module "credentials_secret" {
+  source      = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//secrets_manager?ref=secrets_manager/0.0.2"
+  name        = "${local.project}-${local.environment}-dwh"
+  description = "Secreto que almacena las credenciales de acceso al datawarehouse para los procesos de reportería"
+  secret_string = jsonencode(
+      {
+        host            = "to_change"
+        port            = "to_change"
+        username        = "to_change"
+        database        = "to_change"
+        password        = "to_change"
+      }
+  )
+}
+
+
+module "load_balancer" {
+  source                      = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecs_nlb?ref=nlb-vpc-link"
+  project                     = local.project
+  environment                 = local.environment
+  public_lb                   = local.public_load_balancer
+  subnets                     = local.lb_subnet_ids
+  vpc_id                      = local.vpc_id
+  apigw_id                    = local.apigw_id
+  apigw_custom_domain_name    = local.apigw_custom_domain_name
+  apigw_custom_domain_path    = local.apigw_custom_domain_path
+  apigw_stage_name            = local.environment
+  enable_vpc_link             = local.enable_vpc_link
+  enable_api_mapping          = local.enable_api_mapping
+}
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\general\outputs.tf
+/===============================================================================
+
+output "cluster_name" {
+  value = module.cluster.cluster_name
+}
+
+output "cluster_arn" {
+  value = module.cluster.cluster_arn
+}
+
+output "security_group_internal_id" {
+  value = module.cluster.security_group_internal_id
+}
+
+output "iam_role_autoscaling_name" {
+  value = module.cluster.iam_role_autoscaling_name
+}
+
+output "iam_role_autoscaling_arn" {
+  value = module.cluster.iam_role_autoscaling_arn
+}
+
+output "namespace_name" {
+  value = module.namespace.namespace_name
+}
+
+output "namespace_id" {
+  value = module.namespace.namespace_id
+}
+
+output "namespace_arn" {
+  value = module.namespace.namespace_arn
+}
+
+output "namespace_hostedzone_id" {
+  value = module.namespace.namespace_hostedzone_id
+}
+
+output "credentials_secret_arn" {
+  value = module.credentials_secret.secret_arn
+}
+
+output "load_balancer_arn" {
+  value = module.load_balancer.lb_arn
+}
+
+output "load_balancer_dns_name" {
+  value = module.load_balancer.lb_dns_name
+  
+}
+
+output "security_group_lb_id" {     
+  value = module.load_balancer.security_group_lb_id
+  
+}
+
+output "vpc_link_id" {
+  value = module.load_balancer.vpc_link_id  
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\general\providers.tf
+/===============================================================================
+
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+  required_version = "~> 1.6"
+}
+
+# Configure the AWS Provider
+provider "aws" {
+  region = local.region
+  default_tags {
+    tags = local.tags
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\contrapartes\dev\backend.tf
+/===============================================================================
+
+terraform {
+  backend "s3" {
+    bucket = "btg.dev.analytics.terraform"
+    key    = "analytics/reports/contrapartes/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\contrapartes\dev\inputs.tf
+/===============================================================================
+
+# Remote data
+
+data "aws_cloudformation_export" "vpc_id" {
+  name = "mainVpcId"
+}
+
+data "aws_cloudformation_export" "vm_snet_01" {
+  name = "PrivateSubnet1EC2"
+}
+
+data "aws_cloudformation_export" "vm_snet_02" {
+  name = "PrivateSubnet2EC2"
+}
+
+data "aws_cloudformation_export" "vm_snet_03" {
+  name = "PrivateSubnet3EC2"
+}
+
+data "aws_cloudformation_export" "lb_snet_01" {
+  name = "PrivateSubnet1ELB"
+}
+
+data "aws_cloudformation_export" "lb_snet_02" {
+  name = "PrivateSubnet2ELB"
+}
+
+data "aws_cloudformation_export" "lb_snet_03" {
+  name = "PrivateSubnet3ELB"
+}
+
+data "aws_cloudformation_export" "apigw_id" {
+  name = "dya-reports-ApiId"
+}
+
+data "aws_cloudformation_export" "root_resource_id" {
+  name = "dya-reports-RootResourceId"
+}
+
+data "aws_cloudformation_export" "domain_name" {
+  name = "transversal-resources-ApiDomainName"
+}
+
+data "aws_cloudformation_export" "authorizer_id" {
+  name = "dya-reports-TokenAuthorizerId"
+}
+
+data "terraform_remote_state" "general" {
+  backend = "s3"
+
+  config = {
+    bucket = "btg.dev.analytics.terraform"
+    key    = "analytics/reports/general/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
+# Policies
+
+data "aws_iam_policy_document" "secrets_policy" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "secretsmanager:GetSecretValue"
+    ]
+    resources = [
+      "${local.credentials_secret_arn}"
+    ]
+  }
+}
+
+# Locals
+
+locals {
+  project                   = "dya-reports"
+  environment               = "dev"
+  vpc_id                    = data.aws_cloudformation_export.vpc_id.value
+  service_name              = "contrapartes"
+  region                    = "us-east-1"
+  tags = {
+    Ambiente       = local.environment
+    Despliegue     = "Terraform"
+    Disponibilidad = "LU-DO-24:00"
+    Celula         = "Infraestructura"
+    Aplicativo     = "Infraestructura"
+    Compania       = "Transversal"
+    Producto       = "Transversal"
+    Modulo         = "contrapartes"
+  }
+  task_role_inline_policies = [
+     {
+      name   = "secrets-policy"
+      policy = data.aws_iam_policy_document.secrets_policy.json
+    }
+  ]
+  task_role_managed_policy_arns = [
+    "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+  ]
+  execution_role_inline_policies = [
+  ]
+  execution_role_managed_policy_arns = [
+    "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+  ]
+  container_subnet_ids = [
+    data.aws_cloudformation_export.vm_snet_01.value,
+    data.aws_cloudformation_export.vm_snet_02.value,
+    data.aws_cloudformation_export.vm_snet_03.value
+  ]
+  lb_subnet_ids = [
+    data.aws_cloudformation_export.lb_snet_01.value,
+    data.aws_cloudformation_export.lb_snet_02.value,
+    data.aws_cloudformation_export.lb_snet_03.value
+  ]
+  credentials_secret_arn = data.terraform_remote_state.general.outputs.credentials_secret_arn
+  lb_arn = data.terraform_remote_state.general.outputs.load_balancer_arn
+  lb_dns_name = data.terraform_remote_state.general.outputs.load_balancer_dns_name
+  container_env = [
+    {
+      "name" : "DWH_SECRET_ARN",
+      "value" : "${local.credentials_secret_arn}"
+    }
+  ]
+  internal_security_group_id = data.terraform_remote_state.general.outputs.security_group_internal_id
+  ecs_cluster_name           = data.terraform_remote_state.general.outputs.cluster_name
+  autoscaling_role_arn       = data.terraform_remote_state.general.outputs.iam_role_autoscaling_arn
+  namespace_id               = data.terraform_remote_state.general.outputs.namespace_id
+  autoscaling_min_capacity   = 1
+  autoscaling_max_capacity   = 3
+  autoscaling_cpu_threshold  = 80
+  health_check_path          = "/health"
+  container_cpu              = 256
+  container_ram              = 1024
+  container_port             = 3002
+  container_healthcheck = {
+    command     = ["CMD-SHELL", "wget --spider --quiet http://127.0.0.1:${local.container_port}${local.health_check_path} || exit 1"]
+    interval    = 60
+    timeout     = 10
+    retries     = 3
+    startPeriod = 120
+  }
+  lb_listener_arn = data.terraform_remote_state.general.outputs.load_balancer_arn
+  alb_security_group_id = data.terraform_remote_state.general.outputs.security_group_lb_id
+  listener_port   = 8000
+
+  apigw_id                    = data.aws_cloudformation_export.apigw_id.value
+  apigw_root_resource_id      = data.aws_cloudformation_export.root_resource_id.value
+  aws_api_gateway_vpc_link_id = data.terraform_remote_state.general.outputs.vpc_link_id
+  apigw_project_resource_name = "contrapartes"
+  apigw_app_resource_name     = "api"
+  apigw_integration_uri       = "http://${data.terraform_remote_state.general.outputs.load_balancer_dns_name}:8000/{proxy}"
+  apigw_custom_domain_name    = data.aws_cloudformation_export.domain_name.value
+  apigw_custom_domain_path    = "reports"
+  authorizer_config = {
+    authorization = "CUSTOM"
+    authorizer_id = data.aws_cloudformation_export.authorizer_id.value
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\contrapartes\dev\main.tf
+/===============================================================================
+
+module "ecr" {
+  source       = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecr?ref=ecr/0.0.2"
+  ecrs = {
+    "${local.project}/${local.service_name}" = {
+      repository_force_delete    = false
+      repository_encryption_type = "KMS"
+    }
+  }
+}
+
+module "execution_role" {
+  source              = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecs_task_role?ref=ecs_task_role/0.0.3"
+  project             = local.project
+  environment         = local.environment
+  service_name        = local.service_name
+  role_name           = "execution-role"
+  managed_policy_arns = local.execution_role_managed_policy_arns
+  inline_policies     = local.execution_role_inline_policies
+}
+
+module "task_role" {
+  source              = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecs_task_role?ref=ecs_task_role/0.0.3"
+  project             = local.project
+  environment         = local.environment
+  service_name        = local.service_name
+  role_name           = "task-role"
+  managed_policy_arns = local.task_role_managed_policy_arns
+  inline_policies     = local.task_role_inline_policies
+}
+
+module "apigw_integration" {
+  source                      = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//apigw_nlb_integration?ref=nlb-vpc-link"
+  project                     = local.project
+  environment                 = local.environment
+  service_name                = local.service_name
+  nlb_arn                     = local.lb_arn
+  apigw_id                    = local.apigw_id
+  apigw_root_resource_id      = local.apigw_root_resource_id
+  apigw_project_resource_name = local.apigw_project_resource_name
+  apigw_app_resource_name     = local.apigw_app_resource_name
+  integration_uri             = local.apigw_integration_uri
+  apigw_custom_domain_name    = local.apigw_custom_domain_name
+  apigw_custom_domain_path    = local.apigw_custom_domain_path
+  authorizer_config           = local.authorizer_config
+  aws_api_gateway_vpc_link_id = local.aws_api_gateway_vpc_link_id
+  apigw_stage_name            = local.environment
+}
+
+module "service" {
+  source                     = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecs_service?ref=ecs_service/0.0.6"
+  depends_on                 = [module.execution_role, module.task_role]
+  project                    = local.project
+  environment                = local.environment
+  service_name               = local.service_name
+  deploy_service             = var.deploy_service
+  container_cpu              = local.container_cpu
+  container_ram              = local.container_ram
+  container_port             = local.container_port
+  container_healthcheck      = local.container_healthcheck
+  execution_role_arn         = module.execution_role.iam_role_arn
+  task_role_arn              = module.task_role.iam_role_arn
+  image_tag                  = var.image_tag
+  health_check_path          = local.health_check_path
+  namespace_id               = local.namespace_id
+  vpc_id                     = local.vpc_id
+  service_subnets_list       = local.container_subnet_ids
+  autoscaling_min_capacity   = local.autoscaling_min_capacity
+  autoscaling_max_capacity   = local.autoscaling_max_capacity
+  autoscaling_cpu_threshold  = local.autoscaling_cpu_threshold
+  autoscaling_role_arn       = local.autoscaling_role_arn
+  internal_security_group_id = local.internal_security_group_id
+  ecs_cluster_name           = local.ecs_cluster_name
+  environment_variables      = local.container_env 
+  lb_listener_arn            = local.lb_listener_arn
+  listener_port              = local.listener_port
+  alb_security_group_id      = local.alb_security_group_id
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\contrapartes\dev\outputs.tf
+/===============================================================================
+
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\contrapartes\dev\providers.tf
+/===============================================================================
+
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+    docker = {
+      source  = "kreuzwerker/docker"
+      version = "3.0.2"
+    }
+  }
+  required_version = "~> 1.6"
+}
+
+# Configure the AWS Provider
+provider "aws" {
+  region = local.region
+  default_tags {
+    tags = local.tags
+  }
+}
+
+# configure docker provider
+provider "docker" {
+  registry_auth {
+    address  = data.aws_ecr_authorization_token.token.proxy_endpoint
+    username = data.aws_ecr_authorization_token.token.user_name
+    password = data.aws_ecr_authorization_token.token.password
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\contrapartes\dev\variables.tf
+/===============================================================================
+
+variable "image_tag" {
+  description = "Docker image tag"
+  type        = string
+  default     = "latest"
+}
+
+variable "deploy_service" {
+  description = "Deploy ECS Service"
+  type        = bool
+  default     = false
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\contrapartes\pdn\backend.tf
+/===============================================================================
+
+terraform {
+  backend "s3" {
+    bucket = "btg.pdn.analytics.terraform"
+    key    = "analytics/reports/contrapartes/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\contrapartes\pdn\inputs.tf
+/===============================================================================
+
+# Remote data
+
+data "aws_cloudformation_export" "vpc_id" {
+  name = "mainVpcId"
+}
+
+data "aws_cloudformation_export" "vm_snet_01" {
+  name = "PrivateSubnet1EC2"
+}
+
+data "aws_cloudformation_export" "vm_snet_02" {
+  name = "PrivateSubnet2EC2"
+}
+
+data "aws_cloudformation_export" "vm_snet_03" {
+  name = "PrivateSubnet3EC2"
+}
+
+data "aws_cloudformation_export" "lb_snet_01" {
+  name = "PrivateSubnet1ELB"
+}
+
+data "aws_cloudformation_export" "lb_snet_02" {
+  name = "PrivateSubnet2ELB"
+}
+
+data "aws_cloudformation_export" "lb_snet_03" {
+  name = "PrivateSubnet3ELB"
+}
+
+data "aws_cloudformation_export" "apigw_id" {
+  name = "dya-reports-ApiId"
+}
+
+data "aws_cloudformation_export" "root_resource_id" {
+  name = "dya-reports-RootResourceId"
+}
+
+data "aws_cloudformation_export" "domain_name" {
+  name = "transversal-resources-ApiDomainName"
+}
+
+data "aws_cloudformation_export" "authorizer_id" {
+  name = "dya-reports-TokenAuthorizerId"
+}
+
+data "terraform_remote_state" "general" {
+  backend = "s3"
+
+  config = {
+    bucket = "btg.pdn.analytics.terraform"
+    key    = "analytics/reports/general/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
+# Policies
+
+data "aws_iam_policy_document" "secrets_policy" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "secretsmanager:GetSecretValue"
+    ]
+    resources = [
+      "${local.credentials_secret_arn}"
+    ]
+  }
+}
+
+# Locals
+
+locals {
+  project                   = "dya-reports"
+  environment               = "pdn"
+  vpc_id                    = data.aws_cloudformation_export.vpc_id.value
+  service_name              = "contrapartes"
+  region                    = "us-east-1"
+  tags = {
+    Ambiente       = local.environment
+    Despliegue     = "Terraform"
+    Disponibilidad = "LU-DO-24:00"
+    Celula         = "Infraestructura"
+    Aplicativo     = "Infraestructura"
+    Compania       = "Transversal"
+    Producto       = "Transversal"
+    Modulo         = "contrapartes"
+  }
+  task_role_inline_policies = [
+     {
+      name   = "secrets-policy"
+      policy = data.aws_iam_policy_document.secrets_policy.json
+    }
+  ]
+  task_role_managed_policy_arns = [
+    "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+  ]
+  execution_role_inline_policies = [
+  ]
+  execution_role_managed_policy_arns = [
+    "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+  ]
+  container_subnet_ids = [
+    data.aws_cloudformation_export.vm_snet_01.value,
+    data.aws_cloudformation_export.vm_snet_02.value,
+    data.aws_cloudformation_export.vm_snet_03.value
+  ]
+  lb_subnet_ids = [
+    data.aws_cloudformation_export.lb_snet_01.value,
+    data.aws_cloudformation_export.lb_snet_02.value,
+    data.aws_cloudformation_export.lb_snet_03.value
+  ]
+  credentials_secret_arn = data.terraform_remote_state.general.outputs.credentials_secret_arn
+  lb_arn = data.terraform_remote_state.general.outputs.load_balancer_arn
+  lb_dns_name = data.terraform_remote_state.general.outputs.load_balancer_dns_name
+  container_env = [
+    {
+      "name" : "DWH_SECRET_ARN",
+      "value" : "${local.credentials_secret_arn}"
+    }
+  ]
+  # container_secrets = [
+  #   {
+  #     "name" : "DB_HOST",
+  #     "valueFrom" : "${local.db_connection_secret_arn}:host::"
+  #   },
+  #   {
+  #     "name" : "DB_PORT",
+  #     "valueFrom" : "${local.db_connection_secret_arn}:port::"
+  #   },
+  #   {
+  #     "name" : "DB_NAME",
+  #     "valueFrom" : "${local.db_connection_secret_arn}:dbname::"
+  #   },
+  #   {
+  #     "name" : "DB_USER",
+  #     "valueFrom" : "${local.db_connection_secret_arn}:username::"
+  #   },
+  #   {
+  #     "name" : "DB_PASS",
+  #     "valueFrom" : "${local.db_connection_secret_arn}:password::"
+  #   }
+  # ]
+  internal_security_group_id = data.terraform_remote_state.general.outputs.security_group_internal_id
+  ecs_cluster_name           = data.terraform_remote_state.general.outputs.cluster_name
+  autoscaling_role_arn       = data.terraform_remote_state.general.outputs.iam_role_autoscaling_arn
+  namespace_id               = data.terraform_remote_state.general.outputs.namespace_id
+  autoscaling_min_capacity   = 1
+  autoscaling_max_capacity   = 3
+  autoscaling_cpu_threshold  = 80
+  health_check_path          = "/health"
+  container_cpu              = 256
+  container_ram              = 1024
+  container_port             = 3002
+  container_healthcheck = {
+    command     = ["CMD-SHELL", "wget --spider --quiet http://127.0.0.1:${local.container_port}${local.health_check_path} || exit 1"]
+    interval    = 60
+    timeout     = 10
+    retries     = 3
+    startPeriod = 120
+  }
+  lb_listener_arn = data.terraform_remote_state.general.outputs.load_balancer_arn
+  alb_security_group_id = data.terraform_remote_state.general.outputs.security_group_lb_id
+  listener_port   = 8000
+
+  apigw_id                    = data.aws_cloudformation_export.apigw_id.value
+  apigw_root_resource_id      = data.aws_cloudformation_export.root_resource_id.value
+  apigw_project_resource_name = "contrapartes"
+  apigw_app_resource_name     = "api"
+  apigw_integration_uri       = "http://${data.terraform_remote_state.general.outputs.load_balancer_dns_name}:8000/{proxy}"
+  apigw_custom_domain_name    = data.aws_cloudformation_export.domain_name.value
+  apigw_custom_domain_path    = "reports-contrapartes"
+  authorizer_config = {
+    authorization = "CUSTOM"
+    authorizer_id = data.aws_cloudformation_export.authorizer_id.value
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\contrapartes\pdn\main.tf
+/===============================================================================
+
+module "ecr" {
+  source       = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecr?ref=ecr/0.0.2"
+  ecrs = {
+    "${local.project}/${local.service_name}" = {
+      repository_force_delete    = false
+      repository_encryption_type = "KMS"
+    }
+  }
+}
+
+module "execution_role" {
+  source              = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecs_task_role?ref=ecs_task_role/0.0.2"
+  project             = local.project
+  environment         = local.environment
+  service_name        = local.service_name
+  role_name           = "execution-role"
+  managed_policy_arns = local.execution_role_managed_policy_arns
+  inline_policies     = local.execution_role_inline_policies
+}
+
+module "task_role" {
+  source              = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecs_task_role?ref=ecs_task_role/0.0.2"
+  project             = local.project
+  environment         = local.environment
+  service_name        = local.service_name
+  role_name           = "task-role"
+  managed_policy_arns = local.task_role_managed_policy_arns
+  inline_policies     = local.task_role_inline_policies
+}
+
+module "apigw_integration" {
+  source                      = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//apigw_nlb_integration?ref=apigw_nlb_integration/0.0.1"
+  project                     = local.project
+  environment                 = local.environment
+  service_name                = local.service_name
+  nlb_arn                     = local.lb_arn
+  apigw_id                    = local.apigw_id
+  apigw_root_resource_id      = local.apigw_root_resource_id
+  apigw_project_resource_name = local.apigw_project_resource_name
+  apigw_app_resource_name     = local.apigw_app_resource_name
+  integration_uri             = local.apigw_integration_uri
+  apigw_custom_domain_name    = local.apigw_custom_domain_name
+  apigw_custom_domain_path    = local.apigw_custom_domain_path
+  authorizer_config           = local.authorizer_config
+}
+
+module "service" {
+  source                     = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecs_service?ref=ecs_service/0.0.6"
+  depends_on                 = [module.execution_role, module.task_role]
+  project                    = local.project
+  environment                = local.environment
+  service_name               = local.service_name
+  deploy_service             = var.deploy_service
+  container_cpu              = local.container_cpu
+  container_ram              = local.container_ram
+  container_port             = local.container_port
+  container_healthcheck      = local.container_healthcheck
+  execution_role_arn         = module.execution_role.iam_role_arn
+  task_role_arn              = module.task_role.iam_role_arn
+  image_tag                  = var.image_tag
+  health_check_path          = local.health_check_path
+  namespace_id               = local.namespace_id
+  vpc_id                     = local.vpc_id
+  service_subnets_list       = local.container_subnet_ids
+  autoscaling_min_capacity   = local.autoscaling_min_capacity
+  autoscaling_max_capacity   = local.autoscaling_max_capacity
+  autoscaling_cpu_threshold  = local.autoscaling_cpu_threshold
+  autoscaling_role_arn       = local.autoscaling_role_arn
+  internal_security_group_id = local.internal_security_group_id
+  ecs_cluster_name           = local.ecs_cluster_name
+  environment_variables      = local.container_env
+  lb_listener_arn            = local.lb_listener_arn
+  listener_port              = local.listener_port
+  alb_security_group_id      = local.alb_security_group_id
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\contrapartes\pdn\outputs.tf
+/===============================================================================
+
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\contrapartes\pdn\providers.tf
+/===============================================================================
+
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+    docker = {
+      source  = "kreuzwerker/docker"
+      version = "3.0.2"
+    }
+  }
+  required_version = "~> 1.6"
+}
+
+# Configure the AWS Provider
+provider "aws" {
+  region = local.region
+  default_tags {
+    tags = local.tags
+  }
+}
+
+# configure docker provider
+provider "docker" {
+  registry_auth {
+    address  = data.aws_ecr_authorization_token.token.proxy_endpoint
+    username = data.aws_ecr_authorization_token.token.user_name
+    password = data.aws_ecr_authorization_token.token.password
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\contrapartes\pdn\variables.tf
+/===============================================================================
+
+variable "image_tag" {
+  description = "Docker image tag"
+  type        = string
+  default     = "latest"
+}
+
+variable "deploy_service" {
+  description = "Deploy ECS Service"
+  type        = bool
+  default     = false
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\contrapartes\uat\backend.tf
+/===============================================================================
+
+terraform {
+  backend "s3" {
+    bucket = "btg.uat.analytics.terraform"
+    key    = "analytics/reports/contrapartes/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\contrapartes\uat\inputs.tf
+/===============================================================================
+
+# Remote data
+
+data "aws_cloudformation_export" "vpc_id" {
+  name = "mainVpcId"
+}
+
+data "aws_cloudformation_export" "vm_snet_01" {
+  name = "PrivateSubnet1EC2"
+}
+
+data "aws_cloudformation_export" "vm_snet_02" {
+  name = "PrivateSubnet2EC2"
+}
+
+data "aws_cloudformation_export" "vm_snet_03" {
+  name = "PrivateSubnet3EC2"
+}
+
+data "aws_cloudformation_export" "lb_snet_01" {
+  name = "PrivateSubnet1ELB"
+}
+
+data "aws_cloudformation_export" "lb_snet_02" {
+  name = "PrivateSubnet2ELB"
+}
+
+data "aws_cloudformation_export" "lb_snet_03" {
+  name = "PrivateSubnet3ELB"
+}
+
+data "aws_cloudformation_export" "apigw_id" {
+  name = "dya-reports-ApiId"
+}
+
+data "aws_cloudformation_export" "root_resource_id" {
+  name = "dya-reports-RootResourceId"
+}
+
+data "aws_cloudformation_export" "domain_name" {
+  name = "transversal-resources-ApiDomainName"
+}
+
+data "aws_cloudformation_export" "authorizer_id" {
+  name = "dya-reports-TokenAuthorizerId"
+}
+
+data "terraform_remote_state" "general" {
+  backend = "s3"
+
+  config = {
+    bucket = "btg.uat.analytics.terraform"
+    key    = "analytics/reports/general/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
+# Policies
+
+data "aws_iam_policy_document" "secrets_policy" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "secretsmanager:GetSecretValue"
+    ]
+    resources = [
+      "${local.credentials_secret_arn}"
+    ]
+  }
+}
+
+# Locals
+
+locals {
+  project                   = "dya-reports"
+  environment               = "uat"
+  vpc_id                    = data.aws_cloudformation_export.vpc_id.value
+  service_name              = "contrapartes"
+  region                    = "us-east-1"
+  tags = {
+    Ambiente       = local.environment
+    Despliegue     = "Terraform"
+    Disponibilidad = "LU-DO-24:00"
+    Celula         = "Infraestructura"
+    Aplicativo     = "Infraestructura"
+    Compania       = "Transversal"
+    Producto       = "Transversal"
+    Modulo         = "contrapartes"
+  }
+  task_role_inline_policies = [
+     {
+      name   = "secrets-policy"
+      policy = data.aws_iam_policy_document.secrets_policy.json
+    }
+  ]
+  task_role_managed_policy_arns = [
+    "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+  ]
+  execution_role_inline_policies = [
+  ]
+  execution_role_managed_policy_arns = [
+    "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+  ]
+  container_subnet_ids = [
+    data.aws_cloudformation_export.vm_snet_01.value,
+    data.aws_cloudformation_export.vm_snet_02.value,
+    data.aws_cloudformation_export.vm_snet_03.value
+  ]
+  lb_subnet_ids = [
+    data.aws_cloudformation_export.lb_snet_01.value,
+    data.aws_cloudformation_export.lb_snet_02.value,
+    data.aws_cloudformation_export.lb_snet_03.value
+  ]
+  credentials_secret_arn = data.terraform_remote_state.general.outputs.credentials_secret_arn
+  lb_arn = data.terraform_remote_state.general.outputs.load_balancer_arn
+  lb_dns_name = data.terraform_remote_state.general.outputs.load_balancer_dns_name
+  container_env = [
+    {
+      "name" : "DWH_SECRET_ARN",
+      "value" : "${local.credentials_secret_arn}"
+    }
+  ]
+  internal_security_group_id = data.terraform_remote_state.general.outputs.security_group_internal_id
+  ecs_cluster_name           = data.terraform_remote_state.general.outputs.cluster_name
+  autoscaling_role_arn       = data.terraform_remote_state.general.outputs.iam_role_autoscaling_arn
+  namespace_id               = data.terraform_remote_state.general.outputs.namespace_id
+  autoscaling_min_capacity   = 1
+  autoscaling_max_capacity   = 3
+  autoscaling_cpu_threshold  = 80
+  health_check_path          = "/health"
+  container_cpu              = 256
+  container_ram              = 1024
+  container_port             = 3002
+  container_healthcheck = {
+    command     = ["CMD-SHELL", "wget --spider --quiet http://127.0.0.1:${local.container_port}${local.health_check_path} || exit 1"]
+    interval    = 60
+    timeout     = 10
+    retries     = 3
+    startPeriod = 120
+  }
+  lb_listener_arn = data.terraform_remote_state.general.outputs.load_balancer_arn
+  alb_security_group_id = data.terraform_remote_state.general.outputs.security_group_lb_id
+  listener_port   = 8000
+
+  apigw_id                    = data.aws_cloudformation_export.apigw_id.value
+  apigw_root_resource_id      = data.aws_cloudformation_export.root_resource_id.value
+  aws_api_gateway_vpc_link_id = data.terraform_remote_state.general.outputs.vpc_link_id
+  apigw_project_resource_name = "contrapartes"
+  apigw_app_resource_name     = "api"
+  apigw_integration_uri       = "http://${data.terraform_remote_state.general.outputs.load_balancer_dns_name}:8000/{proxy}"
+  apigw_custom_domain_name    = data.aws_cloudformation_export.domain_name.value
+  apigw_custom_domain_path    = "reports"
+  authorizer_config = {
+    authorization = "CUSTOM"
+    authorizer_id = data.aws_cloudformation_export.authorizer_id.value
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\contrapartes\uat\main.tf
+/===============================================================================
+
+module "ecr" {
+  source       = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecr?ref=ecr/0.0.2"
+  ecrs = {
+    "${local.project}/${local.service_name}" = {
+      repository_force_delete    = false
+      repository_encryption_type = "KMS"
+    }
+  }
+}
+
+module "execution_role" {
+  source              = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecs_task_role?ref=ecs_task_role/0.0.3"
+  project             = local.project
+  environment         = local.environment
+  service_name        = local.service_name
+  role_name           = "execution-role"
+  managed_policy_arns = local.execution_role_managed_policy_arns
+  inline_policies     = local.execution_role_inline_policies
+}
+
+module "task_role" {
+  source              = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecs_task_role?ref=ecs_task_role/0.0.3"
+  project             = local.project
+  environment         = local.environment
+  service_name        = local.service_name
+  role_name           = "task-role"
+  managed_policy_arns = local.task_role_managed_policy_arns
+  inline_policies     = local.task_role_inline_policies
+}
+
+module "apigw_integration" {
+  source                      = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//apigw_nlb_integration?ref=nlb-vpc-link"
+  project                     = local.project
+  environment                 = local.environment
+  service_name                = local.service_name
+  nlb_arn                     = local.lb_arn
+  apigw_id                    = local.apigw_id
+  apigw_root_resource_id      = local.apigw_root_resource_id
+  apigw_project_resource_name = local.apigw_project_resource_name
+  apigw_app_resource_name     = local.apigw_app_resource_name
+  integration_uri             = local.apigw_integration_uri
+  apigw_custom_domain_name    = local.apigw_custom_domain_name
+  apigw_custom_domain_path    = local.apigw_custom_domain_path
+  authorizer_config           = local.authorizer_config
+  aws_api_gateway_vpc_link_id = local.aws_api_gateway_vpc_link_id
+  apigw_stage_name            = local.environment
+}
+
+module "service" {
+  source                     = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecs_service?ref=ecs_service/0.0.6"
+  depends_on                 = [module.execution_role, module.task_role]
+  project                    = local.project
+  environment                = local.environment
+  service_name               = local.service_name
+  deploy_service             = var.deploy_service
+  container_cpu              = local.container_cpu
+  container_ram              = local.container_ram
+  container_port             = local.container_port
+  container_healthcheck      = local.container_healthcheck
+  execution_role_arn         = module.execution_role.iam_role_arn
+  task_role_arn              = module.task_role.iam_role_arn
+  image_tag                  = var.image_tag
+  health_check_path          = local.health_check_path
+  namespace_id               = local.namespace_id
+  vpc_id                     = local.vpc_id
+  service_subnets_list       = local.container_subnet_ids
+  autoscaling_min_capacity   = local.autoscaling_min_capacity
+  autoscaling_max_capacity   = local.autoscaling_max_capacity
+  autoscaling_cpu_threshold  = local.autoscaling_cpu_threshold
+  autoscaling_role_arn       = local.autoscaling_role_arn
+  internal_security_group_id = local.internal_security_group_id
+  ecs_cluster_name           = local.ecs_cluster_name
+  environment_variables      = local.container_env
+  lb_listener_arn            = local.lb_listener_arn
+  listener_port              = local.listener_port
+  alb_security_group_id      = local.alb_security_group_id
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\contrapartes\uat\outputs.tf
+/===============================================================================
+
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\contrapartes\uat\providers.tf
+/===============================================================================
+
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+    docker = {
+      source  = "kreuzwerker/docker"
+      version = "3.0.2"
+    }
+  }
+  required_version = "~> 1.6"
+}
+
+# Configure the AWS Provider
+provider "aws" {
+  region = local.region
+  default_tags {
+    tags = local.tags
+  }
+}
+
+# configure docker provider
+provider "docker" {
+  registry_auth {
+    address  = data.aws_ecr_authorization_token.token.proxy_endpoint
+    username = data.aws_ecr_authorization_token.token.user_name
+    password = data.aws_ecr_authorization_token.token.password
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\contrapartes\uat\variables.tf
+/===============================================================================
+
+variable "image_tag" {
+  description = "Docker image tag"
+  type        = string
+  default     = "latest"
+}
+
+variable "deploy_service" {
+  description = "Deploy ECS Service"
+  type        = bool
+  default     = false
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\contrapartes\azure-pipeline.yml
+/===============================================================================
+
+trigger:
+  branches:
+    include:
+      - master
+  paths:
+    include:
+      - iac/terraform/micro_services/contrapartes/*
+
+resources:
+  repositories:
+    - repository: devops-terraform-modules
+      type: git
+      name: devops-terraform-modules
+variables:
+  - name: stage 
+    ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/development') }}:
+      value: development
+    ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/release') }}:
+      value: uat
+    ${{ elseif eq(variables['Build.SourceBranch'], 'refs/heads/master') }}:
+      value: pdn
+
+stages:
+  - stage: DEV
+    condition: eq(variables.stage, 'development')
+    variables:
+      tf_working_directory: '$(System.DefaultWorkingDirectory)/$(Build.Repository.Name)/iac/terraform/micro_services/contrapartes/dev/'
+      project: dya-reports
+      environment: dev
+      service_name: contrapartes
+      docker_repository: '${{ variables.project }}/${{ variables.service_name }}'
+      aws_region: us-east-1
+    jobs:
+    - job: deploy_infra
+      displayName: Deploy infrastructure
+      pool: 'BTG Colombia - Azure DevOps'
+      steps:
+      - checkout: self
+        displayName: ⬇️ Checkout self
+
+      - checkout: devops-terraform-modules
+        displayName: ⬇️ Checkout terraform-modules
+
+      - task: AWSShellScript@1
+        displayName: Get  docker image tag
+        inputs:
+          awsCredentials: 'TERRAFORMDEVOPS-ANALYTICS-DEV-AWS'
+          regionName: ${{ variables.aws_region }}
+          scriptType: 'inline'
+          inlineScript: |
+            DOCKER_IMAGE_TAG="None"
+            DEPLOY_SERVICE="false"
+            # Check if repository exists
+            aws ecr describe-repositories --repository-names ${{ variables.docker_repository }} 2>&1
+            if [ $? -eq 0 ]
+            then
+              # Check the latest docker image tag, if don't exists return None
+              DOCKER_IMAGE_TAG=$(aws ecr describe-images --repository-name ${{ variables.docker_repository }} --query 'sort_by(imageDetails,& imagePushedAt)[-1].imageTags[0]' --output text)
+              if [ "$DOCKER_IMAGE_TAG" != "None" ]
+              then
+                DEPLOY_SERVICE="true"
+              fi
+            fi
+            echo "DOCKER_IMAGE_TAG=$DOCKER_IMAGE_TAG"
+            echo "DEPLOY_SERVICE=$DEPLOY_SERVICE"
+            echo "##vso[task.setvariable variable=DOCKER_IMAGE_TAG]$DOCKER_IMAGE_TAG"
+            echo "##vso[task.setvariable variable=DEPLOY_SERVICE]$DEPLOY_SERVICE"
+
+      - task: TerraformInstaller@1
+        displayName: install
+        inputs:
+          terraformVersion: 'latest'
+
+      - script: |
+          GIT_CONFIG_PARAMETERS="'url.https://$(System.AccessToken)@dev.azure.com.insteadof=https://BTGColombia@dev.azure.com'"
+          echo "##vso[task.setvariable variable=GIT_CONFIG_PARAMETERS;]$GIT_CONFIG_PARAMETERS"
+        displayName: 💬 git config
+        workingDirectory: ${{ variables.tf_working_directory }}
+
+      - task: TerraformTaskV4@4
+        displayName: init
+        inputs:
+          provider: 'aws'
+          command: 'init'
+          workingDirectory: ${{ variables.tf_working_directory }}
+          backendServiceAWS: 'TERRAFORMDEVOPS-ANALYTICS-DEV'
+          backendAWSBucketName: 'btg.dev.analytics.terraform'
+          backendAWSKey: 'analytics/reports/contrapartes/terraform.tfstate'
+          
+      - task: TerraformTaskV4@4
+        displayName: validate
+        inputs:
+          provider: 'aws'
+          command: 'validate'
+          workingDirectory: ${{ variables.tf_working_directory }}
+          
+      - task: TerraformTaskV4@4
+        displayName: plan
+        inputs:
+          provider: 'aws'
+          command: 'plan'
+          commandOptions: '-input=false -var image_tag=$(DOCKER_IMAGE_TAG) -var deploy_service=$(DEPLOY_SERVICE)'
+          workingDirectory: ${{ variables.tf_working_directory }}
+          environmentServiceNameAWS: 'TERRAFORMDEVOPS-ANALYTICS-DEV'
+
+      - task: TerraformTaskV4@4
+        displayName: apply
+        inputs:
+          provider: 'aws'
+          command: 'apply'
+          commandOptions: '-input=false -var image_tag=$(DOCKER_IMAGE_TAG) -var deploy_service=$(DEPLOY_SERVICE)'
+          workingDirectory: ${{ variables.tf_working_directory }}
+          environmentServiceNameAWS: 'TERRAFORMDEVOPS-ANALYTICS-DEV'
+
+  - stage: UAT
+    condition: eq(variables.stage, 'uat')
+    variables:
+      tf_working_directory: '$(System.DefaultWorkingDirectory)/$(Build.Repository.Name)/iac/terraform/micro_services/contrapartes/uat/'
+      project: dya-reports
+      environment: uat
+      service_name: contrapartes
+      docker_repository: '${{ variables.project }}/${{ variables.service_name }}'
+      aws_region: us-east-1
+    jobs:
+    - job: deploy_infra
+      displayName: Deploy infrastructure
+      pool: 'BTG Colombia - Azure DevOps'
+      steps:
+
+      - checkout: self
+        displayName: ⬇️ Checkout self
+
+      - checkout: devops-terraform-modules
+        displayName: ⬇️ Checkout terraform-modules
+
+      - script: |
+          GIT_CONFIG_PARAMETERS="'url.https://$(System.AccessToken)@dev.azure.com.insteadof=https://BTGColombia@dev.azure.com'"
+          echo "##vso[task.setvariable variable=GIT_CONFIG_PARAMETERS;]$GIT_CONFIG_PARAMETERS"
+        displayName: 💬 git config
+        workingDirectory: ${{ variables.tf_working_directory }}
+
+      - task: AWSShellScript@1
+        displayName: Get  docker image tag
+        inputs:
+          awsCredentials: 'TERRAFORMDEVOPS-ANALYTICS-UAT-AWS'
+          regionName: ${{ variables.aws_region }}
+          scriptType: 'inline'
+          inlineScript: |
+            DOCKER_IMAGE_TAG="None"
+            DEPLOY_SERVICE="false"
+            # Check if repository exists
+            aws ecr describe-repositories --repository-names ${{ variables.docker_repository }} 2>&1
+            if [ $? -eq 0 ]
+            then
+              # Check the latest docker image tag, if don't exists return None
+              DOCKER_IMAGE_TAG=$(aws ecr describe-images --repository-name ${{ variables.docker_repository }} --query 'sort_by(imageDetails,& imagePushedAt)[-1].imageTags[0]' --output text)
+              if [ "$DOCKER_IMAGE_TAG" != "None" ]
+              then
+                DEPLOY_SERVICE="true"
+              fi
+            fi
+            echo "DOCKER_IMAGE_TAG=$DOCKER_IMAGE_TAG"
+            echo "DEPLOY_SERVICE=$DEPLOY_SERVICE"
+            echo "##vso[task.setvariable variable=DOCKER_IMAGE_TAG]$DOCKER_IMAGE_TAG"
+            echo "##vso[task.setvariable variable=DEPLOY_SERVICE]$DEPLOY_SERVICE"
+
+      - task: TerraformInstaller@1
+        displayName: install
+        inputs:
+          terraformVersion: 'latest'
+      
+      - task: TerraformTaskV4@4
+        displayName: init
+        inputs:
+          provider: 'aws'
+          command: 'init'
+          workingDirectory: ${{ variables.tf_working_directory }}
+          backendServiceAWS: 'TERRAFORMDEVOPS-ANALYTICS-UAT'
+          backendAWSBucketName: 'btg.uat.analytics.terraform'
+          backendAWSKey: 'analytics/reports/contrapartes/terraform.tfstate'
+          
+      - task: TerraformTaskV4@4
+        displayName: validate
+        inputs:
+          provider: 'aws'
+          command: 'validate'
+          workingDirectory: ${{ variables.tf_working_directory }}
+          
+      - task: TerraformTaskV4@4
+        displayName: plan
+        inputs:
+          provider: 'aws'
+          command: 'plan'
+          commandOptions: '-input=false -var image_tag=$(DOCKER_IMAGE_TAG) -var deploy_service=$(DEPLOY_SERVICE)'
+          workingDirectory: ${{ variables.tf_working_directory }}
+          environmentServiceNameAWS: 'TERRAFORMDEVOPS-ANALYTICS-UAT'
+
+      - task: TerraformTaskV4@4
+        displayName: apply
+        inputs:
+          provider: 'aws'
+          command: 'apply'
+          commandOptions: '-input=false -var image_tag=$(DOCKER_IMAGE_TAG) -var deploy_service=$(DEPLOY_SERVICE)'
+          workingDirectory: ${{ variables.tf_working_directory }}
+          environmentServiceNameAWS: 'TERRAFORMDEVOPS-ANALYTICS-UAT'
+
+  - stage: PDN
+    condition: eq(variables.stage, 'pdn')
+    variables:
+      tf_working_directory: '$(System.DefaultWorkingDirectory)/$(Build.Repository.Name)/iac/terraform/micro_services/contrapartes/pdn/'
+      project: dya-reports
+      environment: pdn
+      service_name: contrapartes
+      docker_repository: '${{ variables.project }}/${{ variables.service_name }}'
+      aws_region: us-east-1
+    jobs:
+    - job: deploy_infra
+      displayName: Deploy infrastructure
+      pool: 'BTG Colombia - Azure DevOps'
+      steps:
+
+      - checkout: self
+        displayName: ⬇️ Checkout self
+
+      - checkout: devops-terraform-modules
+        displayName: ⬇️ Checkout terraform-modules
+
+      - task: AWSShellScript@1
+        displayName: Get  docker image tag
+        inputs:
+          awsCredentials: 'TERRAFORMDEVOPS-ANALYTICS-PDN-AWS'
+          regionName: ${{ variables.aws_region }}
+          scriptType: 'inline'
+          inlineScript: |
+            DOCKER_IMAGE_TAG="None"
+            DEPLOY_SERVICE="false"
+            # Check if repository exists
+            aws ecr describe-repositories --repository-names ${{ variables.docker_repository }} 2>&1
+            if [ $? -eq 0 ]
+            then
+              # Check the latest docker image tag, if don't exists return None
+              DOCKER_IMAGE_TAG=$(aws ecr describe-images --repository-name ${{ variables.docker_repository }} --query 'sort_by(imageDetails,& imagePushedAt)[-1].imageTags[0]' --output text)
+              if [ "$DOCKER_IMAGE_TAG" != "None" ]
+              then
+                DEPLOY_SERVICE="true"
+              fi
+            fi
+            echo "DOCKER_IMAGE_TAG=$DOCKER_IMAGE_TAG"
+            echo "DEPLOY_SERVICE=$DEPLOY_SERVICE"
+            echo "##vso[task.setvariable variable=DOCKER_IMAGE_TAG]$DOCKER_IMAGE_TAG"
+            echo "##vso[task.setvariable variable=DEPLOY_SERVICE]$DEPLOY_SERVICE"
+
+      - task: TerraformInstaller@1
+        displayName: install
+        inputs:
+          terraformVersion: 'latest'
+
+      - script: |
+          GIT_CONFIG_PARAMETERS="'url.https://$(System.AccessToken)@dev.azure.com.insteadof=https://BTGColombia@dev.azure.com'"
+          echo "##vso[task.setvariable variable=GIT_CONFIG_PARAMETERS;]$GIT_CONFIG_PARAMETERS"
+        displayName: 💬 git config
+        workingDirectory: ${{ variables.tf_working_directory }}
+
+      - task: TerraformTaskV4@4
+        displayName: init
+        inputs:
+          provider: 'aws'
+          command: 'init'
+          workingDirectory: ${{ variables.tf_working_directory }}
+          backendServiceAWS: 'TERRAFORMDEVOPS-ANALYTICS-PDN'
+          backendAWSBucketName: 'btg.pdn.analytics.terraform'
+          backendAWSKey: 'analytics/reports/contrapartes/terraform.tfstate'
+          
+      - task: TerraformTaskV4@4
+        displayName: validate
+        inputs:
+          provider: 'aws'
+          command: 'validate'
+          workingDirectory: ${{ variables.tf_working_directory }}
+          
+      - task: TerraformTaskV4@4
+        displayName: plan
+        inputs:
+          provider: 'aws'
+          command: 'plan'
+          commandOptions: '-input=false -var image_tag=$(DOCKER_IMAGE_TAG) -var deploy_service=$(DEPLOY_SERVICE)'
+          workingDirectory: ${{ variables.tf_working_directory }}
+          environmentServiceNameAWS: 'TERRAFORMDEVOPS-ANALYTICS-PDN'
+
+      - task: TerraformTaskV4@4
+        displayName: apply
+        inputs:
+          provider: 'aws'
+          command: 'apply'
+          commandOptions: '-input=false -var image_tag=$(DOCKER_IMAGE_TAG) -var deploy_service=$(DEPLOY_SERVICE)'
+          workingDirectory: ${{ variables.tf_working_directory }}
+          environmentServiceNameAWS: 'TERRAFORMDEVOPS-ANALYTICS-PDN'
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\creditos\dev\backend.tf
+/===============================================================================
+
+terraform {
+  backend "s3" {
+    bucket = "btg.dev.analytics.terraform"
+    key    = "analytics/reports/creditos/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\creditos\dev\inputs.tf
+/===============================================================================
+
+# Remote data
+
+data "aws_cloudformation_export" "vpc_id" {
+  name = "mainVpcId"
+}
+
+data "aws_cloudformation_export" "vm_snet_01" {
+  name = "PrivateSubnet1EC2"
+}
+
+data "aws_cloudformation_export" "vm_snet_02" {
+  name = "PrivateSubnet2EC2"
+}
+
+data "aws_cloudformation_export" "vm_snet_03" {
+  name = "PrivateSubnet3EC2"
+}
+
+data "aws_cloudformation_export" "lb_snet_01" {
+  name = "PrivateSubnet1ELB"
+}
+
+data "aws_cloudformation_export" "lb_snet_02" {
+  name = "PrivateSubnet2ELB"
+}
+
+data "aws_cloudformation_export" "lb_snet_03" {
+  name = "PrivateSubnet3ELB"
+}
+
+data "aws_cloudformation_export" "apigw_id" {
+  name = "dya-reports-ApiId"
+}
+
+data "aws_cloudformation_export" "root_resource_id" {
+  name = "dya-reports-RootResourceId"
+}
+
+data "aws_cloudformation_export" "domain_name" {
+  name = "transversal-resources-ApiDomainName"
+}
+
+data "aws_cloudformation_export" "authorizer_id" {
+  name = "dya-reports-TokenAuthorizerId"
+}
+
+data "terraform_remote_state" "general" {
+  backend = "s3"
+
+  config = {
+    bucket = "btg.dev.analytics.terraform"
+    key    = "analytics/reports/general/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
+# Policies
+
+data "aws_iam_policy_document" "secrets_policy" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "secretsmanager:GetSecretValue"
+    ]
+    resources = [
+      "${local.credentials_secret_arn}"
+    ]
+  }
+}
+
+# Locals
+
+locals {
+  project                   = "dya-reports"
+  environment               = "dev"
+  vpc_id                    = data.aws_cloudformation_export.vpc_id.value
+  service_name              = "creditos"
+  region                    = "us-east-1"
+  tags = {
+    Ambiente       = local.environment
+    Despliegue     = "Terraform"
+    Disponibilidad = "LU-DO-24:00"
+    Celula         = "Infraestructura"
+    Aplicativo     = "Infraestructura"
+    Compania       = "Transversal"
+    Producto       = "Transversal"
+    Modulo         = "creditos"
+  }
+  task_role_inline_policies = [
+     {
+      name   = "secrets-policy"
+      policy = data.aws_iam_policy_document.secrets_policy.json
+    }
+  ]
+  task_role_managed_policy_arns = [
+    "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+  ]
+  execution_role_inline_policies = [
+  ]
+  execution_role_managed_policy_arns = [
+    "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+  ]
+  container_subnet_ids = [
+    data.aws_cloudformation_export.vm_snet_01.value,
+    data.aws_cloudformation_export.vm_snet_02.value,
+    data.aws_cloudformation_export.vm_snet_03.value
+  ]
+  lb_subnet_ids = [
+    data.aws_cloudformation_export.lb_snet_01.value,
+    data.aws_cloudformation_export.lb_snet_02.value,
+    data.aws_cloudformation_export.lb_snet_03.value
+  ]
+  credentials_secret_arn = data.terraform_remote_state.general.outputs.credentials_secret_arn
+  lb_arn = data.terraform_remote_state.general.outputs.load_balancer_arn
+  lb_dns_name = data.terraform_remote_state.general.outputs.load_balancer_dns_name
+  container_env = [
+    {
+      "name" : "DWH_SECRET_ARN",
+      "value" : "${local.credentials_secret_arn}"
+    }
+  ]
+  internal_security_group_id = data.terraform_remote_state.general.outputs.security_group_internal_id
+  ecs_cluster_name           = data.terraform_remote_state.general.outputs.cluster_name
+  autoscaling_role_arn       = data.terraform_remote_state.general.outputs.iam_role_autoscaling_arn
+  namespace_id               = data.terraform_remote_state.general.outputs.namespace_id
+  autoscaling_min_capacity   = 1
+  autoscaling_max_capacity   = 3
+  autoscaling_cpu_threshold  = 80
+  health_check_path          = "/health"
+  container_cpu              = 1024
+  container_ram              = 4096
+  container_port             = 3000
+  container_healthcheck = {
+    command     = ["CMD-SHELL", "wget --spider --quiet http://127.0.0.1:${local.container_port}${local.health_check_path} || exit 1"]
+    interval    = 60
+    timeout     = 10
+    retries     = 3
+    startPeriod = 120
+  }
+  lb_listener_arn = data.terraform_remote_state.general.outputs.load_balancer_arn
+  alb_security_group_id = data.terraform_remote_state.general.outputs.security_group_lb_id
+  listener_port   = 8001
+
+  apigw_id                    = data.aws_cloudformation_export.apigw_id.value
+  apigw_root_resource_id      = data.aws_cloudformation_export.root_resource_id.value
+  aws_api_gateway_vpc_link_id = data.terraform_remote_state.general.outputs.vpc_link_id
+  apigw_project_resource_name = "creditos"
+  apigw_app_resource_name     = "api"
+  apigw_integration_uri       = "http://${data.terraform_remote_state.general.outputs.load_balancer_dns_name}:8001/{proxy}"
+  apigw_custom_domain_name    = data.aws_cloudformation_export.domain_name.value
+  apigw_custom_domain_path    = "reports"
+  authorizer_config = {
+    authorization = "CUSTOM"
+    authorizer_id = data.aws_cloudformation_export.authorizer_id.value
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\creditos\dev\main.tf
+/===============================================================================
+
+module "ecr" {
+  source       = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecr?ref=ecr/0.0.2"
+  ecrs = {
+    "${local.project}/${local.service_name}" = {
+      repository_force_delete    = false
+      repository_encryption_type = "KMS"
+    }
+  }
+}
+
+module "execution_role" {
+  source              = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecs_task_role?ref=ecs_task_role/0.0.3"
+  project             = local.project
+  environment         = local.environment
+  service_name        = local.service_name
+  role_name           = "execution-role"
+  managed_policy_arns = local.execution_role_managed_policy_arns
+  inline_policies     = local.execution_role_inline_policies
+}
+
+module "task_role" {
+  source              = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecs_task_role?ref=ecs_task_role/0.0.3"
+  project             = local.project
+  environment         = local.environment
+  service_name        = local.service_name
+  role_name           = "task-role"
+  managed_policy_arns = local.task_role_managed_policy_arns
+  inline_policies     = local.task_role_inline_policies
+}
+
+module "apigw_integration" {
+  source                      = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//apigw_nlb_integration?ref=nlb-vpc-link"
+  project                     = local.project
+  environment                 = local.environment
+  service_name                = local.service_name
+  nlb_arn                     = local.lb_arn
+  apigw_id                    = local.apigw_id
+  apigw_root_resource_id      = local.apigw_root_resource_id
+  apigw_project_resource_name = local.apigw_project_resource_name
+  apigw_app_resource_name     = local.apigw_app_resource_name
+  integration_uri             = local.apigw_integration_uri
+  apigw_custom_domain_name    = local.apigw_custom_domain_name
+  apigw_custom_domain_path    = local.apigw_custom_domain_path
+  authorizer_config           = local.authorizer_config
+  aws_api_gateway_vpc_link_id = local.aws_api_gateway_vpc_link_id
+  apigw_stage_name            = local.environment
+}
+
+module "service" {
+  source                     = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecs_service?ref=ecs_service/0.0.6"
+  depends_on                 = [module.execution_role, module.task_role]
+  project                    = local.project
+  environment                = local.environment
+  service_name               = local.service_name
+  deploy_service             = var.deploy_service
+  container_cpu              = local.container_cpu
+  container_ram              = local.container_ram
+  container_port             = local.container_port
+  container_healthcheck      = local.container_healthcheck
+  execution_role_arn         = module.execution_role.iam_role_arn
+  task_role_arn              = module.task_role.iam_role_arn
+  image_tag                  = var.image_tag
+  health_check_path          = local.health_check_path
+  namespace_id               = local.namespace_id
+  vpc_id                     = local.vpc_id
+  service_subnets_list       = local.container_subnet_ids
+  autoscaling_min_capacity   = local.autoscaling_min_capacity
+  autoscaling_max_capacity   = local.autoscaling_max_capacity
+  autoscaling_cpu_threshold  = local.autoscaling_cpu_threshold
+  autoscaling_role_arn       = local.autoscaling_role_arn
+  internal_security_group_id = local.internal_security_group_id
+  ecs_cluster_name           = local.ecs_cluster_name
+  environment_variables      = local.container_env
+  lb_listener_arn            = local.lb_listener_arn
+  listener_port              = local.listener_port
+  alb_security_group_id      = local.alb_security_group_id
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\creditos\dev\outputs.tf
+/===============================================================================
+
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\creditos\dev\providers.tf
+/===============================================================================
+
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+    docker = {
+      source  = "kreuzwerker/docker"
+      version = "3.0.2"
+    }
+  }
+  required_version = "~> 1.6"
+}
+
+# Configure the AWS Provider
+provider "aws" {
+  region = local.region
+  default_tags {
+    tags = local.tags
+  }
+}
+
+# configure docker provider
+provider "docker" {
+  registry_auth {
+    address  = data.aws_ecr_authorization_token.token.proxy_endpoint
+    username = data.aws_ecr_authorization_token.token.user_name
+    password = data.aws_ecr_authorization_token.token.password
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\creditos\dev\variables.tf
+/===============================================================================
+
+variable "image_tag" {
+  description = "Docker image tag"
+  type        = string
+  default     = "latest"
+}
+
+variable "deploy_service" {
+  description = "Deploy ECS Service"
+  type        = bool
+  default     = false
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\creditos\pdn\backend.tf
+/===============================================================================
+
+terraform {
+  backend "s3" {
+    bucket = "btg.pdn.analytics.terraform"
+    key    = "analytics/reports/creditos/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\creditos\pdn\inputs.tf
+/===============================================================================
+
+# Remote data
+
+data "aws_cloudformation_export" "vpc_id" {
+  name = "mainVpcId"
+}
+
+data "aws_cloudformation_export" "vm_snet_01" {
+  name = "PrivateSubnet1EC2"
+}
+
+data "aws_cloudformation_export" "vm_snet_02" {
+  name = "PrivateSubnet2EC2"
+}
+
+data "aws_cloudformation_export" "vm_snet_03" {
+  name = "PrivateSubnet3EC2"
+}
+
+data "aws_cloudformation_export" "lb_snet_01" {
+  name = "PrivateSubnet1ELB"
+}
+
+data "aws_cloudformation_export" "lb_snet_02" {
+  name = "PrivateSubnet2ELB"
+}
+
+data "aws_cloudformation_export" "lb_snet_03" {
+  name = "PrivateSubnet3ELB"
+}
+
+data "aws_cloudformation_export" "apigw_id" {
+  name = "dya-reports-ApiId"
+}
+
+data "aws_cloudformation_export" "root_resource_id" {
+  name = "dya-reports-RootResourceId"
+}
+
+data "aws_cloudformation_export" "domain_name" {
+  name = "transversal-resources-ApiDomainName"
+}
+
+data "aws_cloudformation_export" "authorizer_id" {
+  name = "dya-reports-TokenAuthorizerId"
+}
+
+data "terraform_remote_state" "general" {
+  backend = "s3"
+
+  config = {
+    bucket = "btg.pdn.analytics.terraform"
+    key    = "analytics/reports/general/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
+# Policies
+
+data "aws_iam_policy_document" "secrets_policy" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "secretsmanager:GetSecretValue"
+    ]
+    resources = [
+      "${local.credentials_secret_arn}"
+    ]
+  }
+}
+
+# Locals
+
+locals {
+  project                   = "dya-reports"
+  environment               = "pdn"
+  vpc_id                    = data.aws_cloudformation_export.vpc_id.value
+  service_name              = "creditos"
+  region                    = "us-east-1"
+  tags = {
+    Ambiente       = local.environment
+    Despliegue     = "Terraform"
+    Disponibilidad = "LU-DO-24:00"
+    Celula         = "Infraestructura"
+    Aplicativo     = "Infraestructura"
+    Compania       = "Transversal"
+    Producto       = "Transversal"
+    Modulo         = "creditos"
+  }
+  task_role_inline_policies = [
+     {
+      name   = "secrets-policy"
+      policy = data.aws_iam_policy_document.secrets_policy.json
+    }
+  ]
+  task_role_managed_policy_arns = [
+    "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+  ]
+  execution_role_inline_policies = [
+  ]
+  execution_role_managed_policy_arns = [
+    "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+  ]
+  container_subnet_ids = [
+    data.aws_cloudformation_export.vm_snet_01.value,
+    data.aws_cloudformation_export.vm_snet_02.value,
+    data.aws_cloudformation_export.vm_snet_03.value
+  ]
+  lb_subnet_ids = [
+    data.aws_cloudformation_export.lb_snet_01.value,
+    data.aws_cloudformation_export.lb_snet_02.value,
+    data.aws_cloudformation_export.lb_snet_03.value
+  ]
+  credentials_secret_arn = data.terraform_remote_state.general.outputs.credentials_secret_arn
+  lb_arn = data.terraform_remote_state.general.outputs.load_balancer_arn
+  lb_dns_name = data.terraform_remote_state.general.outputs.load_balancer_dns_name
+  container_env = [
+    {
+      "name" : "DWH_SECRET_ARN",
+      "value" : "${local.credentials_secret_arn}"
+    }
+  ]
+  # container_secrets = [
+  #   {
+  #     "name" : "DB_HOST",
+  #     "valueFrom" : "${local.db_connection_secret_arn}:host::"
+  #   },
+  #   {
+  #     "name" : "DB_PORT",
+  #     "valueFrom" : "${local.db_connection_secret_arn}:port::"
+  #   },
+  #   {
+  #     "name" : "DB_NAME",
+  #     "valueFrom" : "${local.db_connection_secret_arn}:dbname::"
+  #   },
+  #   {
+  #     "name" : "DB_USER",
+  #     "valueFrom" : "${local.db_connection_secret_arn}:username::"
+  #   },
+  #   {
+  #     "name" : "DB_PASS",
+  #     "valueFrom" : "${local.db_connection_secret_arn}:password::"
+  #   }
+  # ]
+  internal_security_group_id = data.terraform_remote_state.general.outputs.security_group_internal_id
+  ecs_cluster_name           = data.terraform_remote_state.general.outputs.cluster_name
+  autoscaling_role_arn       = data.terraform_remote_state.general.outputs.iam_role_autoscaling_arn
+  namespace_id               = data.terraform_remote_state.general.outputs.namespace_id
+  autoscaling_min_capacity   = 1
+  autoscaling_max_capacity   = 3
+  autoscaling_cpu_threshold  = 80
+  health_check_path          = "/health"
+  container_cpu              = 256
+  container_ram              = 1024
+  container_port             = 3000
+  container_healthcheck = {
+    command     = ["CMD-SHELL", "wget --spider --quiet http://127.0.0.1:${local.container_port}${local.health_check_path} || exit 1"]
+    interval    = 60
+    timeout     = 10
+    retries     = 3
+    startPeriod = 120
+  }
+  lb_listener_arn = data.terraform_remote_state.general.outputs.load_balancer_arn
+  alb_security_group_id = data.terraform_remote_state.general.outputs.security_group_lb_id
+  listener_port   = 8001
+
+  apigw_id                    = data.aws_cloudformation_export.apigw_id.value
+  apigw_root_resource_id      = data.aws_cloudformation_export.root_resource_id.value
+  apigw_project_resource_name = "creditos"
+  apigw_app_resource_name     = "api"
+  apigw_integration_uri       = "http://${data.terraform_remote_state.general.outputs.load_balancer_dns_name}:8001/{proxy}"
+  apigw_custom_domain_name    = data.aws_cloudformation_export.domain_name.value
+  apigw_custom_domain_path    = "reports-creditos"
+  authorizer_config = {
+    authorization = "CUSTOM"
+    authorizer_id = data.aws_cloudformation_export.authorizer_id.value
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\creditos\pdn\main.tf
+/===============================================================================
+
+module "ecr" {
+  source       = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecr?ref=ecr/0.0.2"
+  ecrs = {
+    "${local.project}/${local.service_name}" = {
+      repository_force_delete    = false
+      repository_encryption_type = "KMS"
+    }
+  }
+}
+
+module "execution_role" {
+  source              = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecs_task_role?ref=ecs_task_role/0.0.2"
+  project             = local.project
+  environment         = local.environment
+  service_name        = local.service_name
+  role_name           = "execution-role"
+  managed_policy_arns = local.execution_role_managed_policy_arns
+  inline_policies     = local.execution_role_inline_policies
+}
+
+module "task_role" {
+  source              = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecs_task_role?ref=ecs_task_role/0.0.2"
+  project             = local.project
+  environment         = local.environment
+  service_name        = local.service_name
+  role_name           = "task-role"
+  managed_policy_arns = local.task_role_managed_policy_arns
+  inline_policies     = local.task_role_inline_policies
+}
+
+module "apigw_integration" {
+  source                      = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//apigw_nlb_integration?ref=apigw_nlb_integration/0.0.1"
+  project                     = local.project
+  environment                 = local.environment
+  service_name                = local.service_name
+  nlb_arn                     = local.lb_arn
+  apigw_id                    = local.apigw_id
+  apigw_root_resource_id      = local.apigw_root_resource_id
+  apigw_project_resource_name = local.apigw_project_resource_name
+  apigw_app_resource_name     = local.apigw_app_resource_name
+  integration_uri             = local.apigw_integration_uri
+  apigw_custom_domain_name    = local.apigw_custom_domain_name
+  apigw_custom_domain_path    = local.apigw_custom_domain_path
+  authorizer_config           = local.authorizer_config
+}
+
+module "service" {
+  source                     = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecs_service?ref=ecs_service/0.0.6"
+  depends_on                 = [module.execution_role, module.task_role]
+  project                    = local.project
+  environment                = local.environment
+  service_name               = local.service_name
+  deploy_service             = var.deploy_service
+  container_cpu              = local.container_cpu
+  container_ram              = local.container_ram
+  container_port             = local.container_port
+  container_healthcheck      = local.container_healthcheck
+  execution_role_arn         = module.execution_role.iam_role_arn
+  task_role_arn              = module.task_role.iam_role_arn
+  image_tag                  = var.image_tag
+  health_check_path          = local.health_check_path
+  namespace_id               = local.namespace_id
+  vpc_id                     = local.vpc_id
+  service_subnets_list       = local.container_subnet_ids
+  autoscaling_min_capacity   = local.autoscaling_min_capacity
+  autoscaling_max_capacity   = local.autoscaling_max_capacity
+  autoscaling_cpu_threshold  = local.autoscaling_cpu_threshold
+  autoscaling_role_arn       = local.autoscaling_role_arn
+  internal_security_group_id = local.internal_security_group_id
+  ecs_cluster_name           = local.ecs_cluster_name
+  environment_variables      = local.container_env
+  lb_listener_arn            = local.lb_listener_arn
+  listener_port              = local.listener_port
+  alb_security_group_id      = local.alb_security_group_id
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\creditos\pdn\outputs.tf
+/===============================================================================
+
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\creditos\pdn\providers.tf
+/===============================================================================
+
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+    docker = {
+      source  = "kreuzwerker/docker"
+      version = "3.0.2"
+    }
+  }
+  required_version = "~> 1.6"
+}
+
+# Configure the AWS Provider
+provider "aws" {
+  region = local.region
+  default_tags {
+    tags = local.tags
+  }
+}
+
+# configure docker provider
+provider "docker" {
+  registry_auth {
+    address  = data.aws_ecr_authorization_token.token.proxy_endpoint
+    username = data.aws_ecr_authorization_token.token.user_name
+    password = data.aws_ecr_authorization_token.token.password
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\creditos\pdn\variables.tf
+/===============================================================================
+
+variable "image_tag" {
+  description = "Docker image tag"
+  type        = string
+  default     = "latest"
+}
+
+variable "deploy_service" {
+  description = "Deploy ECS Service"
+  type        = bool
+  default     = false
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\creditos\uat\backend.tf
+/===============================================================================
+
+terraform {
+  backend "s3" {
+    bucket = "btg.uat.analytics.terraform"
+    key    = "analytics/reports/creditos/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\creditos\uat\inputs.tf
+/===============================================================================
+
+# Remote data
+
+data "aws_cloudformation_export" "vpc_id" {
+  name = "mainVpcId"
+}
+
+data "aws_cloudformation_export" "vm_snet_01" {
+  name = "PrivateSubnet1EC2"
+}
+
+data "aws_cloudformation_export" "vm_snet_02" {
+  name = "PrivateSubnet2EC2"
+}
+
+data "aws_cloudformation_export" "vm_snet_03" {
+  name = "PrivateSubnet3EC2"
+}
+
+data "aws_cloudformation_export" "lb_snet_01" {
+  name = "PrivateSubnet1ELB"
+}
+
+data "aws_cloudformation_export" "lb_snet_02" {
+  name = "PrivateSubnet2ELB"
+}
+
+data "aws_cloudformation_export" "lb_snet_03" {
+  name = "PrivateSubnet3ELB"
+}
+
+data "aws_cloudformation_export" "apigw_id" {
+  name = "dya-reports-ApiId"
+}
+
+data "aws_cloudformation_export" "root_resource_id" {
+  name = "dya-reports-RootResourceId"
+}
+
+data "aws_cloudformation_export" "domain_name" {
+  name = "transversal-resources-ApiDomainName"
+}
+
+data "aws_cloudformation_export" "authorizer_id" {
+  name = "dya-reports-TokenAuthorizerId"
+}
+
+data "terraform_remote_state" "general" {
+  backend = "s3"
+
+  config = {
+    bucket = "btg.uat.analytics.terraform"
+    key    = "analytics/reports/general/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
+# Policies
+
+data "aws_iam_policy_document" "secrets_policy" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "secretsmanager:GetSecretValue"
+    ]
+    resources = [
+      "${local.credentials_secret_arn}"
+    ]
+  }
+}
+
+# Locals
+
+locals {
+  project                   = "dya-reports"
+  environment               = "uat"
+  vpc_id                    = data.aws_cloudformation_export.vpc_id.value
+  service_name              = "creditos"
+  region                    = "us-east-1"
+  tags = {
+    Ambiente       = local.environment
+    Despliegue     = "Terraform"
+    Disponibilidad = "LU-DO-24:00"
+    Celula         = "Infraestructura"
+    Aplicativo     = "Infraestructura"
+    Compania       = "Transversal"
+    Producto       = "Transversal"
+    Modulo         = "creditos"
+  }
+  task_role_inline_policies = [
+     {
+      name   = "secrets-policy"
+      policy = data.aws_iam_policy_document.secrets_policy.json
+    }
+  ]
+  task_role_managed_policy_arns = [
+    "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+  ]
+  execution_role_inline_policies = [
+  ]
+  execution_role_managed_policy_arns = [
+    "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+  ]
+  container_subnet_ids = [
+    data.aws_cloudformation_export.vm_snet_01.value,
+    data.aws_cloudformation_export.vm_snet_02.value,
+    data.aws_cloudformation_export.vm_snet_03.value
+  ]
+  lb_subnet_ids = [
+    data.aws_cloudformation_export.lb_snet_01.value,
+    data.aws_cloudformation_export.lb_snet_02.value,
+    data.aws_cloudformation_export.lb_snet_03.value
+  ]
+  credentials_secret_arn = data.terraform_remote_state.general.outputs.credentials_secret_arn
+  lb_arn = data.terraform_remote_state.general.outputs.load_balancer_arn
+  lb_dns_name = data.terraform_remote_state.general.outputs.load_balancer_dns_name
+  container_env = [
+    {
+      "name" : "DWH_SECRET_ARN",
+      "value" : "${local.credentials_secret_arn}"
+    }
+  ]
+  internal_security_group_id = data.terraform_remote_state.general.outputs.security_group_internal_id
+  ecs_cluster_name           = data.terraform_remote_state.general.outputs.cluster_name
+  autoscaling_role_arn       = data.terraform_remote_state.general.outputs.iam_role_autoscaling_arn
+  namespace_id               = data.terraform_remote_state.general.outputs.namespace_id
+  autoscaling_min_capacity   = 1
+  autoscaling_max_capacity   = 3
+  autoscaling_cpu_threshold  = 80
+  health_check_path          = "/health"
+  container_cpu              = 256
+  container_ram              = 1024
+  container_port             = 3000
+  container_healthcheck = {
+    command     = ["CMD-SHELL", "wget --spider --quiet http://127.0.0.1:${local.container_port}${local.health_check_path} || exit 1"]
+    interval    = 60
+    timeout     = 10
+    retries     = 3
+    startPeriod = 120
+  }
+  lb_listener_arn = data.terraform_remote_state.general.outputs.load_balancer_arn
+  alb_security_group_id = data.terraform_remote_state.general.outputs.security_group_lb_id
+  listener_port   = 8001
+
+  apigw_id                    = data.aws_cloudformation_export.apigw_id.value
+  apigw_root_resource_id      = data.aws_cloudformation_export.root_resource_id.value
+  aws_api_gateway_vpc_link_id = data.terraform_remote_state.general.outputs.vpc_link_id
+  apigw_project_resource_name = "creditos"
+  apigw_app_resource_name     = "api"
+  apigw_integration_uri       = "http://${data.terraform_remote_state.general.outputs.load_balancer_dns_name}:8001/{proxy}"
+  apigw_custom_domain_name    = data.aws_cloudformation_export.domain_name.value
+  apigw_custom_domain_path    = "reports"
+  authorizer_config = {
+    authorization = "CUSTOM"
+    authorizer_id = data.aws_cloudformation_export.authorizer_id.value
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\creditos\uat\main.tf
+/===============================================================================
+
+module "ecr" {
+  source       = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecr?ref=ecr/0.0.2"
+  ecrs = {
+    "${local.project}/${local.service_name}" = {
+      repository_force_delete    = false
+      repository_encryption_type = "KMS"
+    }
+  }
+}
+
+module "execution_role" {
+  source              = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecs_task_role?ref=ecs_task_role/0.0.3"
+  project             = local.project
+  environment         = local.environment
+  service_name        = local.service_name
+  role_name           = "execution-role"
+  managed_policy_arns = local.execution_role_managed_policy_arns
+  inline_policies     = local.execution_role_inline_policies
+}
+
+module "task_role" {
+  source              = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecs_task_role?ref=ecs_task_role/0.0.3"
+  project             = local.project
+  environment         = local.environment
+  service_name        = local.service_name
+  role_name           = "task-role"
+  managed_policy_arns = local.task_role_managed_policy_arns
+  inline_policies     = local.task_role_inline_policies
+}
+
+module "apigw_integration" {
+  source                      = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//apigw_nlb_integration?ref=nlb-vpc-link"
+  project                     = local.project
+  environment                 = local.environment
+  service_name                = local.service_name
+  nlb_arn                     = local.lb_arn
+  apigw_id                    = local.apigw_id
+  apigw_root_resource_id      = local.apigw_root_resource_id
+  apigw_project_resource_name = local.apigw_project_resource_name
+  apigw_app_resource_name     = local.apigw_app_resource_name
+  integration_uri             = local.apigw_integration_uri
+  apigw_custom_domain_name    = local.apigw_custom_domain_name
+  apigw_custom_domain_path    = local.apigw_custom_domain_path
+  authorizer_config           = local.authorizer_config
+  aws_api_gateway_vpc_link_id = local.aws_api_gateway_vpc_link_id
+  apigw_stage_name            = local.environment
+}
+
+module "service" {
+  source                     = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecs_service?ref=ecs_service/0.0.6"
+  depends_on                 = [module.execution_role, module.task_role]
+  project                    = local.project
+  environment                = local.environment
+  service_name               = local.service_name
+  deploy_service             = var.deploy_service
+  container_cpu              = local.container_cpu
+  container_ram              = local.container_ram
+  container_port             = local.container_port
+  container_healthcheck      = local.container_healthcheck
+  execution_role_arn         = module.execution_role.iam_role_arn
+  task_role_arn              = module.task_role.iam_role_arn
+  image_tag                  = var.image_tag
+  health_check_path          = local.health_check_path
+  namespace_id               = local.namespace_id
+  vpc_id                     = local.vpc_id
+  service_subnets_list       = local.container_subnet_ids
+  autoscaling_min_capacity   = local.autoscaling_min_capacity
+  autoscaling_max_capacity   = local.autoscaling_max_capacity
+  autoscaling_cpu_threshold  = local.autoscaling_cpu_threshold
+  autoscaling_role_arn       = local.autoscaling_role_arn
+  internal_security_group_id = local.internal_security_group_id
+  ecs_cluster_name           = local.ecs_cluster_name
+  environment_variables      = local.container_env
+  lb_listener_arn            = local.lb_listener_arn
+  listener_port              = local.listener_port
+  alb_security_group_id      = local.alb_security_group_id
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\creditos\uat\outputs.tf
+/===============================================================================
+
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\creditos\uat\providers.tf
+/===============================================================================
+
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+    docker = {
+      source  = "kreuzwerker/docker"
+      version = "3.0.2"
+    }
+  }
+  required_version = "~> 1.6"
+}
+
+# Configure the AWS Provider
+provider "aws" {
+  region = local.region
+  default_tags {
+    tags = local.tags
+  }
+}
+
+# configure docker provider
+provider "docker" {
+  registry_auth {
+    address  = data.aws_ecr_authorization_token.token.proxy_endpoint
+    username = data.aws_ecr_authorization_token.token.user_name
+    password = data.aws_ecr_authorization_token.token.password
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\creditos\uat\variables.tf
+/===============================================================================
+
+variable "image_tag" {
+  description = "Docker image tag"
+  type        = string
+  default     = "latest"
+}
+
+variable "deploy_service" {
+  description = "Deploy ECS Service"
+  type        = bool
+  default     = false
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\creditos\azure-pipeline.yml
+/===============================================================================
+
+trigger:
+  branches:
+    include:
+      - master
+  paths:
+    include:
+      - iac/terraform/micro_services/creditos/*
+
+resources:
+  repositories:
+    - repository: devops-terraform-modules
+      type: git
+      name: devops-terraform-modules
+variables:
+  - name: stage 
+    ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/development') }}:
+      value: development
+    ${{ if eq(variables['Build.SourceBranch'], 'refs/heads/release') }}:
+      value: uat
+    ${{ elseif eq(variables['Build.SourceBranch'], 'refs/heads/master') }}:
+      value: pdn
+
+stages:
+  - stage: DEV
+    condition: eq(variables.stage, 'development')
+    variables:
+      tf_working_directory: '$(System.DefaultWorkingDirectory)/$(Build.Repository.Name)/iac/terraform/micro_services/creditos/dev/'
+      project: dya-reports
+      environment: dev
+      service_name: creditos
+      docker_repository: '${{ variables.project }}/${{ variables.service_name }}'
+      aws_region: us-east-1
+    jobs:
+    - job: deploy_infra
+      displayName: Deploy infrastructure
+      pool: 'BTG Colombia - Azure DevOps'
+      steps:
+      - checkout: self
+        displayName: ⬇️ Checkout self
+
+      - checkout: devops-terraform-modules
+        displayName: ⬇️ Checkout terraform-modules
+
+      - task: AWSShellScript@1
+        displayName: Get  docker image tag
+        inputs:
+          awsCredentials: 'TERRAFORMDEVOPS-ANALYTICS-DEV-AWS'
+          regionName: ${{ variables.aws_region }}
+          scriptType: 'inline'
+          inlineScript: |
+            DOCKER_IMAGE_TAG="None"
+            DEPLOY_SERVICE="false"
+            # Check if repository exists
+            aws ecr describe-repositories --repository-names ${{ variables.docker_repository }} 2>&1
+            if [ $? -eq 0 ]
+            then
+              # Check the latest docker image tag, if don't exists return None
+              DOCKER_IMAGE_TAG=$(aws ecr describe-images --repository-name ${{ variables.docker_repository }} --query 'sort_by(imageDetails,& imagePushedAt)[-1].imageTags[0]' --output text)
+              if [ "$DOCKER_IMAGE_TAG" != "None" ]
+              then
+                DEPLOY_SERVICE="true"
+              fi
+            fi
+            echo "DOCKER_IMAGE_TAG=$DOCKER_IMAGE_TAG"
+            echo "DEPLOY_SERVICE=$DEPLOY_SERVICE"
+            echo "##vso[task.setvariable variable=DOCKER_IMAGE_TAG]$DOCKER_IMAGE_TAG"
+            echo "##vso[task.setvariable variable=DEPLOY_SERVICE]$DEPLOY_SERVICE"
+
+      - task: TerraformInstaller@1
+        displayName: install
+        inputs:
+          terraformVersion: 'latest'
+
+      - script: |
+          GIT_CONFIG_PARAMETERS="'url.https://$(System.AccessToken)@dev.azure.com.insteadof=https://BTGColombia@dev.azure.com'"
+          echo "##vso[task.setvariable variable=GIT_CONFIG_PARAMETERS;]$GIT_CONFIG_PARAMETERS"
+        displayName: 💬 git config
+        workingDirectory: ${{ variables.tf_working_directory }}
+
+      - task: TerraformTaskV4@4
+        displayName: init
+        inputs:
+          provider: 'aws'
+          command: 'init'
+          workingDirectory: ${{ variables.tf_working_directory }}
+          backendServiceAWS: 'TERRAFORMDEVOPS-ANALYTICS-DEV'
+          backendAWSBucketName: 'btg.dev.analytics.terraform'
+          backendAWSKey: 'analytics/reports/creditos/terraform.tfstate'
+          
+      - task: TerraformTaskV4@4
+        displayName: validate
+        inputs:
+          provider: 'aws'
+          command: 'validate'
+          workingDirectory: ${{ variables.tf_working_directory }}
+          
+      - task: TerraformTaskV4@4
+        displayName: plan
+        inputs:
+          provider: 'aws'
+          command: 'plan'
+          commandOptions: '-input=false -var image_tag=$(DOCKER_IMAGE_TAG) -var deploy_service=$(DEPLOY_SERVICE)'
+          workingDirectory: ${{ variables.tf_working_directory }}
+          environmentServiceNameAWS: 'TERRAFORMDEVOPS-ANALYTICS-DEV'
+
+      - task: TerraformTaskV4@4
+        displayName: apply
+        inputs:
+          provider: 'aws'
+          command: 'apply'
+          commandOptions: '-input=false -var image_tag=$(DOCKER_IMAGE_TAG) -var deploy_service=$(DEPLOY_SERVICE)'
+          workingDirectory: ${{ variables.tf_working_directory }}
+          environmentServiceNameAWS: 'TERRAFORMDEVOPS-ANALYTICS-DEV'
+      
+      - task: AWSShellScript@1
+        inputs:
+          awsCredentials: 'TERRAFORMDEVOPS-ANALYTICS-DEV-AWS'
+          regionName: 'us-east-1'
+          scriptType: 'inline'
+          inlineScript: |
+            aws apigateway create-deployment \
+            --rest-api-id 025kecddd8 \
+            --stage-name $(stage) \
+
+  - stage: UAT
+    condition: eq(variables.stage, 'uat')
+    variables:
+      tf_working_directory: '$(System.DefaultWorkingDirectory)/$(Build.Repository.Name)/iac/terraform/micro_services/creditos/uat/'
+      project: dya-reports
+      environment: uat
+      service_name: creditos
+      docker_repository: '${{ variables.project }}/${{ variables.service_name }}'
+      aws_region: us-east-1
+    jobs:
+    - job: deploy_infra
+      displayName: Deploy infrastructure
+      pool: 'BTG Colombia - Azure DevOps'
+      steps:
+
+      - checkout: self
+        displayName: ⬇️ Checkout self
+
+      - checkout: devops-terraform-modules
+        displayName: ⬇️ Checkout terraform-modules
+
+      - script: |
+          GIT_CONFIG_PARAMETERS="'url.https://$(System.AccessToken)@dev.azure.com.insteadof=https://BTGColombia@dev.azure.com'"
+          echo "##vso[task.setvariable variable=GIT_CONFIG_PARAMETERS;]$GIT_CONFIG_PARAMETERS"
+        displayName: 💬 git config
+        workingDirectory: ${{ variables.tf_working_directory }}
+
+      - task: AWSShellScript@1
+        displayName: Get  docker image tag
+        inputs:
+          awsCredentials: 'TERRAFORMDEVOPS-ANALYTICS-UAT-AWS'
+          regionName: ${{ variables.aws_region }}
+          scriptType: 'inline'
+          inlineScript: |
+            DOCKER_IMAGE_TAG="None"
+            DEPLOY_SERVICE="false"
+            # Check if repository exists
+            aws ecr describe-repositories --repository-names ${{ variables.docker_repository }} 2>&1
+            if [ $? -eq 0 ]
+            then
+              # Check the latest docker image tag, if don't exists return None
+              DOCKER_IMAGE_TAG=$(aws ecr describe-images --repository-name ${{ variables.docker_repository }} --query 'sort_by(imageDetails,& imagePushedAt)[-1].imageTags[0]' --output text)
+              if [ "$DOCKER_IMAGE_TAG" != "None" ]
+              then
+                DEPLOY_SERVICE="true"
+              fi
+            fi
+            echo "DOCKER_IMAGE_TAG=$DOCKER_IMAGE_TAG"
+            echo "DEPLOY_SERVICE=$DEPLOY_SERVICE"
+            echo "##vso[task.setvariable variable=DOCKER_IMAGE_TAG]$DOCKER_IMAGE_TAG"
+            echo "##vso[task.setvariable variable=DEPLOY_SERVICE]$DEPLOY_SERVICE"
+
+      - task: TerraformInstaller@1
+        displayName: install
+        inputs:
+          terraformVersion: 'latest'
+      
+      - task: TerraformTaskV4@4
+        displayName: init
+        inputs:
+          provider: 'aws'
+          command: 'init'
+          workingDirectory: ${{ variables.tf_working_directory }}
+          backendServiceAWS: 'TERRAFORMDEVOPS-ANALYTICS-UAT'
+          backendAWSBucketName: 'btg.uat.analytics.terraform'
+          backendAWSKey: 'analytics/reports/creditos/terraform.tfstate'
+          
+      - task: TerraformTaskV4@4
+        displayName: validate
+        inputs:
+          provider: 'aws'
+          command: 'validate'
+          workingDirectory: ${{ variables.tf_working_directory }}
+          
+      - task: TerraformTaskV4@4
+        displayName: plan
+        inputs:
+          provider: 'aws'
+          command: 'plan'
+          commandOptions: '-input=false -var image_tag=$(DOCKER_IMAGE_TAG) -var deploy_service=$(DEPLOY_SERVICE)'
+          workingDirectory: ${{ variables.tf_working_directory }}
+          environmentServiceNameAWS: 'TERRAFORMDEVOPS-ANALYTICS-UAT'
+
+      - task: TerraformTaskV4@4
+        displayName: apply
+        inputs:
+          provider: 'aws'
+          command: 'apply'
+          commandOptions: '-input=false -var image_tag=$(DOCKER_IMAGE_TAG) -var deploy_service=$(DEPLOY_SERVICE)'
+          workingDirectory: ${{ variables.tf_working_directory }}
+          environmentServiceNameAWS: 'TERRAFORMDEVOPS-ANALYTICS-UAT'
+
+  - stage: PDN
+    condition: eq(variables.stage, 'pdn')
+    variables:
+      tf_working_directory: '$(System.DefaultWorkingDirectory)/$(Build.Repository.Name)/iac/terraform/micro_services/creditos/pdn/'
+      project: dya-reports
+      environment: pdn
+      service_name: creditos
+      docker_repository: '${{ variables.project }}/${{ variables.service_name }}'
+      aws_region: us-east-1
+    jobs:
+    - job: deploy_infra
+      displayName: Deploy infrastructure
+      pool: 'BTG Colombia - Azure DevOps'
+      steps:
+
+      - checkout: self
+        displayName: ⬇️ Checkout self
+
+      - checkout: devops-terraform-modules
+        displayName: ⬇️ Checkout terraform-modules
+
+      - task: AWSShellScript@1
+        displayName: Get  docker image tag
+        inputs:
+          awsCredentials: 'TERRAFORMDEVOPS-ANALYTICS-PDN-AWS'
+          regionName: ${{ variables.aws_region }}
+          scriptType: 'inline'
+          inlineScript: |
+            DOCKER_IMAGE_TAG="None"
+            DEPLOY_SERVICE="false"
+            # Check if repository exists
+            aws ecr describe-repositories --repository-names ${{ variables.docker_repository }} 2>&1
+            if [ $? -eq 0 ]
+            then
+              # Check the latest docker image tag, if don't exists return None
+              DOCKER_IMAGE_TAG=$(aws ecr describe-images --repository-name ${{ variables.docker_repository }} --query 'sort_by(imageDetails,& imagePushedAt)[-1].imageTags[0]' --output text)
+              if [ "$DOCKER_IMAGE_TAG" != "None" ]
+              then
+                DEPLOY_SERVICE="true"
+              fi
+            fi
+            echo "DOCKER_IMAGE_TAG=$DOCKER_IMAGE_TAG"
+            echo "DEPLOY_SERVICE=$DEPLOY_SERVICE"
+            echo "##vso[task.setvariable variable=DOCKER_IMAGE_TAG]$DOCKER_IMAGE_TAG"
+            echo "##vso[task.setvariable variable=DEPLOY_SERVICE]$DEPLOY_SERVICE"
+
+      - task: TerraformInstaller@1
+        displayName: install
+        inputs:
+          terraformVersion: 'latest'
+
+      - script: |
+          GIT_CONFIG_PARAMETERS="'url.https://$(System.AccessToken)@dev.azure.com.insteadof=https://BTGColombia@dev.azure.com'"
+          echo "##vso[task.setvariable variable=GIT_CONFIG_PARAMETERS;]$GIT_CONFIG_PARAMETERS"
+        displayName: 💬 git config
+        workingDirectory: ${{ variables.tf_working_directory }}
+
+      - task: TerraformTaskV4@4
+        displayName: init
+        inputs:
+          provider: 'aws'
+          command: 'init'
+          workingDirectory: ${{ variables.tf_working_directory }}
+          backendServiceAWS: 'TERRAFORMDEVOPS-ANALYTICS-PDN'
+          backendAWSBucketName: 'btg.pdn.analytics.terraform'
+          backendAWSKey: 'analytics/reports/creditos/terraform.tfstate'
+          
+      - task: TerraformTaskV4@4
+        displayName: validate
+        inputs:
+          provider: 'aws'
+          command: 'validate'
+          workingDirectory: ${{ variables.tf_working_directory }}
+          
+      - task: TerraformTaskV4@4
+        displayName: plan
+        inputs:
+          provider: 'aws'
+          command: 'plan'
+          commandOptions: '-input=false -var image_tag=$(DOCKER_IMAGE_TAG) -var deploy_service=$(DEPLOY_SERVICE)'
+          workingDirectory: ${{ variables.tf_working_directory }}
+          environmentServiceNameAWS: 'TERRAFORMDEVOPS-ANALYTICS-PDN'
+
+      - task: TerraformTaskV4@4
+        displayName: apply
+        inputs:
+          provider: 'aws'
+          command: 'apply'
+          commandOptions: '-input=false -var image_tag=$(DOCKER_IMAGE_TAG) -var deploy_service=$(DEPLOY_SERVICE)'
+          workingDirectory: ${{ variables.tf_working_directory }}
+          environmentServiceNameAWS: 'TERRAFORMDEVOPS-ANALYTICS-PDN'
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\customers\dev\backend.tf
+/===============================================================================
+
+terraform {
+  backend "s3" {
+    bucket = "btg.dev.analytics.terraform"
+    key    = "analytics/reports/customers/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\customers\dev\inputs.tf
+/===============================================================================
+
+# Remote data
+
+data "aws_cloudformation_export" "vpc_id" {
+  name = "mainVpcId"
+}
+
+data "aws_cloudformation_export" "vm_snet_01" {
+  name = "PrivateSubnet1EC2"
+}
+
+data "aws_cloudformation_export" "vm_snet_02" {
+  name = "PrivateSubnet2EC2"
+}
+
+data "aws_cloudformation_export" "vm_snet_03" {
+  name = "PrivateSubnet3EC2"
+}
+
+data "aws_cloudformation_export" "lb_snet_01" {
+  name = "PrivateSubnet1ELB"
+}
+
+data "aws_cloudformation_export" "lb_snet_02" {
+  name = "PrivateSubnet2ELB"
+}
+
+data "aws_cloudformation_export" "lb_snet_03" {
+  name = "PrivateSubnet3ELB"
+}
+
+data "aws_cloudformation_export" "apigw_id" {
+  name = "dya-reports-ApiId"
+}
+
+data "aws_cloudformation_export" "root_resource_id" {
+  name = "dya-reports-RootResourceId"
+}
+
+data "aws_cloudformation_export" "domain_name" {
+  name = "transversal-resources-ApiDomainName"
+}
+
+data "aws_cloudformation_export" "authorizer_id" {
+  name = "dya-reports-TokenAuthorizerId"
+}
+
+data "terraform_remote_state" "general" {
+  backend = "s3"
+
+  config = {
+    bucket = "btg.dev.analytics.terraform"
+    key    = "analytics/reports/general/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
+# Policies
+
+data "aws_iam_policy_document" "secrets_policy" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "secretsmanager:GetSecretValue"
+    ]
+    resources = [
+      "${local.credentials_secret_arn}"
+    ]
+  }
+}
+
+# Locals
+
+locals {
+  project                   = "dya-reports"
+  environment               = "dev"
+  vpc_id                    = data.aws_cloudformation_export.vpc_id.value
+  service_name              = "customers"
+  region                    = "us-east-1"
+  tags = {
+    Ambiente       = local.environment
+    Despliegue     = "Terraform"
+    Disponibilidad = "LU-DO-24:00"
+    Celula         = "Infraestructura"
+    Aplicativo     = "Infraestructura"
+    Compania       = "Transversal"
+    Producto       = "Transversal"
+    Modulo         = "customers"
+  }
+  task_role_inline_policies = [
+     {
+      name   = "secrets-policy"
+      policy = data.aws_iam_policy_document.secrets_policy.json
+    }
+  ]
+  task_role_managed_policy_arns = [
+    "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+  ]
+  execution_role_inline_policies = [
+  ]
+  execution_role_managed_policy_arns = [
+    "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+  ]
+  container_subnet_ids = [
+    data.aws_cloudformation_export.vm_snet_01.value,
+    data.aws_cloudformation_export.vm_snet_02.value,
+    data.aws_cloudformation_export.vm_snet_03.value
+  ]
+  lb_subnet_ids = [
+    data.aws_cloudformation_export.lb_snet_01.value,
+    data.aws_cloudformation_export.lb_snet_02.value,
+    data.aws_cloudformation_export.lb_snet_03.value
+  ]
+  credentials_secret_arn = data.terraform_remote_state.general.outputs.credentials_secret_arn
+  lb_arn = data.terraform_remote_state.general.outputs.load_balancer_arn
+  lb_dns_name = data.terraform_remote_state.general.outputs.load_balancer_dns_name
+  container_env = [
+    {
+      "name" : "DWH_SECRET_ARN",
+      "value" : "${local.credentials_secret_arn}"
+    }
+  ]
+  internal_security_group_id = data.terraform_remote_state.general.outputs.security_group_internal_id
+  ecs_cluster_name           = data.terraform_remote_state.general.outputs.cluster_name
+  autoscaling_role_arn       = data.terraform_remote_state.general.outputs.iam_role_autoscaling_arn
+  namespace_id               = data.terraform_remote_state.general.outputs.namespace_id
+  autoscaling_min_capacity   = 1
+  autoscaling_max_capacity   = 3
+  autoscaling_cpu_threshold  = 80
+  health_check_path          = "/customers/health"
+  container_cpu              = 1024
+  container_ram              = 4096
+  container_port             = 3001
+  container_healthcheck = {
+    command     = ["CMD-SHELL", "wget --spider --quiet http://127.0.0.1:${local.container_port}${local.health_check_path} || exit 1"]
+    interval    = 60
+    timeout     = 10
+    retries     = 3
+    startPeriod = 120
+  }
+  lb_listener_arn = data.terraform_remote_state.general.outputs.load_balancer_arn
+  alb_security_group_id = data.terraform_remote_state.general.outputs.security_group_lb_id
+  listener_port   = 80
+
+  apigw_id                    = data.aws_cloudformation_export.apigw_id.value
+  apigw_root_resource_id      = data.aws_cloudformation_export.root_resource_id.value
+  aws_api_gateway_vpc_link_id = data.terraform_remote_state.general.outputs.vpc_link_id
+  apigw_project_resource_name = "customers"
+  apigw_app_resource_name     = "api"
+  apigw_integration_uri       = "http://${data.terraform_remote_state.general.outputs.load_balancer_dns_name}:${local.listener_port}/customers/{proxy}"
+  apigw_custom_domain_name    = data.aws_cloudformation_export.domain_name.value
+  apigw_custom_domain_path    = "reports"
+  authorizer_config = {
+    authorization = "CUSTOM"
+    authorizer_id = data.aws_cloudformation_export.authorizer_id.value
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\customers\dev\main.tf
+/===============================================================================
+
+module "ecr" {
+  source       = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecr?ref=ecr/0.0.2"
+  ecrs = {
+    "${local.project}/${local.service_name}" = {
+      repository_force_delete    = false
+      repository_encryption_type = "KMS"
+    }
+  }
+}
+
+module "execution_role" {
+  source              = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecs_task_role?ref=ecs_task_role/0.0.2"
+  project             = local.project
+  environment         = local.environment
+  service_name        = local.service_name
+  role_name           = "execution-role"
+  managed_policy_arns = local.execution_role_managed_policy_arns
+  inline_policies     = local.execution_role_inline_policies
+}
+
+module "task_role" {
+  source              = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecs_task_role?ref=ecs_task_role/0.0.2"
+  project             = local.project
+  environment         = local.environment
+  service_name        = local.service_name
+  role_name           = "task-role"
+  managed_policy_arns = local.task_role_managed_policy_arns
+  inline_policies     = local.task_role_inline_policies
+}
+
+module "apigw_integration" {
+  source                      = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//apigw_nlb_integration?ref=nlb-vpc-link"
+  project                     = local.project
+  environment                 = local.environment
+  service_name                = local.service_name
+  nlb_arn                     = local.lb_arn
+  apigw_id                    = local.apigw_id
+  apigw_root_resource_id      = local.apigw_root_resource_id
+  apigw_project_resource_name = local.apigw_project_resource_name
+  apigw_app_resource_name     = local.apigw_app_resource_name
+  integration_uri             = local.apigw_integration_uri
+  apigw_custom_domain_name    = local.apigw_custom_domain_name
+  apigw_custom_domain_path    = local.apigw_custom_domain_path
+  authorizer_config           = local.authorizer_config
+  aws_api_gateway_vpc_link_id = local.aws_api_gateway_vpc_link_id
+  apigw_stage_name            = local.environment
+}
+
+module "service" {
+  source                     = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecs_service?ref=ecs_service/0.0.6"
+  depends_on                 = [module.execution_role, module.task_role]
+  project                    = local.project
+  environment                = local.environment
+  service_name               = local.service_name
+  deploy_service             = var.deploy_service
+  container_cpu              = local.container_cpu
+  container_ram              = local.container_ram
+  container_port             = local.container_port
+  container_healthcheck      = local.container_healthcheck
+  execution_role_arn         = module.execution_role.iam_role_arn
+  task_role_arn              = module.task_role.iam_role_arn
+  image_tag                  = var.image_tag
+  health_check_path          = local.health_check_path
+  namespace_id               = local.namespace_id
+  vpc_id                     = local.vpc_id
+  service_subnets_list       = local.container_subnet_ids
+  autoscaling_min_capacity   = local.autoscaling_min_capacity
+  autoscaling_max_capacity   = local.autoscaling_max_capacity
+  autoscaling_cpu_threshold  = local.autoscaling_cpu_threshold
+  autoscaling_role_arn       = local.autoscaling_role_arn
+  internal_security_group_id = local.internal_security_group_id
+  ecs_cluster_name           = local.ecs_cluster_name
+  environment_variables      = local.container_env 
+  lb_listener_arn            = local.lb_listener_arn
+  listener_port              = local.listener_port
+  alb_security_group_id      = local.alb_security_group_id
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\customers\dev\outputs.tf
+/===============================================================================
+
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\customers\dev\providers.tf
+/===============================================================================
+
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+    docker = {
+      source  = "kreuzwerker/docker"
+      version = "3.0.2"
+    }
+  }
+  required_version = "~> 1.6"
+}
+
+# Configure the AWS Provider
+provider "aws" {
+  region = local.region
+  default_tags {
+    tags = local.tags
+  }
+}
+
+# configure docker provider
+provider "docker" {
+  registry_auth {
+    address  = data.aws_ecr_authorization_token.token.proxy_endpoint
+    username = data.aws_ecr_authorization_token.token.user_name
+    password = data.aws_ecr_authorization_token.token.password
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\customers\dev\variables.tf
+/===============================================================================
+
+variable "image_tag" {
+  description = "Docker image tag"
+  type        = string
+  default     = "latest"
+}
+
+variable "deploy_service" {
+  description = "Deploy ECS Service"
+  type        = bool
+  default     = false
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\customers\pdn\backend.tf
+/===============================================================================
+
+terraform {
+  backend "s3" {
+    bucket = "btg.pdn.analytics.terraform"
+    key    = "analytics/reports/customers/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\customers\pdn\inputs.tf
+/===============================================================================
+
+# get authorization credentials to push to ecr
+data "aws_ecr_authorization_token" "token" {}
+
+# Remote data
+
+data "aws_cloudformation_export" "vpc_id" {
+  name = "mainVpcId"
+}
+
+data "aws_cloudformation_export" "vm_snet_01" {
+  name = "PrivateSubnet1EC2"
+}
+
+data "aws_cloudformation_export" "vm_snet_02" {
+  name = "PrivateSubnet2EC2"
+}
+
+data "aws_cloudformation_export" "vm_snet_03" {
+  name = "PrivateSubnet3EC2"
+}
+
+data "aws_cloudformation_export" "lb_snet_01" {
+  name = "PrivateSubnet1ELB"
+}
+
+data "aws_cloudformation_export" "lb_snet_02" {
+  name = "PrivateSubnet2ELB"
+}
+
+data "aws_cloudformation_export" "lb_snet_03" {
+  name = "PrivateSubnet3ELB"
+}
+
+data "aws_cloudformation_export" "apigw_id" {
+  name = "dya-reports-ApiId"
+}
+
+data "aws_cloudformation_export" "root_resource_id" {
+  name = "dya-reports-RootResourceId"
+}
+
+data "aws_cloudformation_export" "domain_name" {
+  name = "transversal-resources-ApiDomainName"
+}
+
+data "aws_cloudformation_export" "authorizer_id" {
+  name = "dya-reports-TokenAuthorizerId"
+}
+
+data "terraform_remote_state" "general" {
+  backend = "s3"
+
+  config = {
+    bucket = "btg.pdn.analytics.terraform"
+    key    = "analytics/reports/general/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
+# Policies
+
+data "aws_iam_policy_document" "secrets_policy" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "secretsmanager:GetSecretValue"
+    ]
+    resources = [
+      "${local.credentials_secret_arn}"
+    ]
+  }
+}
+
+# Locals
+
+locals {
+  project                   = "dya-reports"
+  environment               = "pdn"
+  source_code_relative_path = "../../../source"
+  source_code_sha           = sha1(join("", [for f in fileset("${path.root}/${local.source_code_relative_path}", "**") : filesha1("${path.root}/${local.source_code_relative_path}/${f}")]))
+  vpc_id                    = data.aws_cloudformation_export.vpc_id.value
+  service_name              = "customers"
+  region                    = "us-east-1"
+  tags = {
+    Ambiente       = local.environment
+    Despliegue     = "Terraform"
+    Disponibilidad = "LU-DO-24:00"
+    Celula         = "Infraestructura"
+    Aplicativo     = "Infraestructura"
+    Compania       = "Transversal"
+    Producto       = "Transversal"
+    Modulo         = "customers"
+  }
+  task_role_inline_policies = [
+     {
+      name   = "secrets-policy"
+      policy = data.aws_iam_policy_document.secrets_policy.json
+    }
+  ]
+  task_role_managed_policy_arns = [
+    "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+  ]
+  execution_role_inline_policies = [
+  ]
+  execution_role_managed_policy_arns = [
+    "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+  ]
+  container_subnet_ids = [
+    data.aws_cloudformation_export.vm_snet_01.value,
+    data.aws_cloudformation_export.vm_snet_02.value,
+    data.aws_cloudformation_export.vm_snet_03.value
+  ]
+  lb_subnet_ids = [
+    data.aws_cloudformation_export.lb_snet_01.value,
+    data.aws_cloudformation_export.lb_snet_02.value,
+    data.aws_cloudformation_export.lb_snet_03.value
+  ]
+  credentials_secret_arn = data.terraform_remote_state.general.outputs.credentials_secret_arn
+  container_env = [
+    {
+      "name" : "DWH_SECRET_ARN",
+      "value" : "${local.credentials_secret_arn}"
+    }
+  ]
+  # container_secrets = [
+  #   {
+  #     "name" : "DB_HOST",
+  #     "valueFrom" : "${local.db_connection_secret_arn}:host::"
+  #   },
+  #   {
+  #     "name" : "DB_PORT",
+  #     "valueFrom" : "${local.db_connection_secret_arn}:port::"
+  #   },
+  #   {
+  #     "name" : "DB_NAME",
+  #     "valueFrom" : "${local.db_connection_secret_arn}:dbname::"
+  #   },
+  #   {
+  #     "name" : "DB_USER",
+  #     "valueFrom" : "${local.db_connection_secret_arn}:username::"
+  #   },
+  #   {
+  #     "name" : "DB_PASS",
+  #     "valueFrom" : "${local.db_connection_secret_arn}:password::"
+  #   }
+  # ]
+  internal_security_group_id = data.terraform_remote_state.general.outputs.security_group_internal_id
+  ecs_cluster_name           = data.terraform_remote_state.general.outputs.cluster_name
+  autoscaling_role_arn       = data.terraform_remote_state.general.outputs.iam_role_autoscaling_arn
+  namespace_id               = data.terraform_remote_state.general.outputs.namespace_id
+  autoscaling_min_capacity   = 1
+  autoscaling_max_capacity   = 3
+  autoscaling_cpu_threshold  = 80
+  health_check_path          = "/customers/health"
+  container_cpu              = 256
+  container_ram              = 1024
+  container_port             = 3001
+  container_healthcheck = {
+    command     = ["CMD-SHELL", "wget --spider --quiet http://127.0.0.1:${local.container_port}${local.health_check_path} || exit 1"]
+    interval    = 60
+    timeout     = 10
+    retries     = 3
+    startPeriod = 120
+  }
+  public_load_balancer        = false
+  apigw_id                    = data.aws_cloudformation_export.apigw_id.value
+  apigw_root_resource_id      = data.aws_cloudformation_export.root_resource_id.value
+  apigw_project_resource_name = "customers"
+  apigw_app_resource_name     = "api"
+  apigw_integration_uri       = "http://${module.load_balancer.lb_dns_name}/customers/{proxy}"
+  apigw_custom_domain_name    = data.aws_cloudformation_export.domain_name.value
+  apigw_custom_domain_path    = "reports"
+  authorizer_config = {
+    authorization = "CUSTOM"
+    authorizer_id = data.aws_cloudformation_export.authorizer_id.value
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\customers\pdn\main.tf
+/===============================================================================
+
+module "ecr" {
+  source       = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecr?ref=ecr/0.0.2"
+  ecrs = {
+    "${local.project}/${local.service_name}" = {
+      repository_force_delete    = false
+      repository_encryption_type = "KMS"
+    }
+  }
+}
+
+module "execution_role" {
+  source              = "../../terraform/modules/ecs_role"
+  project             = local.project
+  environment         = local.environment
+  service_name        = local.service_name
+  role_name           = "execution-role"
+  managed_policy_arns = local.execution_role_managed_policy_arns
+  inline_policies     = local.execution_role_inline_policies
+}
+
+module "task_role" {
+  source              = "../../terraform/modules/ecs_role"
+  project             = local.project
+  environment         = local.environment
+  service_name        = local.service_name
+  role_name           = "task-role"
+  managed_policy_arns = local.task_role_managed_policy_arns
+  inline_policies     = local.task_role_inline_policies
+}
+
+module "load_balancer" {
+  source         = "../../terraform/modules/nlb"
+  project        = local.project
+  environment    = local.environment
+  service_name   = local.service_name
+  container_port = local.container_port
+  public_lb      = local.public_load_balancer
+  subnets        = local.lb_subnet_ids
+  vpc_id         = local.vpc_id
+}
+
+module "apigw_integration" {
+  source                      = "../../terraform/modules/apigw_nlb_integration"
+  depends_on                  = [module.load_balancer]
+  project                     = local.project
+  environment                 = local.environment
+  service_name                = local.service_name
+  nlb_arn                     = module.load_balancer.lb_arn
+  apigw_id                    = local.apigw_id
+  apigw_root_resource_id      = local.apigw_root_resource_id
+  apigw_project_resource_name = local.apigw_project_resource_name
+  apigw_app_resource_name     = local.apigw_app_resource_name
+  integration_uri             = local.apigw_integration_uri
+  apigw_custom_domain_name    = local.apigw_custom_domain_name
+  apigw_custom_domain_path    = local.apigw_custom_domain_path
+  authorizer_config           = local.authorizer_config
+}
+
+module "service" {
+  source                     = "../../terraform/modules/ecs_service"
+  depends_on                 = [module.execution_role, module.task_role, module.load_balancer]
+  project                    = local.project
+  environment                = local.environment
+  service_name               = local.service_name
+  deploy_service             = var.deploy_service
+  container_cpu              = local.container_cpu
+  container_ram              = local.container_ram
+  container_port             = local.container_port
+  container_healthcheck      = local.container_healthcheck
+  execution_role_arn         = module.execution_role.iam_role_arn
+  task_role_arn              = module.task_role.iam_role_arn
+  image_tag                  = var.image_tag
+  health_check_path          = local.health_check_path
+  namespace_id               = local.namespace_id
+  vpc_id                     = local.vpc_id
+  service_subnets_list       = local.container_subnet_ids
+  autoscaling_min_capacity   = local.autoscaling_min_capacity
+  autoscaling_max_capacity   = local.autoscaling_max_capacity
+  autoscaling_cpu_threshold  = local.autoscaling_cpu_threshold
+  autoscaling_role_arn       = local.autoscaling_role_arn
+  internal_security_group_id = local.internal_security_group_id
+  ecs_cluster_name           = local.ecs_cluster_name
+  environment_variables      = local.container_env
+  target_group_arn           = module.load_balancer.target_group_arn
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\customers\pdn\outputs.tf
+/===============================================================================
+
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\customers\pdn\providers.tf
+/===============================================================================
+
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+    docker = {
+      source  = "kreuzwerker/docker"
+      version = "3.0.2"
+    }
+  }
+  required_version = "~> 1.6"
+}
+
+# Configure the AWS Provider
+provider "aws" {
+  region = local.region
+  default_tags {
+    tags = local.tags
+  }
+}
+
+# configure docker provider
+provider "docker" {
+  registry_auth {
+    address  = data.aws_ecr_authorization_token.token.proxy_endpoint
+    username = data.aws_ecr_authorization_token.token.user_name
+    password = data.aws_ecr_authorization_token.token.password
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\customers\pdn\variables.tf
+/===============================================================================
+
+variable "image_tag" {
+  description = "Docker image tag"
+  type        = string
+  default     = "latest"
+}
+
+variable "deploy_service" {
+  description = "Deploy ECS Service"
+  type        = bool
+  default     = false
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\customers\uat\backend.tf
+/===============================================================================
+
+terraform {
+  backend "s3" {
+    bucket = "btg.uat.analytics.terraform"
+    key    = "analytics/reports/customers/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\customers\uat\inputs.tf
+/===============================================================================
+
+# get authorization credentials to push to ecr
+data "aws_ecr_authorization_token" "token" {}
+
+# Remote data
+
+data "aws_cloudformation_export" "vpc_id" {
+  name = "mainVpcId"
+}
+
+data "aws_cloudformation_export" "vm_snet_01" {
+  name = "PrivateSubnet1EC2"
+}
+
+data "aws_cloudformation_export" "vm_snet_02" {
+  name = "PrivateSubnet2EC2"
+}
+
+data "aws_cloudformation_export" "vm_snet_03" {
+  name = "PrivateSubnet3EC2"
+}
+
+data "aws_cloudformation_export" "lb_snet_01" {
+  name = "PrivateSubnet1ELB"
+}
+
+data "aws_cloudformation_export" "lb_snet_02" {
+  name = "PrivateSubnet2ELB"
+}
+
+data "aws_cloudformation_export" "lb_snet_03" {
+  name = "PrivateSubnet3ELB"
+}
+
+data "aws_cloudformation_export" "apigw_id" {
+  name = "dya-reports-ApiId"
+}
+
+data "aws_cloudformation_export" "root_resource_id" {
+  name = "dya-reports-RootResourceId"
+}
+
+data "aws_cloudformation_export" "domain_name" {
+  name = "transversal-resources-ApiDomainName"
+}
+
+data "aws_cloudformation_export" "authorizer_id" {
+  name = "dya-reports-TokenAuthorizerId"
+}
+
+data "terraform_remote_state" "general" {
+  backend = "s3"
+
+  config = {
+    bucket = "btg.uat.analytics.terraform"
+    key    = "analytics/reports/general/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
+# Policies
+
+data "aws_iam_policy_document" "secrets_policy" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "secretsmanager:GetSecretValue"
+    ]
+    resources = [
+      "${local.credentials_secret_arn}"
+    ]
+  }
+}
+
+# Locals
+
+locals {
+  project                   = "dya-reports"
+  environment               = "uat"
+  vpc_id                    = data.aws_cloudformation_export.vpc_id.value
+  service_name              = "customers"
+  region                    = "us-east-1"
+  tags = {
+    Ambiente       = local.environment
+    Despliegue     = "Terraform"
+    Disponibilidad = "LU-DO-24:00"
+    Celula         = "Infraestructura"
+    Aplicativo     = "Infraestructura"
+    Compania       = "Transversal"
+    Producto       = "Transversal"
+    Modulo         = "customers"
+  }
+  task_role_inline_policies = [
+     {
+      name   = "secrets-policy"
+      policy = data.aws_iam_policy_document.secrets_policy.json
+    }
+  ]
+  task_role_managed_policy_arns = [
+    "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+  ]
+  execution_role_inline_policies = [
+  ]
+  execution_role_managed_policy_arns = [
+    "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+  ]
+  container_subnet_ids = [
+    data.aws_cloudformation_export.vm_snet_01.value,
+    data.aws_cloudformation_export.vm_snet_02.value,
+    data.aws_cloudformation_export.vm_snet_03.value
+  ]
+  lb_subnet_ids = [
+    data.aws_cloudformation_export.lb_snet_01.value,
+    data.aws_cloudformation_export.lb_snet_02.value,
+    data.aws_cloudformation_export.lb_snet_03.value
+  ]
+  credentials_secret_arn = data.terraform_remote_state.general.outputs.credentials_secret_arn
+  lb_arn = data.terraform_remote_state.general.outputs.load_balancer_arn
+  lb_dns_name = data.terraform_remote_state.general.outputs.load_balancer_dns_name
+  container_env = [
+    {
+      "name" : "DWH_SECRET_ARN",
+      "value" : "${local.credentials_secret_arn}"
+    }
+  ]
+  internal_security_group_id = data.terraform_remote_state.general.outputs.security_group_internal_id
+  ecs_cluster_name           = data.terraform_remote_state.general.outputs.cluster_name
+  autoscaling_role_arn       = data.terraform_remote_state.general.outputs.iam_role_autoscaling_arn
+  namespace_id               = data.terraform_remote_state.general.outputs.namespace_id
+  autoscaling_min_capacity   = 1
+  autoscaling_max_capacity   = 3
+  autoscaling_cpu_threshold  = 80
+  health_check_path          = "/customers/health"
+  container_cpu              = 256
+  container_ram              = 1024
+  container_port             = 3001
+  container_healthcheck = {
+    command     = ["CMD-SHELL", "wget --spider --quiet http://127.0.0.1:${local.container_port}${local.health_check_path} || exit 1"]
+    interval    = 60
+    timeout     = 10
+    retries     = 3
+    startPeriod = 120
+  }
+  lb_listener_arn = data.terraform_remote_state.general.outputs.load_balancer_arn
+  alb_security_group_id = data.terraform_remote_state.general.outputs.security_group_lb_id
+  listener_port   = 80
+
+  apigw_id                    = data.aws_cloudformation_export.apigw_id.value
+  apigw_root_resource_id      = data.aws_cloudformation_export.root_resource_id.value
+  aws_api_gateway_vpc_link_id = data.terraform_remote_state.general.outputs.vpc_link_id
+  apigw_project_resource_name = "customers"
+  apigw_app_resource_name     = "api"
+  apigw_integration_uri       = "http://${data.terraform_remote_state.general.outputs.load_balancer_dns_name}:${local.listener_port}/customers/{proxy}"
+  apigw_custom_domain_name    = data.aws_cloudformation_export.domain_name.value
+  apigw_custom_domain_path    = "reports"
+  authorizer_config = {
+    authorization = "CUSTOM"
+    authorizer_id = data.aws_cloudformation_export.authorizer_id.value
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\customers\uat\main.tf
+/===============================================================================
+
+module "ecr" {
+  source       = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecr?ref=ecr/0.0.2"
+  ecrs = {
+    "${local.project}/${local.service_name}" = {
+      repository_force_delete    = false
+      repository_encryption_type = "KMS"
+    }
+  }
+}
+
+module "execution_role" {
+  source              = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecs_task_role?ref=ecs_task_role/0.0.3"
+  project             = local.project
+  environment         = local.environment
+  service_name        = local.service_name
+  role_name           = "execution-role"
+  managed_policy_arns = local.execution_role_managed_policy_arns
+  inline_policies     = local.execution_role_inline_policies
+}
+
+module "task_role" {
+  source              = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecs_task_role?ref=ecs_task_role/0.0.3"
+  project             = local.project
+  environment         = local.environment
+  service_name        = local.service_name
+  role_name           = "task-role"
+  managed_policy_arns = local.task_role_managed_policy_arns
+  inline_policies     = local.task_role_inline_policies
+}
+
+module "apigw_integration" {
+  source                      = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//apigw_nlb_integration?ref=nlb-vpc-link"
+  project                     = local.project
+  environment                 = local.environment
+  service_name                = local.service_name
+  nlb_arn                     = local.lb_arn
+  apigw_id                    = local.apigw_id
+  apigw_root_resource_id      = local.apigw_root_resource_id
+  apigw_project_resource_name = local.apigw_project_resource_name
+  apigw_app_resource_name     = local.apigw_app_resource_name
+  integration_uri             = local.apigw_integration_uri
+  apigw_custom_domain_name    = local.apigw_custom_domain_name
+  apigw_custom_domain_path    = local.apigw_custom_domain_path
+  authorizer_config           = local.authorizer_config
+  aws_api_gateway_vpc_link_id = local.aws_api_gateway_vpc_link_id
+  apigw_stage_name            = local.environment
+}
+
+module "service" {
+  source                     = "git::https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/devops-terraform-modules//ecs_service?ref=ecs_service/0.0.6"
+  depends_on                 = [module.execution_role, module.task_role]
+  project                    = local.project
+  environment                = local.environment
+  service_name               = local.service_name
+  deploy_service             = var.deploy_service
+  container_cpu              = local.container_cpu
+  container_ram              = local.container_ram
+  container_port             = local.container_port
+  container_healthcheck      = local.container_healthcheck
+  execution_role_arn         = module.execution_role.iam_role_arn
+  task_role_arn              = module.task_role.iam_role_arn
+  image_tag                  = var.image_tag
+  health_check_path          = local.health_check_path
+  namespace_id               = local.namespace_id
+  vpc_id                     = local.vpc_id
+  service_subnets_list       = local.container_subnet_ids
+  autoscaling_min_capacity   = local.autoscaling_min_capacity
+  autoscaling_max_capacity   = local.autoscaling_max_capacity
+  autoscaling_cpu_threshold  = local.autoscaling_cpu_threshold
+  autoscaling_role_arn       = local.autoscaling_role_arn
+  internal_security_group_id = local.internal_security_group_id
+  ecs_cluster_name           = local.ecs_cluster_name
+  environment_variables      = local.container_env
+  lb_listener_arn            = local.lb_listener_arn
+  listener_port              = local.listener_port
+  alb_security_group_id      = local.alb_security_group_id
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\customers\uat\outputs.tf
+/===============================================================================
+
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\customers\uat\providers.tf
+/===============================================================================
+
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+    docker = {
+      source  = "kreuzwerker/docker"
+      version = "3.0.2"
+    }
+  }
+  required_version = "~> 1.6"
+}
+
+# Configure the AWS Provider
+provider "aws" {
+  region = local.region
+  default_tags {
+    tags = local.tags
+  }
+}
+
+# configure docker provider
+provider "docker" {
+  registry_auth {
+    address  = data.aws_ecr_authorization_token.token.proxy_endpoint
+    username = data.aws_ecr_authorization_token.token.user_name
+    password = data.aws_ecr_authorization_token.token.password
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\customers\uat\variables.tf
+/===============================================================================
+
+variable "image_tag" {
+  description = "Docker image tag"
+  type        = string
+  default     = "latest"
+}
+
+variable "deploy_service" {
+  description = "Deploy ECS Service"
+  type        = bool
+  default     = false
+}
+

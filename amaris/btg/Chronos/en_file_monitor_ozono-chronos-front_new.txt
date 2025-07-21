@@ -1,0 +1,3295 @@
+// Last update transaction car: 2025-07-17 15:54:35.947788
+// Total files: 53
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\__mocks__\mocks.ts
+/===============================================================================
+
+import { FATCA_VALIDATIONS, PERSON_TYPES } from "config/constants";
+import dayjs from "dayjs";
+
+const COMPANY_NAME_TEST = "Empresa SA"
+
+export const mockHistoryReports = [
+    {
+        TipoReporte: FATCA_VALIDATIONS.preliminary_report,
+        Id: 1,
+        Usuario: "user",
+        ReporteId: 1,
+        FechaCreacion: "2025-02-24T19:50:28.690654",
+        Estado: "Completado",
+        Parametros: {
+            report: "Fatca y CRS",
+            report_date: "2023",
+            company: "Sociedad Comisionista de Bolsa",
+            report_type: FATCA_VALIDATIONS.preliminary_report,
+            report_name: "",
+            history_id: 1,
+            report_id: 1
+        },
+        NombreArchivo: "FATCA-CRS/Sabana Preliminar/SCB/report_2025-02-24.xlsx",
+        Reporte: {
+            Id: 1,
+            FechaCreacion: "2025-02-24T20:02:17.611257",
+            Parametros: {
+                report_date: {
+                    type: "date",
+                    name: "reportDate",
+                    label: "Fecha Reporte",
+                    initialValue: null,
+                    format: "YYYY",
+                    maxDate: "???",
+                    view: "year"
+                },
+                company: {
+                    type: "select",
+                    name: "company",
+                    label: "Compañía",
+                    initialValue: "",
+                    options: [
+                        "Sociedad Comisionista de Bolsa",
+                        "Banco",
+                        "Sociedad Fiduciaria"
+                    ]
+                },
+                report_type: {
+                    type: "select",
+                    name: "reportType",
+                    label: "Tipo Reporte",
+                    initialValue: "",
+                    options: [
+                        FATCA_VALIDATIONS.preliminary_report,
+                        FATCA_VALIDATIONS.final_report
+                    ]
+                },
+                report_name: {
+                    type: "select",
+                    name: "reportName",
+                    label: "Nombre Reporte",
+                    initialValue: "",
+                    options: [
+                        PERSON_TYPES.individualAccount,
+                        PERSON_TYPES.entityAccount,
+                        PERSON_TYPES.controllingPersons
+                    ]
+                }
+            },
+            AliasReporteSsm: "FatcaCrs",
+            NombreReporte: "FATCA y CRS",
+            Componente: "FatcaReportParameters",
+            Estado: true,
+            RolesPermitidos: {
+                role: "IT_DEV"
+            }
+        }
+    }
+];
+
+export const mockReports = [
+    {
+        Id: 1,
+        NombreReporte: "FATCA y CRS",
+        FechaCreacion: "2025-02-26 14:19:57.009",
+        Estado: true,
+        Parametros: {
+            report_date: {
+                type: "date",
+                name: "reportDate",
+                label: "Fecha Reporte",
+                initialValue: null,
+                format: "YYYY",
+                validation: "lastYear",
+                view: "year"
+            },
+            company: {
+                type: "select",
+                name: "company",
+                label: "Compañía",
+                initialValue: "",
+                options: [
+                    "Sociedad Comisionista de Bolsa",
+                    "Banco",
+                    "Sociedad Fiduciaria"
+                ]
+            },
+            report_type: {
+                type: "select",
+                name: "reportType",
+                label: "Tipo Reporte",
+                initialValue: "",
+                options: [
+                    FATCA_VALIDATIONS.preliminary_report,
+                    FATCA_VALIDATIONS.final_report
+                ]
+            },
+            report_name: {
+                type: "select",
+                name: "reportName",
+                label: "Nombre Reporte",
+                initialValue: "",
+                options: [
+                    PERSON_TYPES.individualAccount,
+                    PERSON_TYPES.entityAccount,
+                    PERSON_TYPES.controllingPersons
+                ]
+            }
+        },
+        RolesPermitidos: {
+            role: "IT_DEV"
+        },
+        AliasReporteSsm: "FatcaCrs"
+    },
+    {
+        Id: 2,
+        NombreReporte: "Report 1",
+        FechaCreacion: "2025-02-26 14:19:57.009",
+        Estado: true,
+        Parametros: {
+            param1: {
+                type: "date",
+                name: "param1",
+            },
+            param2: {
+                type: "select",
+                name: "param2",
+            }
+        },
+        RolesPermitidos: {
+            role: "IT_DEV"
+        },
+        AliasReporteSsm: "Report1"
+    }
+];
+
+export const mockEmptyFields = {
+    reportType: { value: "" },
+    reportName: { value: "" },
+    reportDate: { value: "" },
+    company: { value: "" },
+}
+
+export const mockReportTypeFinalEmptyName = {
+    reportType: { value: FATCA_VALIDATIONS.final_report },
+    reportName: { value: "" },
+    reportDate: { value: "2024" },
+    company: { value: COMPANY_NAME_TEST },
+}
+
+export const mockInvalidDate = {
+    reportType: { value: FATCA_VALIDATIONS.final_report },
+    reportName: { value: PERSON_TYPES.entityAccount },
+    reportDate: { value: dayjs("invalid-date")},
+    company: { value: COMPANY_NAME_TEST },
+};
+
+
+export const mockNonFinalReportTypeEmptyName = {
+    reportType: { value: FATCA_VALIDATIONS.preliminary_report },
+    reportName: { value: "" },
+    reportDate: { value: "2024" },
+    company: { value: COMPANY_NAME_TEST },
+}
+
+export const mockValidFields = {
+    reportType: { value: FATCA_VALIDATIONS.final_report, disable:true },
+    reportName: { value: PERSON_TYPES.individualAccount },
+    reportDate: { value: "2024" },
+    company: { value: COMPANY_NAME_TEST },
+}
+
+export const mockReportData = {
+    param1: { value: 'value1' },
+    param2: { value: 'value2' },
+};
+
+export const mockParameters = {
+    paramA: { name: 'param1' },
+    paramB: { name: 'param2' },
+};
+
+export const mockParametersFatca = {
+    reportDate: { name: 'reportDate' },
+    reportName: { name: 'reportName' },
+    reportType: { name: 'reportType' },
+    company: { name: 'company' },
+};
+
+export const mockParamsValidator = {
+    report_type: { options: ['opt1', 'opt2'] },
+    report_name: { options: ['a', 'b', 'c'] },
+}
+
+export const mockParamsValidatorOptions = {
+    report_type: { options: ['opt1', 'opt2'] },
+    report_name: { options: ['a', 'b'] },
+}
+
+export const mockDataValidator = {
+    reportType: { value: FATCA_VALIDATIONS.final_report, error:false, helper:"" },
+    reportName: { value: PERSON_TYPES.individualAccount, error:false, helper:"" },
+    reportDate: { value: dayjs('2022-01-01'), error:false, helper:"" },
+    company: { value: FATCA_VALIDATIONS.company_fiduciary, error:false, helper:"" },
+}
+
+export const mockDataValidatorOptions = {
+    reportType: { value: FATCA_VALIDATIONS.final_report, error:false, helper:"" },
+    reportName: { value: PERSON_TYPES.individualAccount, error:false, helper:"" },
+    reportDate: { value: dayjs('2022-01-01'), error:false, helper:"" },
+    company: { value: "Company", error:false, helper:"" },
+}
+
+export const mockParamNames = {
+    "reportType": "Tipo Reporte",
+    "reportName": "Nombre Reporte",
+    "reportDate": "Fecha Reporte",
+    "company": "Compañia"
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\components\Menu\Content\ItemLink.tsx
+/===============================================================================
+
+import { Link } from "react-router-dom";
+import { Typography } from "@mui/material";
+
+import { Item } from "interfaces/Menu/navbar";
+
+
+export default function ItemLink({ item, handleClose }: Props) {
+
+    return (
+        <Typography
+            variant="h6"
+            sx={{
+                ":hover": {
+                    fontWeight: 'bold',
+                    color: 'primary.main'
+                },
+                textDecoration: "auto"
+            }}
+            onClick={() => handleClose()}
+            component={Link}
+            to={item.route}
+            children={item.title}
+        />
+    );
+}
+
+type Props = {
+    item: Item;
+    handleClose: Function;
+};
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\components\Menu\Content\ItemsCard.tsx
+/===============================================================================
+
+import {Card, CardHeader, CardContent, List, ListItemButton, ListItemText} from "@mui/material";
+
+import { Item } from "interfaces/Menu/navbar";
+import ItemLink from "components/Menu/Content/ItemLink";
+
+
+export default function ItemsCard({ title, items, handleClose }: Props) {
+
+    return (
+        <Card sx={{ shadow: 0, border: '0px' }} elevation={0} >
+            <CardHeader title={title} sx={{ paddingTop: 1, paddingLeft: 0.5, paddingBottom: 0.5, margin: 0, borderBottom: '1px solid' }} />
+            <CardContent sx={{ padding: 0, paddingLeft: 1, margin: 0 }}>
+                <List dense>
+                    {items?.map(item =>
+                        <ListItemButton
+                            key={item.title}
+                            disableRipple
+                            sx={{
+                                ":hover": { backgroundColor: "transparent" },
+                                padding: 0,
+                                margin: 0
+                            }}
+                        >
+                            <ListItemText
+                                disableTypography
+                                sx={{ margin: 0.25 }}
+                                primary={
+                                    <ItemLink item={item} handleClose={handleClose} />
+                                }
+                            />
+                        </ListItemButton>
+                    )}
+                </List>
+            </CardContent>
+        </Card>
+    );
+}
+
+type Props = {
+    title: string;
+    items?: Array<Item>;
+    handleClose: Function;
+};
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\components\Menu\Content\SubNavbar.tsx
+/===============================================================================
+
+import { Grid, Popover } from "@mui/material";
+import {MAGIC_NUMBERS} from "config/constants"
+
+import ItemsCard from "components/Menu/Content/ItemsCard";
+import ItemLink from "components/Menu/Content/ItemLink";
+
+
+export default function SubNavbar({ open, handleClose, anchor, options }: Props) {
+  let md:number;
+  if (options.length < MAGIC_NUMBERS.four) {
+    md = MAGIC_NUMBERS.twelve / options.length;
+  } else {
+    md = MAGIC_NUMBERS.four;
+  }
+
+  return (
+    <Popover
+      open={open}
+      onClose={() => handleClose()}
+      anchorEl={anchor}
+      anchorOrigin={{
+        vertical: 'bottom',
+        horizontal: 'center',
+      }}
+      transformOrigin={{
+        vertical: 'top',
+        horizontal: 'center',
+      }}
+    >
+      <Grid container p={1} sx={{ width: '75vw' }}>
+        {options.map((option:any) =>
+          <Grid item xs={12} md={md} p={1} key={option.title}>
+            {option.route ?
+              <ItemLink item={option} handleClose={handleClose} />
+              :
+              <ItemsCard title={option.title} items={option.children} handleClose={handleClose} />
+            }
+          </Grid>
+        )}
+        {options.length === 0 &&
+          <Grid item xs={12} p={1}>
+            <ItemsCard title={"Sin opciones"} items={[]} handleClose={() => true} />
+          </Grid>
+        }
+      </Grid>
+    </Popover>
+
+  );
+}
+
+type Props = {
+  open: boolean;
+  handleClose: Function;
+  anchor: HTMLElement | null;
+  options: any;
+};
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\components\Menu\Navbar.tsx
+/===============================================================================
+
+import { BASE_PATH } from "config/env";
+import { COLORS } from "config/constants";
+import { Outlet, Link } from 'react-router-dom';
+import { OptionItems } from 'interfaces/Menu/navbar';
+import useNavbar from "hooks/components/Menu/useNavbar";
+import SubNavbar from "components/Menu/Content/SubNavbar";
+import { Box, Stack, Typography, Divider } from "@mui/material";
+
+
+export default function NavBar({ app, version, options }: Readonly<Props>) {
+
+    const { state, buttonsRef, open, handleClose, renderButton } = useNavbar()
+
+    return (
+        <Box sx={{ width: '100%' }}>
+            <Typography variant="h4" noWrap color={COLORS.primary} ml={1} component={Link} to={BASE_PATH ?? "/"}  sx={{ textDecoration: "auto" }}>
+                {app} <Typography variant="caption">{version}</Typography>
+            </Typography>
+            
+            <Stack direction="row" justifyContent="center" alignItems="center" spacing={2} ref={buttonsRef}>   
+                {options.map(renderButton)}
+            </Stack>
+
+            <SubNavbar open={open} handleClose={handleClose} anchor={state.anchorEl ?? null} options={state.menuOption} />
+            <Divider /> 
+            <Box component="main" sx={{ width: '100%', flexGrow: 1, p: 4 }}>
+                <Outlet />
+            </Box>
+        </Box>
+    );
+}
+
+type Props = {
+    app: string;
+    version: string;
+    options: Array<OptionItems>;
+};
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\components\Reports\DynamicReportForm.tsx
+/===============================================================================
+
+import { Button, Grid } from "@mui/material";
+import { BUTTON_LABELS } from "config/constants";
+import CustomSelectField from "components/Utils/CustomSelect";
+import CustomTextField from "components/Utils/CustomTextField";
+import CustomDateField from "components/Utils/CustomDateField";
+import CustomNumericField from "components/Utils/CustomNumericField";
+import { dynamicFormReportsProps } from "types/components/Reports/reports";
+
+
+
+function DynamicReportForm(props: Readonly<dynamicFormReportsProps>): React.ReactElement {
+
+    const { parameters, reportData, handleChange, getDateView, getDateHandler, dateCondition, handleSendReport, loading, isDisabled } = props
+    
+    return (
+        <Grid container rowSpacing={3.5} columnSpacing={2} mt={0.3} mb={2} justifyContent={"center"} alignItems={"center"}>
+            {Object.entries(parameters).map(([_, param]: [string, any], index: number) => {
+                return (
+                    <Grid item xs={12} sm={6} md={6} lg={3} xl={3} key={index}>
+                        {(() => {
+                            switch (param.type) {
+                                case "date":
+                                    return (
+                                        <CustomDateField
+                                            name={param.name}
+                                            label={param.label}
+                                            value={reportData[param.name]?.value}
+                                            handler={getDateHandler(param.name)}
+                                            error={reportData[param.name]?.error}
+                                            helper={reportData[param.name]?.helper}
+                                            require={true}
+                                            format={param.format}
+                                            viewFormat={getDateView(param.view)}
+                                            maxDate={dateCondition}
+                                            disabled={reportData[param.name]?.disable || false}
+                                        />
+                                    );
+                                case "select":
+                                    return (
+                                        <CustomSelectField
+                                            name={param.name}
+                                            label={param.label}
+                                            value={reportData[param.name]?.value || ""}
+                                            handler={handleChange}
+                                            error={reportData[param.name]?.error}
+                                            options={param.options}
+                                            helper={reportData[param.name]?.helper}
+                                            disabled={reportData[param.name]?.disable}
+                                            loading={loading}
+                                        />
+                                    );
+                                case "numeric":
+                                    return (
+                                        <CustomNumericField
+                                            name={param.name}
+                                            label={param.label}
+                                            value={reportData[param.name]?.value || NaN}
+                                            handler={handleChange}
+                                            error={reportData[param.name]?.error}
+                                            required={true}
+                                            helper={reportData[param.name]?.helper}
+                                        />
+                                    );
+                                default:
+                                    return (
+                                        <CustomTextField
+                                            name={param.name}
+                                            label={param.label}
+                                            value={reportData[param.name]?.value || ""}
+                                            handler={handleChange}
+                                            error={reportData[param.name]?.error}
+                                            required={true}
+                                            helper={reportData[param.name]?.helper}
+                                            disabled={param?.disable || false}
+                                        />
+                                    );
+                            }
+                        })()}
+                    </Grid>
+                    
+                );
+            })}
+
+            <Grid item xs={12} mb={1} mt={0.5} display="flex" justifyContent="center" >
+                <Button variant="contained" onClick={handleSendReport} disabled={isDisabled} >
+                    {BUTTON_LABELS.generate}
+                </Button>
+            </Grid>
+
+        </Grid>
+    );
+}
+
+export default DynamicReportForm
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\components\Reports\HistoryTable.tsx
+/===============================================================================
+
+import { esES } from '@mui/x-data-grid/locales';
+import DataTable from "components/Utils/DataTable";
+import CustomToolbar from "components/Utils/CustomToolbar";
+import { historyTableProps } from "types/components/Reports/reports";
+
+function HistoryTable(props: Readonly<historyTableProps>): React.ReactElement {
+
+    const { rows, columns, loading, getRow, rowSelectionModel, rowSelectionModelChange, isDownload, handleDownload, handleReload  } = props
+
+    return (
+
+        <DataTable
+            columns={columns}
+            rows={rows}
+            loading={loading}
+            getRowId={getRow}
+            slots={
+                { toolbar: CustomToolbar }
+            }
+            slotProps={{
+                toolbar: {
+                    handleDownload,
+                    disabled: !isDownload,
+                    handleReload
+                }
+            }}
+            rowSelectionModel={rowSelectionModel}
+            rowSelectionModelChange={rowSelectionModelChange}
+            localeText={esES.components.MuiDataGrid.defaultProps.localeText}
+        />
+    )
+
+}
+
+export default HistoryTable;
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\components\Reports\InitialView.tsx
+/===============================================================================
+
+import { Grid, Typography } from "@mui/material";
+import { COLORS, PAGES_TEXTS } from "config/constants";
+import { initialViewProps } from "types/components/Reports/reports";
+import CustomAutocomplete from "components/Utils/CustomAutocomplete";
+
+function InitialView(props: Readonly<initialViewProps>): React.ReactElement {
+
+    const { selectedReport, loading, options, handleChange } = props;
+
+    return (
+        <Grid container columns={12} justifyContent={'center'} alignItems={'center'}>
+            <Grid item container width={'90%'} columns={12} columnSpacing={2} rowSpacing={3} xs={12} justifyContent={'center'} alignItems={'center'} mb={1}>
+            
+            <Grid item xs={12}>
+                <Typography variant="h2" color={COLORS.primary} align={"center"}>
+                    {PAGES_TEXTS.reports.title}
+                </Typography>
+            </Grid> 
+
+            <Grid item xs={12}>
+                <Typography variant="h6" align="center">
+                    {PAGES_TEXTS.reports.subtitle}
+                </Typography>
+            </Grid> 
+
+            <Grid item xs={8} sm={4.5} md={3} lg={2.5} xl={2}>
+
+                <CustomAutocomplete
+                    name="report"
+                    label="Reporte"
+                    value={selectedReport}
+                    handler={handleChange}
+                    helper={""}
+                    error={false}
+                    loading={loading}
+                    options={options}
+                />
+
+            </Grid>
+            
+            </Grid>
+        </Grid>
+    )
+}
+
+export default InitialView;
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\components\Utils\CustomAutocomplete.tsx
+/===============================================================================
+
+import React from "react";
+import { COLORS } from "config/constants";
+import { stylesFormField } from "utils/styles";
+import useUtils from "hooks/components/Utils/useUtils";
+import { customAutocompleteProps } from "types/components/Utils/utils";
+import { Autocomplete, FormControl, FormHelperText, LinearProgress } from "@mui/material";
+
+
+export default function CustomAutocomplete(props: Readonly<customAutocompleteProps>): React.ReactElement {
+
+    const { name, options, handler, value, label, getOption, helper, error, loading, disable, onClose, onInputChange, open } = props
+
+    const { renderInputAutocomplete } = useUtils()
+    
+    return (
+
+        <FormControl fullWidth>
+            <Autocomplete
+                id={name}
+                options={options}
+                value={value}
+                open={open}
+                getOptionLabel={getOption}
+                onChange={handler}
+                onInputChange={onInputChange}
+                onClose={onClose}
+                data-testid={`autocomplete-${name}`}
+                renderInput={renderInputAutocomplete(label, error)}
+                sx={stylesFormField}
+                disabled={options.length === 0 || loading || disable}
+                disableClearable
+            />
+            {loading && value === null && (
+                <LinearProgress
+                    style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        width: '100%',
+                    }}
+                    color="primary"
+                />
+            )}
+            {!disable && <FormHelperText sx={{ position: 'absolute', top: '4.5em', color: COLORS.error}}>{helper}</FormHelperText>}
+        </FormControl>
+        
+    )
+
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\components\Utils\CustomChipItem.tsx
+/===============================================================================
+
+import { Chip } from "@mui/material";
+import useUtils from "hooks/components/Utils/useUtils";
+import { ChipListProps } from "types/components/Utils/utils";
+
+function CustomChipItem(props: Readonly<ChipListProps>){
+
+    const { status } = props
+    
+    const { getChipParams } = useUtils()
+    
+    const params = getChipParams(status)
+    
+    return(
+
+        <Chip
+            color={params?.color}
+            label={status}
+            size="medium"
+            sx={{ width: params?.width }}
+        />
+    )
+}
+
+export default CustomChipItem;
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\components\Utils\CustomDateField.tsx
+/===============================================================================
+
+import { COLORS } from 'config/constants';
+import { stylesFormField } from 'utils/styles';
+import { FormControl, FormHelperText } from '@mui/material';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { customDateFieldProps } from 'types/components/Utils/utils';
+import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
+
+function CustomDateField(props: Readonly<customDateFieldProps>): React.ReactElement {
+
+    const { name, value, label, handler, error, require, maxDate, format, viewFormat, helper, disabled} = props;
+    
+    return (
+        <FormControl fullWidth error={error} sx={stylesFormField}>
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+            
+                <DatePicker
+                    name={name}
+                    label={label}
+                    onChange={handler}
+                    value={value}
+                    views={viewFormat}
+                    slotProps={{
+                        textField: { required: require, error, id: name, inputProps: {readOnly: true} }
+                    }}
+                    format={format}
+                    maxDate={maxDate}
+                    disabled={disabled}
+                />
+                <FormHelperText sx={{ position: 'absolute', top: '4.5em', color: COLORS.error}}>{helper}</FormHelperText>
+            </LocalizationProvider>
+        </FormControl>
+    )
+
+}
+
+export default CustomDateField;
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\components\Utils\CustomNumericField.tsx
+/===============================================================================
+
+import React from 'react';
+import { COLORS } from 'config/constants';
+import { stylesFormField } from 'utils/styles';
+import useUtils from 'hooks/components/Utils/useUtils';
+import { numericTextFiedlProps } from 'types/components/Utils/utils';
+import { FormControl, FormHelperText, TextField } from '@mui/material';
+import { NumericFormat, NumericFormatProps } from 'react-number-format';
+
+
+interface CustomProps {
+    onChange: (event: { target: { name: string; value: number } }) => void;
+    name: string;
+    putPrefix: boolean;
+    decimal?: boolean
+}
+
+const NumericFormatCustom = React.forwardRef<NumericFormatProps, CustomProps>(
+    function NumericFormatCustom(props, ref) {
+        const { onChange, putPrefix = true, decimal = true, ...other } = props;
+
+        const { usePrefix, getDecimals } = useUtils()
+
+        return (
+            <NumericFormat
+                {...other}
+                getInputRef={ref}
+                onValueChange={(values) => {
+                    onChange({
+                        target: {
+                            name: props.name,
+                            value: parseFloat(values.value),
+                        },
+                    });
+                }}
+                thousandSeparator='.'
+                decimalSeparator=','
+                decimalScale={getDecimals(decimal)}
+                prefix={usePrefix(putPrefix)}
+            />
+        );
+    },
+);
+
+function CustomNumericField(props: numericTextFiedlProps): React.ReactElement {
+
+    const { error, value, label, name, handler, helper, readOnly, required, putPrefix, isDecimal } = props
+
+    const {getNumericValue} = useUtils()
+
+    return (
+
+        <FormControl fullWidth error={error}>
+                <TextField
+                    fullWidth
+                    required={required}
+                    label={label}
+                    value={getNumericValue(value)}
+                    onChange={handler ?? undefined}
+                    name={name}
+                    error={error}
+                    id={`input-${name}`}
+                    disabled={readOnly}
+                    InputProps={{
+                        inputComponent: NumericFormatCustom as any,
+                        inputProps: { putPrefix, decimal: isDecimal }
+                    }}
+                    sx={stylesFormField}
+                    
+                />
+            {!readOnly && <FormHelperText sx={{ position: 'absolute', top: '4.5em', color: COLORS.error }}>{helper}</FormHelperText>}
+
+        </FormControl>
+
+    );
+}
+
+export default CustomNumericField;
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\components\Utils\CustomSelect.tsx
+/===============================================================================
+
+import { COLORS } from "config/constants";
+import { stylesFormField } from "utils/styles";
+import useUtils from "hooks/components/Utils/useUtils";
+import { customSelectProps } from "types/components/Utils/utils";
+import { FormControl, FormHelperText, InputLabel, LinearProgress, Select } from "@mui/material";
+
+function CustomSelect(props: Readonly<customSelectProps>): React.ReactElement {
+
+    const { name, value, label, handler, error, options, helper, loading, disabled } = props;
+
+    const { mapOptionsSelect } = useUtils();
+
+    return (
+        <FormControl fullWidth error={error} disabled={disabled}>
+            <InputLabel required={true} sx={stylesFormField} disabled={(options?.length || 0) === 0 || disabled}>{label}</InputLabel>
+                <Select
+                    id={name}
+                    name={name}
+                    value={value}
+                    label={label}
+                    onChange={handler}
+                    error={error}
+                    sx={stylesFormField}
+                    data-testid={`select-${name}`}
+                    disabled={(options?.length ?? 0) === 0 || disabled}
+                >
+                    {
+                        mapOptionsSelect(options, value)
+                    }
+                </Select>
+                {loading && value === "" && (
+                    <LinearProgress
+                        style={{
+                            position: 'absolute',
+                            bottom: 0,
+                            left: 0,
+                            width: '100%',
+                        }}
+                        color="primary"
+                    />
+                )}
+                {!disabled && <FormHelperText sx={{ position: 'absolute', top: '4.5em', color: COLORS.error }}>{helper}</FormHelperText>}
+        </FormControl>
+    )
+
+}
+
+export default CustomSelect;
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\components\Utils\CustomTextField.tsx
+/===============================================================================
+
+import { COLORS } from 'config/constants';
+import { stylesFormField } from 'utils/styles';
+import { customTextFieldProps } from 'types/components/Utils/utils';
+import { FormControl, FormHelperText, TextField } from '@mui/material';
+
+function CustomTextField(props: customTextFieldProps) {
+
+    const {error, required, label, value, handler, name, disabled, helper} = props
+
+    return (
+        <FormControl fullWidth error={error}>
+            <TextField
+                fullWidth
+                required={required}
+                label={label}
+                value={value}
+                onChange={handler}
+                name={name}
+                error={error}
+                disabled={disabled}
+                sx={stylesFormField}
+                data-testid={`text-${name}`}
+            />
+            {!disabled && <FormHelperText sx={{ position: 'absolute', top: '4.5em', color: COLORS.error}}>{helper}</FormHelperText>}
+        </FormControl>
+    );
+
+}
+
+export default CustomTextField
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\components\Utils\CustomToolbar.tsx
+/===============================================================================
+
+import { Box, Button } from '@mui/material';
+import { BUTTON_LABELS } from 'config/constants';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import DownloadIcon from '@mui/icons-material/Download';
+import { customToolbarProps } from 'types/components/Utils/utils';
+import { GridToolbarContainer, GridToolbarQuickFilter } from '@mui/x-data-grid-pro'
+
+function CustomToolbar(props: Readonly<customToolbarProps>) {
+
+    const { handleDownload, disabled, handleReload } = props
+    
+    return (
+        <GridToolbarContainer>
+
+            <Box mb={0.5}>
+                <Button size='medium' startIcon={<RefreshIcon />} onClick={handleReload} sx={{color:'white.main'}}>
+                </Button>
+
+                <Button size='small' startIcon={<DownloadIcon />} onClick={handleDownload} disabled={disabled} sx={{color:'white.main'}}>
+                    {BUTTON_LABELS.download}
+                </Button>
+            </Box>
+
+            <Box mb={0.5} sx={{ marginLeft: 'auto' }}>
+                <GridToolbarQuickFilter id="search-toolbar" data-testid={`toolbar`} debounceMs={500} placeholder='Buscar...' />
+            </Box>
+
+        </GridToolbarContainer>
+
+    )
+
+}
+
+export default CustomToolbar
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\components\Utils\DataTable.tsx
+/===============================================================================
+
+import { stylesDataGrid } from 'utils/styles';
+import { DataGridPro } from '@mui/x-data-grid-pro';
+import { PAGE_SIZE_OPTIONS } from 'config/constants';
+import { dataTableProps } from "types/components/Utils/utils";
+
+function DataTable(props: Readonly<dataTableProps>): React.ReactElement {
+
+    const { rows, columns, handleUpdateFlow, loading, slots, slotProps, rowSelectionModel, rowSelectionModelChange, getRowId } = props;
+
+    return(
+        <DataGridPro
+            rows={rows}
+            columns={columns}
+            initialState={{
+                pagination: { paginationModel: { pageSize: 10 } },
+                sorting: { sortModel: [{ field: 'Id', sort: 'desc' }] }
+            }}
+            columnVisibilityModel={{ Id:false }}
+            pageSizeOptions={[PAGE_SIZE_OPTIONS.small, PAGE_SIZE_OPTIONS.medium, PAGE_SIZE_OPTIONS.large]}
+            processRowUpdate={
+                handleUpdateFlow??undefined
+            }
+            pagination
+            autoHeight
+            loading={loading}
+            slots={{ ...slots}}
+            slotProps={slotProps}
+            rowSelectionModel={rowSelectionModel}
+            onRowSelectionModelChange={rowSelectionModelChange}
+            sx={{ ...stylesDataGrid}}
+            getRowId={getRowId}
+            checkboxSelection
+            disableRowSelectionOnClick
+        />
+    )
+}
+
+export default DataTable;
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\components\Utils\Notification.tsx
+/===============================================================================
+
+import React from "react";
+import { Snackbar, Alert } from "@mui/material";
+import { NotificationProps } from "types/components/Utils/utils";
+
+export default function Notification(props: Readonly<NotificationProps>): React.ReactElement{
+
+    const { severity, message, open, handleClose } = props
+
+    return (
+
+        <Snackbar
+            anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+            autoHideDuration={5500}
+            open={open}
+            onClose={handleClose}
+        >
+
+            <Alert
+                onClose={handleClose}
+                severity={severity}
+                variant="filled"
+                sx={{ width: "100%"}}          
+            >
+                
+                {message}
+
+            </Alert>
+
+        </Snackbar>
+
+    )
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\config\constants.ts
+/===============================================================================
+
+export const PAGES_TEXTS = {
+    reports: {
+        title: "Generación de Reportes",
+        subtitle: "Por favor seleccione el reporte que desea generar"
+    },
+}
+
+export const REDUX_TEXTS = {
+    reports: {
+        noData: "No se encontraron reportes",
+        error: "Ocurrió un error al obtener los reportes, por favor comuniquese con soporte de la aplicación",
+        errorGenerate: "Ocurrió un error al enviar la creación del reporte, por favor comuniquese con soporte de la aplicación",
+        success: "La solicitud para la creación del reporte se ha enviado con éxito."
+    },
+    historyReports: {
+        noData: "No se encontro historial de reportes",
+        error: "Ocurrió un error al obtener el historial de los reportes, por favor comuniquese con soporte de la aplicación"
+    }
+}
+
+export const COLORS = {
+    primary: "primary.main",
+    primaryLight: 'primary.light',
+    secondary: "secondary.main",
+    secondaryDark: "secondary.dark",
+    secondaryLight: 'secondary.light',
+    error: "error.main",
+    white: "white.main"
+}
+
+export const MAGIC_NUMBERS = {
+    four: 4,
+    twelve: 12,
+    min_report_types: 2,
+    report_name_options_length: 3
+}
+
+export const FATCA_VALIDATIONS = {
+    name: "FATCA y CRS",
+    preliminary_report: "Sabana Preliminar",
+    final_report: "Reporte Final",
+    company_fiduciary: "Sociedad Fiduciaria",
+    statusComplete: "Completado",
+    statusProcessing: "Procesando"
+}
+
+export const MURIC_VALIDATIONS = {
+    name: "MURIC"
+}
+
+export const DATE_FORMATS = {
+    dateFormat: 'YYYY-MM-DD HH:mm'
+}
+
+export const ERROR_MESSAGES = {
+    date: 'La fecha no puede ser posterior a',
+    emptyFields: 'Debe completar todos los campos requeridos para continuar con la creación del reporte',
+    preliminaryReportProcessing: 'Actualmente hay una Sabana Preliminar en proceso. Por favor, espera a que termine antes de generar otra.',
+}
+
+export const PAGE_SIZE_OPTIONS = {
+    small: 10,
+    medium: 25,
+    large: 50
+}
+
+export const HEADER_CLASS = 'super-app-theme--header'
+
+export const BUTTON_LABELS = {
+    download: 'Descargar',
+    generate: 'Generar'
+}
+
+export const VALIDATIONS_TEXT = {
+    fields: {
+        empty: "Todos los campos obligatorios deben contener información",
+        select: "Seleccione un valor de replaceField",
+    }
+}
+
+export const PERSON_TYPES = {
+    individualAccount: "Persona Natural",
+    entityAccount: "Persona Jurídica",
+    controllingPersons: "Accionistas",
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\config\env.ts
+/===============================================================================
+
+const {
+    REACT_APP_STAGE,
+    REACT_APP_BASE_PATH,
+    REACT_APP_BACK_PATH,
+    REACT_APP_BACK_URL_DEV,
+    REACT_APP_BACK_URL_UAT,
+    REACT_APP_BACK_URL_PDN, 
+    REACT_APP_NAME,
+    REACT_APP_VERSION
+} = process.env;
+
+type Stage = 'dev' | 'uat' | 'pdn';
+
+const BACK_URL_STAGE: Record<Stage, string|undefined> = {
+    dev: REACT_APP_BACK_URL_DEV,
+    uat: REACT_APP_BACK_URL_UAT,
+    pdn: REACT_APP_BACK_URL_PDN
+};
+
+export const BASE_PATH = REACT_APP_BASE_PATH;
+export const BACK_PATH = `${REACT_APP_BACK_PATH}/v1`;
+export const NAME = REACT_APP_NAME ?? "app";
+export const VERSION = REACT_APP_VERSION ?? "0.0.1";
+export const BACK_URL = BACK_URL_STAGE[REACT_APP_STAGE as Stage ?? "dev"];
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\hooks\components\Menu\useNavbar.tsx
+/===============================================================================
+
+import { Button } from "@mui/material";
+import { Link } from "react-router-dom";
+import { useState, useRef } from "react";
+import { NavbarState, OptionItems, Options } from "interfaces/Menu/navbar";
+
+
+export default function useNavbar() {
+  const [state, setState] = useState<NavbarState>({
+    anchorEl: null,     
+    menuOption: [],
+  });
+  const buttonsRef = useRef<HTMLDivElement>(null);
+
+  const handleClick = (data: Options[]) => () => {
+    setState({ anchorEl: buttonsRef.current, menuOption: data });
+  };
+
+  const handleClose = () => {
+    setState({ ...state, anchorEl: null });
+  };
+
+  const open = Boolean(state.anchorEl);
+
+  const renderButton = (option: OptionItems) => {
+    if (option.route) {
+        return (
+            <Button
+                key={option.title}
+                variant="text"
+                sx={{ color: "inherit" }}
+                component={Link}
+                to={option.route}
+            >
+                {option.title}
+            </Button>
+        );
+    } else {
+        return (
+            <Button
+                key={option.title}
+                variant="text"
+                sx={{ color: "inherit" }}
+                onClick={handleClick(option.items ?? [])}
+            >
+                {option.title}
+            </Button>
+        );
+    }
+};
+
+  return { state, buttonsRef, open, handleClose, renderButton };
+}
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\hooks\components\Reports\validators\useFatcaValidator.ts
+/===============================================================================
+
+import { useCallback, useEffect, useRef } from "react";
+import { useAppDispatch, useAppSelector } from "redux/hooks";
+import { FatcaValidatorProps } from "interfaces/Reports/reports";
+import { FATCA_VALIDATIONS, MAGIC_NUMBERS } from "config/constants";
+import { getHistoryReportsByCompanyAndStatus, getHistoryReportsByYearData } from "redux/reports/historyReportsDucks";
+
+function useFatcaValidator({report, params, data, setParams, setData}: FatcaValidatorProps){
+
+    const isFatca = report === FATCA_VALIDATIONS.name
+
+    const dispatch = useAppDispatch()
+
+    const { isAvailable } = useAppSelector(store => store.historyReports)
+
+    const originalReportNameOptions = useRef<string[]>([]);
+    const originalReportTypeOptions = useRef<string[]>([]);
+
+    const updateParams = useCallback((field: string, options: string[]) => {
+        setParams((prevData: any) => ({
+            ...prevData,
+            [field]: {
+                ...prevData[field],
+                options,
+            },
+        }));
+    }, [setParams]);
+
+    const updateData = useCallback((disable: boolean) => {
+        setData((prevData: any) => ({
+            ...prevData,
+            reportName: {
+                ...prevData.reportName,
+                disable,
+            },
+        }));
+    }, [setData]);
+
+    const prevCompany = useRef(data.company?.value);
+    const prevReportType = useRef(data.company?.value);
+
+    useEffect(() => {
+        if (!isFatca) { return };
+
+        const company = data.company?.value;
+        const reportType = data.reportType?.value;
+
+        if (data.reportDate?.value) {
+            const year = data.reportDate.value.year().toString();
+
+            if (year && company) {
+                dispatch(getHistoryReportsByYearData(company, FATCA_VALIDATIONS.statusComplete, year));
+            }
+        }
+        if (company) {
+            dispatch(getHistoryReportsByCompanyAndStatus(company, FATCA_VALIDATIONS.statusProcessing));
+        }
+
+        if (company !== prevCompany.current) {
+            prevCompany.current = company;
+            setData({ ...data, reportType: { ...data.reportType, value: "" }, reportName: { ...data.reportName, value: "" } });
+        }
+
+        if(reportType !== prevReportType.current){
+            prevReportType.current = reportType;
+            setData({ ...data, reportName: { ...data.reportName, value: "" } });
+        }
+
+        if (isAvailable === false && params?.report_type?.options?.length >= MAGIC_NUMBERS.min_report_types) {
+            if (!originalReportTypeOptions.current.length) {
+                originalReportTypeOptions.current = params.report_type.options;
+            }
+            const newOptions = params.report_type.options.slice(0, -1);
+            updateParams("report_type", newOptions);
+        }else if(isAvailable !== false && params?.report_type?.options?.length < MAGIC_NUMBERS.min_report_types){
+            updateParams("report_type", originalReportTypeOptions.current);
+        }
+
+        const disable = data?.reportType?.value === FATCA_VALIDATIONS.preliminary_report;
+        updateData(disable)
+
+    }, [isFatca, dispatch, data?.reportType?.value, data?.reportDate?.value, data?.company?.value, isAvailable, params?.report_type?.options, params?.report_name?.options, setParams]);
+    
+}
+
+export default useFatcaValidator;
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\hooks\components\Reports\validators\validatorController.ts
+/===============================================================================
+
+import useFatcaValidator from "./useFatcaValidator";
+import { ValidatorControllerProps } from "interfaces/Reports/reports";
+
+function ValidatorController({report, reportData, params, setParams, setData}: ValidatorControllerProps){
+
+    useFatcaValidator({report, params, data: reportData, setParams, setData});
+
+    return null
+}
+
+export default ValidatorController;
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\hooks\components\Reports\buildPayload.ts
+/===============================================================================
+
+import dayjs from "dayjs";
+import { userEmail } from "App";
+import { ReportsItem } from "types/components/Reports/reports";
+import { FATCA_VALIDATIONS, MURIC_VALIDATIONS } from "config/constants";
+import { PayloadBuilder } from "interfaces/Reports/reports";
+import { ReportData, Parameters, HistoryRecord } from "types/components/Reports/reports";
+
+
+class BasePayloadBuilder implements PayloadBuilder {
+    protected addCommonParams(
+        payload: Record<string, any>,
+        report: ReportsItem,
+        reportData: ReportData,
+        parameters: Parameters
+    ) {
+        payload.user = userEmail;
+        payload.report_key = report.AliasReporteSsm;
+        payload.parameters = parameters
+            ? Object.fromEntries(Object.entries(parameters).map(([, param]) => [param.name, reportData[param.name]?.value])): {};
+    }
+
+    build(
+        report: ReportsItem,
+        reportData: ReportData,
+        parameters: Parameters,
+        historyRecord: HistoryRecord
+    ): Record<string, any> {
+        const payload: Record<string, any> = {};
+        this.addCommonParams(payload, report, reportData, parameters);
+        
+        return payload;
+    }
+}
+
+class FatcaPayloadBuilder extends BasePayloadBuilder {
+    build(
+        report: ReportsItem,
+        reportData: ReportData,
+        parameters: Parameters,
+        historyRecord: HistoryRecord
+    ): Record<string, any> {
+        const payload = super.build(report, reportData, parameters, historyRecord);
+        const isPreliminaryReport = reportData.reportType?.value === FATCA_VALIDATIONS.preliminary_report;
+        Object.assign(payload.parameters, {
+            report: report.NombreReporte,
+            report_date: dayjs(reportData.reportDate.value).year().toString(),
+            report_id: report.Id?.toString(),
+            savanna_id: isPreliminaryReport ? "" : String(historyRecord?.[0]?.Id ?? "")
+        });
+
+        return payload;
+    }
+}
+
+class MuricPayloadBuilder extends BasePayloadBuilder {
+    build(
+        report: ReportsItem,
+        reportData: ReportData,
+        parameters: Parameters,
+        historyRecord: HistoryRecord
+    ): Record<string, any> {
+        const payload = super.build(report, reportData, parameters, historyRecord);
+        Object.assign(payload.parameters, {
+            report: report.NombreReporte,
+            report_id: report.Id?.toString(),
+            report_type: "MURIC",
+            report_date: reportData.reportDate?.value
+        });
+
+        return payload;
+    }
+}
+
+const builderMap: Record<string, PayloadBuilder> = {
+    [FATCA_VALIDATIONS.name]: new FatcaPayloadBuilder(),
+    [MURIC_VALIDATIONS.name]: new MuricPayloadBuilder()
+};
+
+function BuildPayload(
+    report: ReportsItem,
+    reportData: ReportData,
+    parameters: Parameters,
+    historyRecord: HistoryRecord
+): Record<string, any> {
+    const builder = builderMap[report.NombreReporte];
+    if (!builder) throw new Error("No existe un payload para el reporte: " + report.NombreReporte);
+    return builder.build(report, reportData, parameters, historyRecord);
+}
+
+export default BuildPayload;
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\hooks\components\Reports\useDynamicParameters.tsx
+/===============================================================================
+
+import dayjs, { Dayjs } from "dayjs";
+import BuildPayload from "./buildPayload";
+import { ERROR_MESSAGES, FATCA_VALIDATIONS } from "config/constants";
+import { validateFields } from "utils/validations";
+import { maxDateFunctions } from "utils/identifiers";
+import { useCallback, useEffect, useState } from "react";
+import { addReportData } from "redux/reports/reportsDuck";
+import { HISTORY_REPORTS_DATA_MESSAGE } from 'redux/types';
+import { useAppDispatch, useAppSelector } from "redux/hooks";
+import ValidatorController from "./validators/validatorController";
+import { ReportField, ReportsItem } from "types/components/Reports/reports";
+import { getAllHistoryReportsData } from "redux/reports/historyReportsDucks";
+
+function useDynamicParameters(reportName: string | null, currentReportParameters:Record<string, any> | undefined, setCurrentParameters: Function) {
+
+    const dispatch = useAppDispatch()
+    
+    const { reports } = useAppSelector((store) => store.reports);
+
+    const { historyReportsYear } = useAppSelector((store) => store.historyReports);
+
+    const { isPreliminaryProcessing } = useAppSelector((store) => store.historyReports);
+    
+    const currentReport = reports.find((item: ReportsItem) => item.NombreReporte === reportName);
+
+    const [dateCondition, setDateCondition] = useState(null)
+
+    const [isDisabled, setIsDisabled] = useState(false);
+
+    const generateInitialFormValues = useCallback((params: Record<string, any>) => {
+        const initialValues: Record<string, ReportField<any>> = {};
+        const isFatcaReport = reportName === FATCA_VALIDATIONS.name;
+        
+        Object.values(params).forEach(param => {
+            let initialValue = param.initialValue;
+            let disableField = false;
+
+            if (param.type === "date") {
+                setDateCondition(maxDateFunctions[param.validation || "default"]());
+
+                if (isFatcaReport && param.name === 'reportDate') {
+                    initialValue = maxDateFunctions.lastYear();
+                    disableField = true;
+                }
+            }
+
+            initialValues[param.name] = {
+                value: initialValue,
+                error: false,
+                helper: "",
+                disable: disableField,
+            };
+        });
+      
+        initialValues['report'] = { value: reportName, error: false, helper: "" };
+        return initialValues;
+    }, [setDateCondition, reportName]);
+
+    const [reportValues, setReportValues] = useState<Record<string, ReportField<any>>>({});
+
+    ValidatorController({report:reportName, reportData:reportValues, params:currentReportParameters, setParams:setCurrentParameters, setData:setReportValues});
+    
+    useEffect(() => {
+        if(currentReport?.Parametros){
+            setReportValues(generateInitialFormValues(currentReport?.Parametros)); 
+        }
+    }, [currentReport, generateInitialFormValues]);
+    
+    useEffect(() => {
+        if(isPreliminaryProcessing && reportValues.reportType?.value === FATCA_VALIDATIONS.preliminary_report){
+            setIsDisabled(true)
+            dispatch({ type: HISTORY_REPORTS_DATA_MESSAGE, payload: {text: ERROR_MESSAGES.preliminaryReportProcessing, severity: "error"}})
+        } else {
+            setIsDisabled(false)
+        }
+    }, [isPreliminaryProcessing, reportValues.reportType?.value])
+    
+    const handleChangeFields = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | Dayjs | null, fieldName?:string) => {
+    
+        if (dayjs.isDayjs(event) && fieldName) {
+            updateReportDataField(fieldName, event)
+            return;
+        };
+
+        if (!event || !('target' in event)) {
+            return;
+        }
+
+        const { name, value } = event.target;
+
+        updateReportDataField(name, value)
+    };
+    
+    const updateReportDataField = (name: string, value: any) => {
+        setReportValues((prevData) => ({
+            ...prevData,
+            [name]: {...prevData[name], value, error: false, helper: '' },
+        }));
+    };
+
+    const getHandleForDate = (fieldName: string) => (e: Dayjs | null) => {
+        handleChangeFields(e, fieldName);
+    };
+
+    const getDateView = (view:string) => {
+        return view.split(',').map(item => item.trim())
+    };
+
+    const paramsNames = Object.fromEntries(
+        Object.values(currentReportParameters as Record<string, { name: string; label: string }> ?? {}).map(({ name, label }) => [name, label])
+    );
+
+    const handleSendReport = () => {
+        const { updatedValues, errors } = validateFields(reportValues, paramsNames);
+        setReportValues(updatedValues)
+        if(errors === 0) {
+            const payload  = BuildPayload(currentReport, reportValues, currentReportParameters, historyReportsYear)
+            dispatch(addReportData(payload)).then(() => {
+                if(currentReportParameters){
+                    setReportValues(generateInitialFormValues(currentReportParameters))
+                }
+                dispatch(getAllHistoryReportsData(currentReport?.Id))
+            })
+        } else {
+            dispatch({ type: HISTORY_REPORTS_DATA_MESSAGE, payload: {text: ERROR_MESSAGES.emptyFields, severity: "error"}})
+        }
+    }
+
+    return { reportValues, handleChangeFields, getDateView, getHandleForDate, dateCondition, handleSendReport, isDisabled, setCurrentParameters };
+}
+
+export default useDynamicParameters;
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\hooks\components\Reports\useHistoryTable.tsx
+/===============================================================================
+
+import dayjs from 'dayjs';
+import { stylesParams } from 'utils/styles';
+import { useEffect, useState } from 'react';
+import { useAppDispatch, useAppSelector } from 'redux/hooks';
+import CustomChipItem from 'components/Utils/CustomChipItem';
+import { DATE_FORMATS, FATCA_VALIDATIONS, HEADER_CLASS } from "config/constants";
+import { HistoryReportsItem } from 'types/components/Reports/reports';
+import { getAllHistoryReportsData, getHistoryReportUrl } from 'redux/reports/historyReportsDucks';
+import { GridColDef, GridRowSelectionModel, GridValidRowModel } from "@mui/x-data-grid-pro";
+
+
+function useHistoryTable() {
+
+    const dispatch = useAppDispatch()
+
+    const { historyReports, loadingHistoryReports, urlPresigned } = useAppSelector(store => store.historyReports)
+
+    const renderParameters = (params: any) => {
+        const savedParameters = params.row.Parametros || {};
+        const reportParameters = params.row.Reporte?.Parametros || {};
+    
+        const entries = Object.entries(reportParameters)
+            .filter(([key]) => savedParameters[key]);
+    
+        return (
+            <div style={stylesParams}>
+                {entries.map(([key, value], index) => {
+                    const label = (value as { label?: string }).label ?? key;
+                    const parametersValue = savedParameters[key];
+    
+                    return (
+                        <span key={key}>
+                            <strong>{label}</strong>: {parametersValue}
+                            {index < entries.length - 1 && ", "}
+                        </span>
+                    );
+                })}
+            </div>
+        );
+    };
+    
+    const historyTableColumns: GridColDef<GridValidRowModel>[] = [
+        { field: 'Id', headerName: 'Id', headerClassName: HEADER_CLASS },
+        { field: 'reporte', headerName: 'Reporte', minWidth: 150,flex:0.5, align: 'center', headerAlign: 'center', headerClassName: HEADER_CLASS,
+            valueGetter: (params) => { return params.row.Reporte.NombreReporte}
+        },
+        { field: 'Usuario', headerName: 'Usuario', minWidth: 200,flex:0.7, align: 'center', headerAlign: 'center', headerClassName: HEADER_CLASS },
+        { field: 'FechaCreacion', headerName: 'Fecha Creación', minWidth: 200, flex:0.5, align: 'center', headerAlign: 'center', headerClassName: HEADER_CLASS,
+            valueGetter: (params) => { return dayjs(params.row.FechaCreacion).format(DATE_FORMATS.dateFormat) }
+        },
+        { field: 'Estado', headerName: 'Estado', minWidth: 150, flex: 0.6, align: 'center', headerAlign: 'center', headerClassName: HEADER_CLASS,
+            renderCell: (params) => {
+                return <CustomChipItem status={params.value} />;
+            }
+        },
+        { field: 'Parametros', headerName: 'Parámetros', minWidth: 800, flex:1, align: 'left', headerAlign: 'center', headerClassName: HEADER_CLASS,
+            renderCell: renderParameters,
+        }
+    ]
+
+    const [rowSelectionModel, setRowSelectionModel] = useState<GridRowSelectionModel>([]);
+
+    let isDownloaded = false
+
+    const handleRowSelection = (Id: GridRowSelectionModel) => {
+        if(rowSelectionModel[0] === Id[0]) {
+            setRowSelectionModel([])
+        } else {
+            setRowSelectionModel(Id)
+        }
+    }
+
+    const selectedRecord = historyReports.find((item: HistoryReportsItem) => item.Id === rowSelectionModel[0])
+
+    isDownloaded = selectedRecord?.Estado === FATCA_VALIDATIONS.statusComplete
+    
+    const handleDownload = async () => {
+        if(selectedRecord){
+            await dispatch(getHistoryReportUrl(selectedRecord.Id))
+        }
+    }
+
+    const handleReload = async () => {
+        if(historyReports){
+            await dispatch(getAllHistoryReportsData(historyReports[0].Reporte.Id))
+        }
+    }
+
+    useEffect(() => {
+        if (urlPresigned) {
+            window.location.href = urlPresigned;
+        }
+    }, [urlPresigned]);
+
+    const getRow = (row: GridValidRowModel) => row.Id
+
+    return { historyTableColumns, historyReports, loadingHistoryReports, getRow, handleRowSelection, rowSelectionModel, handleDownload, isDownloaded, handleReload }
+
+}
+
+export default useHistoryTable;
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\hooks\components\Reports\useInitialView.ts
+/===============================================================================
+
+import { useEffect, useState } from "react"
+import { useAppDispatch, useAppSelector } from "redux/hooks"
+import { getAllReportsData } from "redux/reports/reportsDuck"
+import { ReportsItem } from "types/components/Reports/reports"
+import { getAllHistoryReportsData } from "redux/reports/historyReportsDucks"
+import { HISTORY_REPORTS_DATA_MESSAGE, REPORTS_DATA_MESSAGE } from "redux/types"
+
+function useInitialView(){
+    
+    const dispatch = useAppDispatch()
+    
+    const { reports, loadingReports, messageReports } = useAppSelector(store => store.reports)
+
+    const { messageHistoryReports } = useAppSelector((store) => store.historyReports);
+    
+    useEffect(() => {
+        dispatch(getAllReportsData())
+    }, [dispatch])
+
+    const reportOptions = reports.map((item:ReportsItem) => item.NombreReporte)
+
+    const [selectedReport, setSelectedReport] = useState<string|null>(null)
+    const [currentReportParameters, setCurrentParameters] = useState()
+
+    const handleChangeReport = (_: React.SyntheticEvent, newValue: string | null) => {
+        
+        setSelectedReport(newValue);
+        
+        if (!newValue){ return };
+        
+        const report = reports.find((item:ReportsItem) => item.NombreReporte === newValue)
+
+        if(report){
+            dispatch(getAllHistoryReportsData(report.Id))
+            setCurrentParameters(report?.Parametros)
+        }
+    };
+
+    const onCloseNotification = () => dispatch({ type: HISTORY_REPORTS_DATA_MESSAGE , payload: null })
+    const onCloseNotificationReports = () => dispatch({ type: REPORTS_DATA_MESSAGE , payload: null })
+
+    return { reportOptions, selectedReport, handleChangeReport, loadingReports, onCloseNotification, messageHistoryReports, currentReportParameters, setCurrentParameters, messageReports, onCloseNotificationReports }
+
+}
+
+export default useInitialView
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\hooks\components\Utils\useUtils.tsx
+/===============================================================================
+
+import { ChipParams } from "types/components/Utils/utils";
+import { AutocompleteRenderInputParams, MenuItem, TextField } from "@mui/material";
+import { MAGIC_NUMBERS } from "config/constants";
+
+function useUtils() {
+
+    function renderInputAutocomplete(label:string, error: boolean) {
+        return function(params:AutocompleteRenderInputParams){
+            return (
+                <TextField
+                    {...params}
+                    label={label}
+                    required={true}
+                    error={error}
+                />
+            );
+        }
+    }
+
+    function mapOptionsSelect(options: string[], value:string){
+        let items;
+        if(options?.length > 0){
+            items = options.map(option => 
+                <MenuItem key={`${option}`} value={`${option}`}>{option}</MenuItem>
+            );
+        } else {
+            items = [value].map(option => <MenuItem key={`${option}`} value={`${option}`}>{option}</MenuItem>)
+        }
+
+        return items
+    }
+
+    function getNumericValue(value: number){
+        let numericValue;
+        if(isNaN(value)){
+            numericValue = ''
+        } else {
+            numericValue = value
+        }
+        return numericValue
+    }
+
+    function usePrefix(putPrefix:boolean){
+        let prefix;
+        if(putPrefix){
+            prefix = '$ '
+        } else {
+            prefix = ''
+        }
+        return prefix
+    }
+
+    function getDecimals(isDecimal:boolean){
+        let decimal;
+
+        if(!isDecimal){
+            decimal = 0
+        } else {
+            decimal = MAGIC_NUMBERS.four
+        }
+        return decimal
+    }
+
+    function getChipParams(status: string){
+        
+        const options: Record<string, ChipParams> = {
+            "Completado":{
+                color:"success",
+                width: 95
+            },
+            "Procesando": {
+                color:"secondary",
+                width: 95
+            },
+            "Fallido": {
+                color:"error",
+                width: 95
+            }
+        }
+
+        return options[status] || { color: "default", icon: null, width: 100 }
+    }
+
+    return { mapOptionsSelect, renderInputAutocomplete, getNumericValue, usePrefix, getDecimals, getChipParams };
+}
+
+export default useUtils;
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\hooks\useHistory.ts
+/===============================================================================
+
+import { useEffect, useState } from 'react';
+import { BrowserHistory } from 'history';
+
+export default function useHistory(history: BrowserHistory) {
+    const [historyState, setHistoryState] = useState({
+        location: history.location
+    })
+
+    useEffect(() => {
+        history.listen(setHistoryState);
+    }, [history]);
+
+    return {
+        historyState
+    };
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\interfaces\Menu\navbar.ts
+/===============================================================================
+
+export interface Item {
+    title: string
+    route: string
+}
+export interface Option {
+    title: string
+    route?: string
+    children?: Array<Item>
+}
+export interface OptionItems {
+    title: string
+    route?: string
+    items?: Array<Option>
+}
+
+export interface Options {
+    title: string;
+    items?: any;
+    route?: string;
+}
+
+export interface NavbarState {
+    anchorEl: HTMLElement | null;
+    menuOption: Options[];
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\interfaces\Reports\reports.ts
+/===============================================================================
+
+import { ReportField, ReportsItem } from "types/components/Reports/reports";
+
+export interface FatcaValidatorProps {
+    report:string|null;
+    params:any;
+    data: Record<string, ReportField<any>>;
+    setParams: Function
+    setData: Function
+}
+
+export interface ValidatorControllerProps {
+    report:string|null;
+    params:any;
+    reportData:Record<string, ReportField<any>>;
+    setParams: Function
+    setData: Function
+}
+
+export interface PayloadBuilder {
+    build(
+        report: ReportsItem,
+        reportData: Record<string, any>,
+        parameters: Record<string, any> | undefined,
+        historyRecord: Record<string, any>[] | undefined
+    ): Record<string, any>;
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\interfaces\Utils\validations.ts
+/===============================================================================
+
+import dayjs from "dayjs";
+
+export interface FormField {
+    value: string | null | dayjs.Dayjs;
+    error?: boolean;
+    helper?: string;
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\pages\Reports\DynamicReports.tsx
+/===============================================================================
+
+import { Box } from "@mui/material";
+import Notification from 'components/Utils/Notification';
+import InitialView from "components/Reports/InitialView";
+import HistoryTable from "components/Reports/HistoryTable";
+import useInitialView from "hooks/components/Reports/useInitialView";
+import DynamicReportForm from "components/Reports/DynamicReportForm";
+import useHistoryTable from "hooks/components/Reports/useHistoryTable";
+import useDynamicParameters from "hooks/components/Reports/useDynamicParameters";
+
+function DynamicReports(): React.ReactElement {
+
+    const { reportOptions, handleChangeReport, selectedReport, loadingReports, messageHistoryReports, onCloseNotification, currentReportParameters, setCurrentParameters, messageReports, onCloseNotificationReports } = useInitialView();
+
+    const { reportValues, handleChangeFields, getDateView, getHandleForDate, dateCondition, handleSendReport, isDisabled } = useDynamicParameters(selectedReport, currentReportParameters, setCurrentParameters);
+
+    const { historyTableColumns, historyReports, loadingHistoryReports, getRow, handleRowSelection, rowSelectionModel, handleDownload, isDownloaded, handleReload } = useHistoryTable();
+
+    return (
+        
+        <Box>
+            <InitialView
+                loading={loadingReports}
+                options={reportOptions}
+                handleChange={handleChangeReport}
+                selectedReport={selectedReport}
+            />
+
+            { currentReportParameters && (
+                <DynamicReportForm 
+                    parameters={currentReportParameters} 
+                    reportData={reportValues} 
+                    handleChange={handleChangeFields}
+                    getDateView={getDateView}
+                    getDateHandler={getHandleForDate}
+                    dateCondition={dateCondition}
+                    handleSendReport={handleSendReport}
+                    loading={loadingHistoryReports}
+                    isDisabled={isDisabled}
+                />
+            )}
+
+            {selectedReport && currentReportParameters && (
+                <HistoryTable 
+                    columns={historyTableColumns}
+                    rows={historyReports}
+                    loading={loadingHistoryReports}
+                    getRow={getRow}
+                    rowSelectionModel={rowSelectionModel}
+                    rowSelectionModelChange={handleRowSelection}
+                    isDownload={isDownloaded}
+                    handleDownload={handleDownload}
+                    handleReload={handleReload}
+                />
+            )}
+
+            { selectedReport &&  messageHistoryReports &&
+                <Notification
+                    handleClose={onCloseNotification}
+                    message={messageHistoryReports.text}
+                    open={true}
+                    severity={messageHistoryReports.severity}
+                />
+            }
+
+            {selectedReport &&  messageReports &&
+                <Notification
+                    handleClose={onCloseNotificationReports}
+                    message={messageReports.text}
+                    open={true}
+                    severity={messageReports.severity}
+                />
+            }       
+
+        </Box>
+    );
+}
+
+export default DynamicReports
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\redux\reports\historyReportsDucks.ts
+/===============================================================================
+
+import axios from "axios";
+
+import { BACK_URL, BACK_PATH } from "config/env";
+import { token } from "App";
+
+import {
+    HISTORY_REPORTS_DATA_LOADING,
+    HISTORY_REPORTS_DATA_ERROR,
+    HISTORY_REPORTS_DATA_MESSAGE,
+    HISTORY_REPORTS_DATA_SUCCESS,
+} from "redux/types"
+
+import { reducerAction } from "types/redux/redux";
+import { AppDispatch } from "redux/store";
+import { REDUX_TEXTS } from "config/constants";
+import { HistoryReportsItem } from "types/components/Reports/reports";
+
+interface InitialData {
+    historyReports: Array<Object> | null,
+    historyReportsYear: Array<Object> | null,
+    loadingHistoryReports: boolean | null,
+    errorHistoryReports: boolean | null,
+    messageHistoryReports: string | null,
+    isAvailable: boolean | null,
+    urlPresigned: string | null,
+    isPreliminaryProcessing: boolean | null
+}
+
+const initialData: InitialData = {
+    historyReports: [],
+    historyReportsYear: [],
+    loadingHistoryReports: null,
+    errorHistoryReports: null,
+    messageHistoryReports: null,
+    isAvailable: null,
+    urlPresigned: null,
+    isPreliminaryProcessing: null
+}
+
+export default function historyReportsReducer(state=initialData, action: reducerAction = {type: "", payload: ""}){
+    switch(action.type){
+        case HISTORY_REPORTS_DATA_LOADING:
+            return {...state, loadingHistoryReports:true, errorHistoryReports:null};
+        case HISTORY_REPORTS_DATA_SUCCESS:
+            return {...state, loadingHistoryReports:false, errorHistoryReports:null, ...action.payload };
+        case HISTORY_REPORTS_DATA_ERROR:
+            return {...state, loadingHistoryReports:false, errorHistoryReports:true, ...action.payload };
+        case HISTORY_REPORTS_DATA_MESSAGE:
+            return {...state, messageHistoryReports:action.payload };
+        default:
+            return state
+    }
+}
+
+export const getAllHistoryReportsData = (idReport:number) => async (dispatch: AppDispatch) => {
+    dispatch({type: HISTORY_REPORTS_DATA_LOADING});
+
+    const limit = 50;         
+    let offset = 0;         
+    let allData: HistoryReportsItem[] = [];
+
+    try {
+
+        while(true){
+            const result = await axios.get(
+                `${BACK_URL}${BACK_PATH}/reports/history-reports/${idReport}?limit=${limit}&offset=${offset}`,
+                {headers: {Authorization: token}}
+            )
+
+            if(result.data['length'] === 0){
+                dispatch({
+                    type: HISTORY_REPORTS_DATA_ERROR
+                })
+                break;
+            }
+
+            allData = [...allData, ...result.data]
+            offset += limit
+
+        }
+
+        dispatch({
+            type: HISTORY_REPORTS_DATA_SUCCESS,
+            payload:{
+                historyReports: allData
+            }
+        })
+        
+
+    } catch(err){
+        dispatch({
+            type: HISTORY_REPORTS_DATA_ERROR,
+            payload:{
+                messageHistoryReports:{
+                    text: REDUX_TEXTS.historyReports.error,
+                    severity: "error"
+                }
+            }
+        })
+    }
+}
+
+export const getHistoryReportsByYearData = (company: string, state: string, report_year: string) => async (dispatch: AppDispatch) => {
+    dispatch({type: HISTORY_REPORTS_DATA_LOADING});
+    try {
+        const result = await axios.get(
+            `${BACK_URL}${BACK_PATH}/reports/history-reports/check-exist/preliminary-report?entity=${company}&state=${state}&year=${report_year}`,
+            {headers: {Authorization: token}}
+            
+        )
+
+        if(result.data.length === 0 ){
+            dispatch({
+                type: HISTORY_REPORTS_DATA_ERROR,
+                payload:{
+                    isAvailable: false
+                }
+            })
+        } else {
+            dispatch({
+                type: HISTORY_REPORTS_DATA_SUCCESS,
+                payload:{
+                    isAvailable: true,
+                    historyReportsYear: result.data
+                }
+            })
+        }
+
+    } catch(err){
+        dispatch({
+            type: HISTORY_REPORTS_DATA_ERROR,
+            payload:{
+                messageReports:{
+                    text: REDUX_TEXTS.reports.error,
+                    severity: "error"
+                }
+            }
+        })
+    }
+}
+
+export const getHistoryReportsByCompanyAndStatus = (company: string, state: string) => async (dispatch: AppDispatch) => {
+    dispatch({type: HISTORY_REPORTS_DATA_LOADING});
+    try {
+        const result = await axios.get(
+            `${BACK_URL}${BACK_PATH}/reports/history-reports/check-exist/preliminary-report?entity=${company}&state=${state}`,
+            {headers: {Authorization: token}}
+        )
+
+        if(result.data.length === 0 ){
+            dispatch({
+                type: HISTORY_REPORTS_DATA_SUCCESS,
+                payload:{
+                    isPreliminaryProcessing: false
+                }
+            })
+        } else {
+            dispatch({
+                type: HISTORY_REPORTS_DATA_ERROR,
+                payload:{
+                    isPreliminaryProcessing: true
+                }
+            })
+        }
+
+    } catch(err){
+        dispatch({
+            type: HISTORY_REPORTS_DATA_ERROR,
+            payload:{
+                messageReports:{
+                    text: REDUX_TEXTS.reports.error,
+                    severity: "error"
+                }
+            }
+        })
+    }
+}
+
+export const getHistoryReportUrl = (recordId: number) => async (dispatch: AppDispatch) => {
+    dispatch({type: HISTORY_REPORTS_DATA_LOADING});
+    try {
+        const result = await axios.get(
+            `${BACK_URL}${BACK_PATH}/reports/history-reports/download?record_id=${recordId}`,
+            {headers: {Authorization: token}}
+        )
+        if(result.data.length === 0){
+            dispatch({
+                type: HISTORY_REPORTS_DATA_ERROR,
+                payload:null
+            })
+        } else {
+            dispatch({
+                type: HISTORY_REPORTS_DATA_SUCCESS,
+                payload:{
+                    urlPresigned: result.data
+                }
+            })
+        }
+
+    } catch(err){
+        dispatch({
+            type: HISTORY_REPORTS_DATA_ERROR,
+            payload:{
+                messageReports:{
+                    text: REDUX_TEXTS.reports.error,
+                    severity: "error"
+                }
+            }
+        })
+    }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\redux\reports\reportsDuck.ts
+/===============================================================================
+
+import axios from "axios";
+
+import { BACK_URL, BACK_PATH } from "config/env";
+import { token, userRol } from "App";
+
+import {
+    REPORTS_DATA_LOADING,
+    REPORTS_DATA_ERROR,
+    REPORTS_DATA_MESSAGE,
+    REPORTS_DATA_SUCCESS
+} from "redux/types"
+
+import { reducerAction } from "types/redux/redux";
+import { AppDispatch } from "redux/store";
+import { REDUX_TEXTS } from "config/constants";
+
+interface InitialData {
+    reports: Array<Object> | null,
+    loadingReports: boolean | null,
+    errorReports: boolean | null,
+    messageReports: string | null,
+}
+
+const initialData: InitialData = {
+    reports: [],
+    loadingReports: null,
+    errorReports: null,
+    messageReports: null
+}
+
+export default function reportsReducer(state=initialData, action: reducerAction = {type: "", payload: ""}){
+    switch(action.type){
+        case REPORTS_DATA_LOADING:
+            return {...state, loadingReports:true, errorReports:null};
+        case REPORTS_DATA_SUCCESS:
+            return {...state, loadingReports:false, errorReports:null, ...action.payload };
+        case REPORTS_DATA_ERROR:
+            return {...state, loadingReports:false, errorReports:true, ...action.payload };
+        case REPORTS_DATA_MESSAGE:
+            return {...state, messageReports:action.payload };
+        default:
+            return state
+    }
+}
+
+export const getAllReportsData = () => async (dispatch: AppDispatch) => {
+    dispatch({type: REPORTS_DATA_LOADING});
+
+    try {
+        const formattedRoles = userRol?.map(role => role.trim()).join(',');
+        const result = await axios.get(
+            `${BACK_URL}${BACK_PATH}/reports?role=${formattedRoles}`,
+            {headers: {Authorization: token}}
+        )
+        
+        if(result.data['length'] === 0){
+            dispatch({
+                type: REPORTS_DATA_ERROR,
+                payload:{
+                    messageReports:{
+                        text: REDUX_TEXTS.reports.noData,
+                        severity: "warning"
+                    }
+                }
+            })
+        } else {
+            dispatch({
+                type: REPORTS_DATA_SUCCESS,
+                payload:{
+                    reports: result.data
+                }
+            })
+        }
+
+    } catch(err){
+        dispatch({
+            type: REPORTS_DATA_ERROR,
+            payload:{
+                messageReports:{
+                    text: REDUX_TEXTS.reports.error,
+                    severity: "error"
+                }
+            }
+        })
+    }
+}
+
+export const addReportData = (reportData: Record<string, any>) => async (dispatch: AppDispatch) => {
+    dispatch({type: REPORTS_DATA_LOADING});
+    try {
+        const result = await axios.post(
+            `${BACK_URL}${BACK_PATH}/generate-report`,
+            reportData,
+            { headers: { Authorization: token } }
+        );
+
+        dispatch({
+            type: REPORTS_DATA_SUCCESS,
+            payload: { 
+                messageReports:{
+                    text: REDUX_TEXTS.reports.success,
+                    severity: "success"
+                }
+            }
+        });
+
+    } catch(err){
+        dispatch({
+            type: REPORTS_DATA_ERROR,
+            payload:{
+                messageReports:{
+                    text: REDUX_TEXTS.reports.errorGenerate,
+                    severity: "error"
+                }
+            }
+        })
+    }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\redux\hooks.ts
+/===============================================================================
+
+import { TypedUseSelectorHook, useDispatch, useSelector } from "react-redux";
+import type { RootState, AppDispatch } from "redux/store";
+
+// Use throughout your app instead of plain `useDispatch` and `useSelector`
+export const useAppDispatch: () => AppDispatch = useDispatch;
+export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\redux\store.ts
+/===============================================================================
+
+import { configureStore } from "@reduxjs/toolkit";
+import reportsReducer from "./reports/reportsDuck";
+import historyReportsReducer from "./reports/historyReportsDucks";
+
+export const store = configureStore({
+    reducer: {
+        reports: reportsReducer,
+        historyReports: historyReportsReducer
+    }
+});
+
+export type RootState = ReturnType<typeof store.getState>;
+
+export type AppDispatch = typeof store.dispatch;
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\redux\types.ts
+/===============================================================================
+
+//REPORTS
+export const REPORTS_DATA_LOADING = "REPORTS_DATA_LOADING"
+export const REPORTS_DATA_ERROR = "REPORTS_DATA_ERROR"
+export const REPORTS_DATA_MESSAGE = "REPORTS_DATA_MESSAGE"
+export const REPORTS_DATA_SUCCESS = "REPORTS_DATA_SUCCESS"
+
+//HISTORY REPORTS
+export const HISTORY_REPORTS_DATA_LOADING = "HISTORY_REPORTS_DATA_LOADING"
+export const HISTORY_REPORTS_DATA_ERROR = "HISTORY_REPORTS_DATA_ERROR"
+export const HISTORY_REPORTS_DATA_MESSAGE = "HISTORY_REPORTS_DATA_MESSAGE"
+export const HISTORY_REPORTS_DATA_SUCCESS = "HISTORY_REPORTS_DATA_SUCCESS"
+
+//MASTERS
+export const MASTERS_DATA_LOADING = "MASTERS_DATA_LOADING"
+export const MASTERS_DATA_ERROR = "MASTERS_DATA_ERROR"
+export const MASTERS_DATA_MESSAGE = "MASTERS_DATA_MESSAGE"
+export const MASTERS_DATA_SUCCESS = "MASTERS_DATA_SUCCESS"
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\styles\index.tsx
+/===============================================================================
+
+import { ReactNode } from 'react';
+
+// material-ui
+import { CssBaseline } from '@mui/material';
+import { StyledEngineProvider, ThemeProvider } from '@mui/material/styles';
+
+// ==============================|| DEFAULT THEME - MAIN  ||============================== //
+
+export default function ThemeCustomization({ themes, children }: ThemeProps) {
+  return (
+    <StyledEngineProvider injectFirst >
+      <ThemeProvider theme={themes}>
+        <CssBaseline />
+        {children}
+      </ThemeProvider>
+    </StyledEngineProvider>
+  );
+}
+
+type ThemeProps = {
+  themes: Object;
+  children: ReactNode;
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\types\components\Reports\reports.d.ts
+/===============================================================================
+
+import { Dayjs } from "dayjs"
+
+export type historyTableProps = {
+    columns: GridColDef<GridValidRowModel>[], 
+    rows: GridRowsProp, 
+    loading: boolean
+    getRow: (row: GridValidRowModel) => number
+    rowSelectionModel: GridRowSelectionModel, 
+    rowSelectionModelChange: (model: GridRowSelectionModel) => void,
+    isDownload: boolean,
+    handleDownload: (event: React.MouseEvent<HTMLButtonElement>) => void
+    handleReload: (event: React.MouseEvent<HTMLButtonElement>) => void
+    localeText?: Partial<GridLocaleText>
+}
+
+export type dynamicFormReportsProps = {
+    parameters: Record<string,any>,
+    reportData: Record<string,ReportField<any>>,
+    handleChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | Dayjs | null, fieldName?: string) => void
+    getDateView: (view: string) => void,
+    getDateHandler: (fieldName: string) => (e: Dayjs | null) => void
+    dateCondition?: Dayjs|null
+    handleSendReport: () => void,
+    loading: boolean,
+    isDisabled: boolean
+}
+
+export type initialViewProps = {
+    selectedReport: string|null
+    loading: boolean
+    options: Array
+    handleChange: (event: React.SyntheticEvent, newValue: string | null) => void
+    isButtonVisible?: boolean
+}
+
+export type ReportsItem = {
+    Id: number,
+    NombreReporte: string,
+    FechaCreacion: string,
+    Parametros: Record<string, any>
+    Estado: boolean,
+    RolesPermitidos: Record<string, string>,
+    AliasReporteSsm: string,
+}
+
+export type HistoryReportsItem = {
+    Id: number,
+    Usuario: string,
+    TipoReporte: string,
+    Estado: string,
+    Parametros: Record<string, any>
+    FechaCreacion: string
+    NombreArchivo: string
+    ReporteId: number
+    Reporte: ReportsItem
+}
+
+export type ReportField<T> = {
+    value: T;
+    error: boolean;
+    helper: string;
+    disable ?: boolean
+};
+
+export type ReportData = Record<string, any>;
+export type Parameters = Record<string, any> | undefined;
+export type HistoryRecord = Record<string, any>[] | undefined;
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\types\components\Utils\utils.d.ts
+/===============================================================================
+
+export type customSelectProps = {
+    name: string,
+    value: string,
+    label: string,
+    handler: (event: SelectChangeEvent<string>, child: ReactNode) => void,
+    error: boolean,
+    options: string[],
+    helper: string,
+    loading?: boolean,
+    disabled?: boolean 
+}
+
+export type customDateFieldProps = {
+    name: string,
+    label: string,
+    value: Dayjs,
+    handler: (value: any, context: PickerChangeHandlerContext<DateValidationError>) => void,
+    require: boolean,
+    error: boolean,
+    format: string,
+    helper:string
+    viewFormat?: DateView,
+    maxDate?: Dayjs,
+    disabled?: boolean,
+}
+
+export type dataTableProps = {
+    columns: GridColDef<GridValidRowModel>[], 
+    rows: GridRowsProp, 
+    loading: boolean,
+    rowSelectionModel?: GridRowSelectionModel, 
+    rowSelectionModelChange?: (model: GridRowSelectionModel) => void, 
+    slots?: object, 
+    slotProps?: object, 
+    handleUpdateFlow?: (newRow: GridValidRowModel, oldRow: GridValidRowModel) => GridValidRowModel
+    getRowId?: (row: Row) => number,
+    localeText?: Partial<GridLocaleText>; 
+}
+
+export type customAutocompleteProps = {
+    name: string
+    options: Array<Object<string>>
+    value: string | null
+    label: string
+    helper: string
+    error: boolean
+    loading: boolean
+    handler?: (event: React.SyntheticEvent, value: any, reason: AutocompleteChangeReason, details?: AutocompleteChangeDetails<any> | undefined) => void
+    getOption?: ((option: any) => string)
+    open?: boolean
+    onInputChange?: (event: React.SyntheticEvent, value: string, reason: AutocompleteInputChangeReason) => void
+    onClose?: (event: React.SyntheticEvent, reason: AutocompleteCloseReason) => void
+    disable?: boolean
+}
+
+export type numericTextFiedlProps = {
+    error: boolean,
+    value: number, 
+    label: string , 
+    name: string;
+    handler?: (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+    helper?: string,
+    readOnly?: boolean
+    required?:boolean
+    putPrefix?:boolean
+    isDecimal?: boolean
+}
+
+export type customTextFieldProps = { 
+    error?: boolean;
+    required?:boolean;
+    label: string;
+    value: string;
+    handler?: (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+    name: string;
+    disabled?: boolean;
+    helper?: string;
+}
+
+export type customToolbarProps = {
+    handleDownload: (event: React.MouseEvent<HTMLButtonElement>) => void, 
+    disabled: boolean,
+    handleReload: (event: React.MouseEvent<HTMLButtonElement>) => void, 
+}
+
+export type ChipListProps = {
+    status: string
+}
+
+export type ChipParams = {
+    color: OverridableStringUnion<"error" | "primary" | "secondary" | "success", ChipPropsColorOverrides> | undefined,
+    width: number
+}
+
+export type Severity = "success" | "warning" | "error";
+
+export type NotificationProps = {
+    open: boolean,
+    handleClose: () => void,
+    severity: Severity,
+    message : string
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\types\redux\redux.d.ts
+/===============================================================================
+
+export type reducerAction = {
+    type: string;
+    payload?: Array;
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\types\index.d.ts
+/===============================================================================
+
+export type OzonoData = {
+    company: string;
+    roles: string[];
+    email: string;
+    area: string;
+    displayName: string;
+    user: string;
+    themes: Object;
+    Authorization: string;
+    getToken: Function;
+}
+
+export type Route = {
+    title: string;
+    route?: string;
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\utils\app.ts
+/===============================================================================
+
+export const getMenuOptions = (basePath: string|undefined) => {
+    
+    const menu = []
+
+    const reportsTab = {
+        title: "",
+    }
+
+    menu.push(reportsTab)
+    
+    return menu
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\utils\identifiers.ts
+/===============================================================================
+
+import dayjs from "dayjs";
+
+export const maxDateFunctions: Record<string, () => any> = {
+    lastYear: () => dayjs().subtract(1, "year").endOf("year"),
+    lastMonth: () => dayjs().subtract(1, "month").endOf("month"),
+    default: () => dayjs()
+};
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\utils\styles.ts
+/===============================================================================
+
+import { CSSProperties } from "react";
+import { COLORS } from "config/constants";
+
+export const stylesFormField = {
+    "& .MuiFormLabel-asterisk": {
+      color: "red",
+    },
+    "&.Mui-disabled": {
+      color: "gray !important"
+    },
+    "& .MuiOutlinedInput-notchedOutline": {
+      border: 1,
+      borderColor: COLORS.secondaryDark,
+    },
+    "& .MuiFormHelperText-root": {
+      color: COLORS.error,
+    },
+  };
+
+export const stylesDataGrid = {
+    width: '100%',
+    m: 0,
+    boxShadow: 4,
+    maxWidth: '100%',
+    borderColor: COLORS.secondaryLight,
+
+    '& .MuiDataGrid-toolbarContainer': {
+        '.MuiSvgIcon-root': {
+            color: COLORS.white
+        },
+        '.MuiButtonBase-root': {
+            color: COLORS.white
+        },
+        '.MuiInputBase-root': {
+            color: COLORS.white,
+            marginRight: 1,
+        },
+        '& .MuiInput-root:hover:not(.Mui-disabled, .Mui-error):before': {
+            borderBottom: '2px solid',
+            borderColor: COLORS.primaryLight
+        },
+        '& .Mui-disabled': {
+            color: COLORS.secondary,
+            '.MuiSvgIcon-root': {
+                color: COLORS.secondary
+            },
+        },
+        '.MuiInput-underline::before': {
+            borderBottom: '2px solid',
+            borderColor: COLORS.primaryLight
+        },
+        '.MuiInput-underline::after': {
+            borderBottom: '2px solid',
+            borderColor: COLORS.white
+        },
+        color: COLORS.white,
+        backgroundColor: COLORS.primary,
+        borderBottom: '1px solid',
+        borderColor: COLORS.secondaryLight,
+        borderRadius: 1
+    },
+
+    '.MuiDataGrid-toolbarQuickFilter .MuiInput-underline:before': {
+    borderColor: COLORS.secondary
+    },
+
+    '& .super-app-theme--header': {
+        backgroundColor: COLORS.primary,
+        color: COLORS.white,
+        fontWeight: 'bold',
+    },
+
+    '& .MuiDataGrid-cell': {
+        borderRight: 'none',
+        borderBottom: '1px solid',
+        borderColor: COLORS.secondaryLight
+    },
+
+    '& .MuiDataGrid-columnHeaders': {
+        backgroundColor: COLORS.primary,
+        color: COLORS.white,
+        fontWeight: "600",    
+    },
+
+    '& .MuiDataGrid-columnHeaderTitle': { 
+        fontWeight: 'bold !important'
+    },
+
+    '& .MuiDataGrid-footerContainer': {
+        borderBottom: '1px solid',
+        borderColor: COLORS.secondaryLight
+    },
+
+    '& .MuiDataGrid-columnHeaders .MuiSvgIcon-root': {
+        color: COLORS.white,
+        visibility: 'visible'
+    },
+
+    ".MuiDataGrid-columnHeader:last-child": {
+        backgroundColor: COLORS.primary
+    },
+
+    '& .MuiDataGrid-row': {
+        borderBottom: 'none !important', 
+    },
+
+    "& .MuiDataGrid-columnHeaderCheckbox .MuiCheckbox-root": {
+            display: "none",
+    },
+};
+
+export const stylesParams: CSSProperties = {
+    display: 'flex',
+    flexWrap: 'wrap',
+    maxWidth: '100%',
+    gap: '5px',
+};
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\utils\validations.ts
+/===============================================================================
+
+import dayjs from "dayjs";
+import { VALIDATIONS_TEXT } from "config/constants";
+import { FormField } from "interfaces/Utils/validations";
+
+export const validateFields = (values: Record<string, any>, names:Record<string, string>) => {
+    let errors = 0;
+    const updatedValues = { ...values };
+
+    for (const key of Object.keys(values)) {
+        const field = updatedValues[key];
+
+        const isInvalidDate = dayjs.isDayjs(field?.value) && !field.value.isValid();
+
+        if(field.disable){
+            field.helper = ""
+            field.error = false
+            continue;
+        }
+
+        if (!field?.value || isInvalidDate) {
+            updateError(field, VALIDATIONS_TEXT.fields.select.replace("replaceField", names[key]));
+            errors++;
+        } else {
+            updatedValues[key] = { ...field, error: false, helper: "" };
+        }
+    }
+
+    return { updatedValues, errors };
+}
+
+const updateError = (field: FormField, message: string) => {
+    field.helper = message;
+    field.error = true;
+};
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\App.tsx
+/===============================================================================
+
+import React from 'react';
+import { Provider } from 'react-redux';
+import { createTheme } from '@mui/material/styles';
+import { Router, Route, Routes} from 'react-router-dom';
+import { BrowserHistory, createBrowserHistory } from "history";
+
+import { OzonoData } from 'types';
+import { store } from './redux/store';
+import ThemeCustomization from 'styles';
+import { BASE_PATH, NAME, VERSION } from 'config/env';
+
+import DynamicReports from 'pages/Reports/DynamicReports';
+import useHistory from 'hooks/useHistory';
+import Navbar from 'components/Menu/Navbar';
+import { getMenuOptions } from 'utils/app'
+
+export let token: string | undefined = "";
+export let userEmail: string | undefined;
+export let userRol: string[] | undefined;
+
+const browserHistory = createBrowserHistory();
+
+function App({history = browserHistory, data}: Readonly<AppProps>): React.ReactElement {
+
+  token = data?.Authorization;
+  userEmail = data?.email;
+  userRol = data?.roles
+  const { historyState } = useHistory(history);
+
+  //Menu Options
+  const menu = getMenuOptions(BASE_PATH)
+
+  return (
+  <ThemeCustomization themes={data?.themes ?? createTheme()}>
+    <Provider store = {store}>
+      <Router location={historyState.location} navigator={history}>
+        <Routes>
+          <Route
+              path={BASE_PATH}
+              element={ <Navbar app={NAME} version={VERSION} options={menu} /> }
+            >
+              <Route path={""} element={<DynamicReports/> }/>
+          </Route>
+        </Routes> 
+      </Router>
+    </Provider>
+  </ThemeCustomization>
+  );
+}
+
+export interface AppProps {
+  history?: BrowserHistory;
+  data?: OzonoData;
+}
+
+export default App;
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\src\index.tsx
+/===============================================================================
+
+import ReactDOM from 'react-dom/client';
+import { BrowserHistory } from 'history';
+import { OzonoData } from './types';
+import App from 'App';
+
+declare global {
+  interface Window {
+  renderMicro: Function;
+  unmountMicro: Function;
+  }
+}
+
+// Render micro frontend function
+window.renderMicro = (history: BrowserHistory, data: OzonoData) => {
+  const root = ReactDOM.createRoot(document.getElementById('micro-container') as HTMLElement);
+  root.render(
+  <App history={history} data={data} />
+  );
+}
+
+// Unmount micro frontend function
+window.unmountMicro = () => {
+  const root = ReactDOM.createRoot(document.getElementById('micro-container') as HTMLElement);
+  root.unmount();
+};
+
+// Mount to root if it is not a micro frontend
+if (!document.getElementById('micro-container')) {
+const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
+root.render( <App /> );
+}
+
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\.env
+/===============================================================================
+
+REACT_APP_STAGE=$(stage)
+REACT_APP_BASE_PATH=/$(frontPath)
+REACT_APP_BACK_PATH=$(basePath)
+REACT_APP_BACK_URL_DEV=$(urlMultiprojectsDEV)
+REACT_APP_BACK_URL_UAT=$(urlMultiprojectsUAT)
+REACT_APP_BACK_URL_PDN=$(urlMultiprojectsPDN)
+
+REACT_APP_NAME=$(nameApp)
+REACT_APP_VERSION=$(versionApp)
+
+HTTPS=true
+GENERATE_SOURCEMAP=false
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\azure-pipeline.yml
+/===============================================================================
+
+trigger:
+  branches:
+    include:
+    - development
+    - release
+    - master
+  paths:
+    include:
+    - '*'
+    exclude:
+    - azure-pipeline.yml
+
+resources:
+  repositories:
+  - repository: devops-templates
+    type: git
+    name: devops-templates
+    ref: master
+  
+variables:
+  - name: stage
+    ${{ if eq(variables['Build.SourceBranchName'], 'development') }}:
+      value: dev
+    ${{ elseif eq(variables['Build.SourceBranchName'], 'release') }}:
+      value: uat
+    ${{ elseif eq(variables['Build.SourceBranchName'], 'master') }}:
+      value: pdn
+  
+  - name: region
+    value: us-east-1
+
+  - name: awsCredentials
+    value: OZONO-MULTIPROJECTS-${{upper(variables.stage)}}
+
+  - group: ozono-chronos-tags
+  - group: ozono-chronos
+  - group: ozono-transversal
+
+  - name: frontPath
+    value: $(frontPathChronos)
+
+  - name: nodeVersion
+    value: '20'
+  
+stages:
+  - template: main.yml@devops-templates
+    parameters:
+      service: cloudfront
+      resource: front
+      code: node
+      type: client
+      workPath: $(System.DefaultWorkingDirectory)
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\package.json
+/===============================================================================
+
+{
+  "name": "ozono-chronos",
+  "homepage": "process/chronos",
+  "version": "0.0.3",
+  "private": true,
+  "dependencies": {
+    "@emotion/react": "^11.13.3",
+    "@emotion/styled": "^11.13.0",
+    "@mui/icons-material": "^5.16.14",
+    "@mui/material": "^5.16.14",
+    "@mui/x-data-grid-pro": "6.19.3",
+    "@mui/x-date-pickers": "6.19.2",
+    "@reduxjs/toolkit": "^1.9.7",
+    "@testing-library/jest-dom": "^6.5.0",
+    "@testing-library/react": "^16.0.1",
+    "@testing-library/user-event": "^14.5.2",
+    "@types/jest": "^27.5.2",
+    "@types/node": "^16.18.101",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "axios": "^1.5.0",
+    "dayjs": "1.11.12",
+    "dotenv": "^16.4.7",
+    "history": "^5.3.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-number-format": "^5.4.2",
+    "react-redux": "^8.1.2",
+    "react-router-dom": "^6.28.1",
+    "react-scripts": "5.0.1",
+    "redux-thunk": "^2.4.2",
+    "testing-library": "^0.0.2",
+    "typescript": "^4.9.5",
+    "util": "^0.12.5"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test --watchAll=false",
+    "test:coverage": "npm run test -- --coverage",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@types/redux-mock-store": "^1.5.0",
+    "redux-mock-store": "^1.5.5"
+  },
+  "jest": {
+    "collectCoverageFrom": [
+      "src/**/*.{js,jsx,ts,tsx}",
+      "!src/index.js",
+      "!src/styles/**",
+      "!src/index.tsx",
+      "!src/redux/store.ts",
+      "!src/__tests__/__mocks__/**"
+    ],
+    "moduleNameMapper": {
+      "axios": "axios/dist/node/axios.cjs"
+    }
+  }
+}
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\README.md
+/===============================================================================
+
+![Logo](https://btgpactual.com.co/sites/default/files/btg%20pactual%20-%20logo.png)
+
+
+# CHRONOS REPORTS
+
+The goal of Chronos is to consolidate and centralize the generation of regulatory reports, providing a platform that exposes, makes available, and stores various reports for the different operational areas of BTG.
+
+This system not only facilitates the automatic and efficient generation of reports required by regulatory standards but also allows users to query, manage, and store these reports in an accessible and reliable manner. Through its intuitive interface, users can generate and view reports, contributing to more effective compliance with regulations.
+
+Chronos is designed to optimize the access and management of reports, ensuring a scalable, flexible solution that is aligned with the regulatory needs of the organization. Its architecture supports integration with various systems, enabling adaptation to regulatory changes and the expansion of operational areas.
+
+
+## Acknowledgements
+
+We would like to express our appreciation to all contributors who have supported the development of Chronos Reports so far. This project is still in progress, and the collaboration and efforts of various teams and individuals have been invaluable in reaching the current stage.
+
+
+## Documentation
+
+The project documentation is available at the following link, where you can find detailed information about the project's objectives, architecture, functionalities, and usage guidelines. This documentation will help users understand how to interact with the system, as well as provide insights into its implementation and key features.
+
+[Documentation](https://btgpactual.atlassian.net/wiki/spaces/APPITCO/pages/5073469974/Chronos)
+
+
+## 🔗 Links
+These are the important repositories of the project, containing the core code, configuration files, and necessary resources for development and deployment. Each repository serves a specific purpose in the overall architecture of the project, providing several functionalities.
+
+ - [ozono-chronos-sql](https://dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/ozono-chronos-sql)
+ - [ozono-chronos-resources](https://dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/ozono-chronos-resources)
+ - [ozono-chronos-back](https://dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/ozono-chronos-back)
+
+
+## Tech Stack
+
+**Framework:**  React.js, Typescript
+**Styling:** Material-UI (MUI)   
+**State Management:** Redux
+**API Communication:** Axios
+
+
+## Roadmap
+
+This document outlines the project's structure, which is organized into directories and files to streamline development and maintainability. Below is the detailed structure with an explanation of each major section.
+
+```plaintext
+├── .git/
+├── node_modules/
+├── public/
+├── src/
+│   ├── components/
+│   │   ├── Menu/                               #Elementos relacionados con el menú, como el `Navbar` y los elementos de su contenido
+│   │   │   ├── Content/
+│   │   │   │   ├── ItemLink.tsx
+│   │   │   │   ├── ItemsCard.tsx
+│   │   │   │   └── SubNavbar.tsx
+│   │   │   └── Navbar.tsx
+│   │   ├── Reports/                            #Componentes que gestionan los reportes, incluidos los informes FATCA-CRS
+│   │   │   ├── Fatca-CRS/
+│   │   │   │   └── FatcaReportParameters.tsx
+│   │   │   ├── HistoryTable.tsx
+│   │   │   └── InitialView.tsx
+│   │   └── Utils/                              #Componentes auxiliares como campos personalizados de fecha (`CustomDateField`) y tablas de datos (`DataTable`)
+│   │       ├── CustomDateField.tsx
+│   │       ├── CustomSelect.tsx
+│   │       └── DataTable.tsx
+│   ├── config/                                 #Configura constantes y variables globales
+│   │   ├── constants.ts
+│   │   └── env.ts
+│   ├── hooks/                                  #Contiene hooks personalizados para la lógica de la aplicación
+│   │   ├── components/
+│   │   │   ├── Menu/
+│   │   │   │   └── useNavbar.tsx
+│   │   │   ├── Reports/
+│   │   │   │   ├── useHistoryTable.tsx
+│   │   │   │   └── useInitialView.ts
+│   │   │   └── Utils/
+│   │   │       └── useUtils.tsx
+│   │   └── useHistory.ts
+│   ├── interfaces/                             #Define las interfaces TypeScript utilizadas en todo el código
+│   │   └── Menu/
+│   │       └── navbar.ts
+│   ├── pages/                                  #Contiene los componentes de página
+│   │   ├── Home.tsx
+│   │   └── Reports.tsx
+│   ├── redux/                                  #Contiene la configuración de la tienda de Redux
+│   │   └── store.ts
+│   ├── styles/                                 #Archivos de estilo global para la interfaz de usuario
+│   │   ├── overrides/
+│   │   │   ├── Badge.js
+│   │   │   ├── Button.js
+│   │   │   ├── CardContent.js
+│   │   │   ├── Checkbox.js
+│   │   │   ├── Chip.js
+│   │   │   ├── index.js
+│   │   │   ├── LinearProgress.js
+│   │   │   ├── Link.js
+│   │   │   ├── ListItemIcon.js
+│   │   │   ├── Tab.js
+│   │   │   ├── TableCell.js
+│   │   │   ├── Tabs.js
+│   │   │   └── Typography.js
+│   │   ├── index.js
+│   │   ├── index.tsx
+│   │   ├── palette.js
+│   │   ├── shadows.js
+│   │   └── typography.js
+│   ├── types/                                  #Define los tipos y interfaces de la aplicación
+│   │   ├── components/
+│   │   │   ├── Reports/
+│   │   │   │   └── reports.d.ts
+│   │   │   └── Utils/
+│   │   │       └── utils.d.ts
+│   │   └── index.d.ts
+│   ├── utils/                                  #Funciones auxiliares o utilitarias utilizadas en toda la aplicación
+│   │   ├── app.ts
+│   │   └── styles.ts
+│   ├── App.tsx
+│   └── index.tsx
+├── .env.local
+├── .gitignore
+├── package-lock.json
+├── package.json
+├── README.md
+└── tsconfig.json
+
+```
+
+Additionally, the system's current data source is the Ozono database, which uses PostgreSQL as its database engine and is hosted on AWS RDS. For further details, please refer to the previously shared documentation.
+
+## Environment Variables
+
+To run this project, you will need to add the following environment variables to your .env.local file
+
+`REACT_APP_BASE_PATH`
+`REACT_APP_BACK_URL_DEV`
+`REACT_APP_BACK_PATH`
+`REACT_APP_STAGE`
+`REACT_APP_NAME`
+`REACT_APP_VERSION`
+`HTTPS`
+    
+## Run Locally
+
+Clone the project
+
+```bash
+  git clone https://BTGColombia@dev.azure.com/BTGColombia/BTG%20Colombia%20Desarrollo/_git/ozono-chronos-front
+
+Go to the project directory
+
+```bash
+  cd src
+```
+
+Install dependencies
+
+```bash
+  npm i
+```
+
+Start the server
+
+```bash
+  npm start
+```
+
+## Running Tests
+
+To run tests:
+
+```bash
+  npm run test:coverage
+```
+
+## Deployment
+
+To deploy this project, ensure the following steps are completed:
+
+1. **Environment Variables**: Confirm that all required environment variables are properly configured. Refer to the `.env` file for guidance.
+2. **Push to Azure DevOps**: Push your changes to the corresponding branch in your Azure DevOps repository.
+3. **Create a Pull Request (PR)**: Open a PR to review and approve the changes before merging.
+4. **Deploy to the Target Environment**: Once the PR is approved and merged, the changes will be deployed to the desired environment (e.g., development, release, or production) via the configured CI/CD pipeline.
+
+### Notes
+- The deployment process is automated through the pipeline defined in the `azure-pipeline.yml` file.
+- Ensure you have the necessary permissions to push changes and trigger deployments.
+- If any issues arise during the deployment, consult the pipeline logs in Azure DevOps for troubleshooting.
+
+## Authors
+
+- [Maria Arango](maria.arango@btgpactual.com)
+- [Vanessa Velez](vanessa.velez@btgpactual.com)
+
+
+## Support
+
+For support:
+- Version: 0.0.3 (HU: 83244)
+- Description: Refactor of Chronos Front to able the render of dynamic parameters of different reports  vanessa.velez@btgpactual.com, maria.arango@btgpactual.com
+
+- [Maria Arango](maria.arango@btgpactual.com)
+- [Vanessa Velez](vanessa.velez@btgpactual.com)
+- [Sebastian Correa](sebastian.correa@btgpactual.com)
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-front\tsconfig.json
+/===============================================================================
+
+{
+  "compilerOptions": {
+    "target": "es6",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "baseUrl": "src",
+  },
+  "include": [
+    "./src"
+  ],
+  "exclude": [
+    "node modules"
+  ]
+}
+

@@ -1,0 +1,2576 @@
+// Last update transaction car: 2025-07-16 15:10:53.066398
+// Total files: 61
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\iac\general\custom.yml
+/===============================================================================
+
+stage: ${opt:stage, "no_stage"}
+
+#Proyecto
+tz:                         America/Bogota
+region:                     ${env:region}
+networkStackName:           ${env:networkStackName}
+deploymentBucketName:       ${env:deploymentBucketName}
+infraApigtwStackName:       ${env:infraApigtwStackName}
+projectApigtwStackName:     ${env:projectApigtwStackName}
+mainProject:                ${env:mainProject} # ozono
+project:                    ${env:project} #chronos
+projectFullName:            ${self:custom.mainProject}-${self:custom.project}
+resourcesStackName:         ${self:custom.mainProject}-muric-resources-${self:custom.stage}
+muricResourcesStackName:    ${self:custom.projectFullName}-muric-${self:custom.stage}
+# basePath:                   ${env:basePath}/v1
+
+layersStackName:            ${env:layersStackName}
+psycopg2LayerArn:           ${cf:${self:custom.layersStackName}.Psycopg2LambdaLayerQualifiedArn}
+
+kmsARNStage:
+  dev:                       ${env:arnKmsDEV}
+  uat:                       ${env:arnKmsUAT}
+  pdn:                       ${env:arnKmsPDN}
+kmsARN:                      ${self:custom.kmsARNStage.${self:custom.stage}}
+
+# GraphQL URLs por ambiente
+clientsGraphqlUrlStage:
+  dev: ${env:clientsGraphqlUrlDEV}
+  uat: ${env:clientsGraphqlUrlUAT}
+  pdn: ${env:clientsGraphqlUrlPDN}
+clientsGraphqlUrl: ${self:custom.clientsGraphqlUrlStage.${self:custom.stage}}
+
+creditsGraphqlUrlStage:
+  dev: ${env:creditsGraphqlUrlDEV}
+  uat: ${env:creditsGraphqlUrlUAT}
+  pdn: ${env:creditsGraphqlUrlPDN}
+creditsGraphqlUrl: ${self:custom.creditsGraphqlUrlStage.${self:custom.stage}}
+
+dbOzonoCredentials:         ${cf:${self:custom.resourcesStackName}.dbOzonoCredentials}
+
+reportMuricBucketName:        ${cf:${self:custom.resourcesStackName}.MuricReportBucketName}
+reportsBucketARN:             ${cf:${self:custom.resourcesStackName}.MuricReportBucketQualifiedArn}
+
+ssmParameterStoreArn:       arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${self:custom.projectFullName}
+
+pythonRequirements:
+  slim: true
+  strip: false
+
+# #AWS Batch Configs
+jobBatchTimeOut:            ${env:jobBatchTimeOut}
+jobBatchReqVcpu:            ${env:jobBatchReqVcpu}
+jobBatchReqMemory:          ${env:jobBatchReqMemory}
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\iac\general\provider.yml
+/===============================================================================
+
+name: aws
+stage: ${self:custom.stage}
+runtime: python3.11
+lambdaHashingVersion: 20201221
+deploymentBucket:
+  name: ${self:custom.deploymentBucketName}
+  maxPreviousDeploymentArtifacts: 10
+apiGateway:
+  # restApiId: ${cf:${self:custom.projectApigtwStackName}.ApiId} 
+  # restApiRootResourceId: ${cf:${self:custom.resourcesStackName}.ChronosVersion1Path}
+stackTags: ${file(./iac/general/tags.yml)}
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\iac\general\tags.yml
+/===============================================================================
+
+Ambiente: ${self:custom.stage}
+Disponibilidad: ${env:disponibility}
+Celula: ${env:cell}
+Despliegue: ${env:deployment}
+Compania: ${env:company}
+Aplicativo: ${env:app}
+Area: ${env:area}
+Producto: ${env:product}
+Proyecto: ${env:projectName}
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\iac\general\vpc.yml
+/===============================================================================
+
+securityGroupIds:
+  - ${cf:${self:custom.infraApigtwStackName}.DefaultLambdaSecurityGroupID}
+subnetIds:
+  - ${cf:${self:custom.networkStackName}.PrivateSubnet1EC2}
+  - ${cf:${self:custom.networkStackName}.PrivateSubnet2EC2}
+  - ${cf:${self:custom.networkStackName}.PrivateSubnet3EC2}
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\iac\resources\awsBatch\jobDefinition\genMuricReportJobDefinition.yml
+/===============================================================================
+
+Type: AWS::Batch::JobDefinition
+Properties:
+  JobDefinitionName: jd-${self:custom.projectFullName}-${self:custom.stage}-generate-muric-report-execution
+  Type: container
+  ContainerProperties:
+    Environment: 
+      - Name: "REPORTS_BUCKET_NAME"
+        Value: ${self:custom.reportMuricBucketName}
+      - Name: "CLIENTS_GRAPHQL_URL"
+        Value: ${self:custom.clientsGraphqlUrl}
+      - Name: "CREDITS_GRAPHQL_URL"
+        Value: ${self:custom.creditsGraphqlUrl}
+      - Name: "STAGE"
+        Value: ${self:custom.stage}
+    ExecutionRoleArn: !GetAtt muricBatchExecutionRole.Arn
+    FargatePlatformConfiguration:
+      PlatformVersion: LATEST
+    Image: !Sub "${muricReportImageRepository.RepositoryUri}:latest"
+    JobRoleArn: !Ref muricBatchExecutionRole
+    NetworkConfiguration:
+      AssignPublicIp: ENABLED
+    ResourceRequirements:
+      - Type: VCPU
+        Value: ${self:custom.jobBatchReqVcpu}
+      - Type: MEMORY
+        Value: ${self:custom.jobBatchReqMemory}
+    Secrets:
+      - Name: "DB_OZONO_CREDENTIALS"
+        ValueFrom: ${self:custom.dbOzonoCredentials}
+  RetryStrategy:
+    Attempts: 1
+  Timeout:
+    AttemptDurationSeconds: ${self:custom.jobBatchTimeOut} #Tiempo de ejecución antes de timeout en segundos
+  PlatformCapabilities: 
+    - FARGATE
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\iac\resources\ecr\muricReportContainer.yml
+/===============================================================================
+
+Type: AWS::ECR::Repository
+Properties:
+  RepositoryName: ecr-${self:custom.projectFullName}-${self:custom.stage}-muric-report
+  EncryptionConfiguration: 
+    EncryptionType: KMS
+    KmsKey: ${self:custom.kmsARN}
+  ImageScanningConfiguration:
+    ScanOnPush: True
+  ImageTagMutability: MUTABLE
+  LifecyclePolicy:
+    LifecyclePolicyText: |
+      {
+        "rules": [
+          {
+            "rulePriority": 1,
+            "description": "Keep only the 5 most recent image versions",
+            "selection": {
+              "tagStatus": "any",
+              "countType": "imageCountMoreThan",
+              "countNumber": 5
+            },
+            "action": {
+              "type": "expire"
+            }
+          }
+        ]
+      }
+  RepositoryPolicyText:
+    Version: "2012-10-17"
+    Statement:
+      - Effect: Allow
+        Principal:
+          AWS: !Sub arn:aws:iam::${AWS::AccountId}:user/svc_Ozono
+        Action:
+          - ecr:InitiateLayerUpload
+          - ecr:UploadLayerPart
+          - ecr:CompleteLayerUpload
+          - ecr:PutImage
+          - ecr:BatchCheckLayerAvailability
+          - ecr:ListImages
+          - ecr:DescribeImages
+          - ecr:GetDownloadUrlForLayer
+          - ecr:BatchGetImage
+
+  Tags:
+    - Key: Name
+      Value: ecr-${self:custom.projectFullName}-${self:custom.stage}-muric-report
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\iac\resources\iamRoles\muricBatchExecutionRole.yml
+/===============================================================================
+
+Type: AWS::IAM::Role
+Properties:
+  RoleName: iam-${self:custom.projectFullName}-${self:custom.stage}-muric-batch-exec
+  AssumeRolePolicyDocument:
+    Version: '2012-10-17'
+    Statement:
+      - Effect: Allow
+        Principal:
+          Service: batch.amazonaws.com
+        Action: sts:AssumeRole
+      - Effect: Allow
+        Principal:
+          Service: ecs-tasks.amazonaws.com
+        Action: sts:AssumeRole
+  ManagedPolicyArns:
+    - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+    - arn:aws:iam::aws:policy/service-role/AWSBatchServiceEventTargetRole
+  Policies:
+    - PolicyName: iam-${self:custom.projectFullName}-muric-batch-execution-policy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:GetObject
+              - s3:GetObjectVersion
+              - s3:ListBucket
+            Resource: 
+              - ${cf:${self:custom.resourcesStackName}.MuricReportBucketQualifiedArn}
+              - "${cf:${self:custom.resourcesStackName}.MuricReportBucketQualifiedArn}/*"
+          - Effect: Allow
+            Action:
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: arn:aws:logs:*:*:log-group:/aws/batch/job-logs:*
+          - Effect: Allow
+            Action:
+              - secretsmanager:GetSecretValue
+            Resource: 
+              - ${self:custom.dbOzonoCredentials}
+          - Effect: Allow
+            Action:
+              - kms:Decrypt
+            Resource: ${self:custom.kmsARN}
+          - Effect: Allow
+            Action:
+              - ssm:GetParameters
+              - secretsmanager:GetSecretValue
+            Resource:
+              - ${self:custom.dbOzonoCredentials}
+              - !Sub "${self:custom.ssmParameterStoreArn}-dbOzonoCredentials"
+  Tags:
+    - Key: Name
+      Value: iam-${self:custom.projectFullName}-${self:custom.stage}-muric-batch-execution-role
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\iac\resources\ssmParameters\muricConfigParameter.yml
+/===============================================================================
+
+Type: AWS::SSM::Parameter
+DependsOn:
+  - genMuricReportJobDefinition
+Properties:
+  Name: "/ozono/chronos/reports/Muric"
+  Type: String
+  Value: !Sub "jd-${self:custom.projectFullName}-${self:custom.stage}-generate-muric-report-execution"
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\config\logger.py
+/===============================================================================
+
+"""" This module contains the logger used in the project. """
+
+import logging
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\config\settings.py
+/===============================================================================
+
+import os
+# from dotenv import load_dotenv
+
+# load_dotenv()
+
+class Settings:
+    UNITY_API_URL = os.environ.get("UNITY_API_URL")
+    CREDITOS_API_URL = os.environ.get("CREDITOS_API_URL")
+    CONTRAPARTES_API_URL = os.environ.get("CONTRAPARTES_API_URL")
+    
+    UNITY_CLIENT_ID = os.environ.get("UNITY_CLIENT_ID")
+    UNITY_CLIENT_SECRET = os.environ.get("UNITY_CLIENT_SECRET")
+    UNITY_RESOURCE = os.environ.get("UNITY_RESOURCE")
+    UNITY_AUTH_URL = os.environ.get("UNITY_AUTH_URL")
+
+    AWS_S3_BUCKET_NAME = os.environ.get("AWS_S3_BUCKET_NAME")
+    REPORTS_BUCKET_NAME = os.environ.get("REPORTS_BUCKET_NAME")
+    
+    AWS_ACCESS_KEY_ID = os.environ.get("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
+    AWS_SESSION_TOKEN = os.environ.get("AWS_SESSION_TOKEN")
+    AWS_REGION = os.environ.get("AWS_REGION")
+
+    INTEGRATION_URL = os.environ.get("INTEGRATION_URL")
+
+    AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
+    USE_MOCK = os.environ.get("USE_MOCK", "false").lower() == "true"
+
+    UNITY_CLIENT_ID = os.environ.get("UNITY_CLIENT_ID")
+    UNITY_CLIENT_SECRET = os.environ.get("UNITY_CLIENT_SECRET")
+    UNITY_RESOURCE = os.environ.get("UNITY_RESOURCE")
+    FACTORING_URL = os.environ.get("FACTORING_URL")
+
+    UNITY_CREDENTIALS = {
+        "client_id": UNITY_CLIENT_ID,
+        "client_secret": UNITY_CLIENT_SECRET,
+        "resource": UNITY_RESOURCE
+    }
+
+    CREDITS_GRAPHQL_URL = os.environ.get("CREDITS_GRAPHQL_URL")
+    CLIENTS_GRAPHQL_URL = os.environ.get("CLIENTS_GRAPHQL_URL")
+
+settings = Settings()
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\entities\mapper\credit_mapper.py
+/===============================================================================
+
+# src/entities/mapper/ruc/credit_mapper.py
+
+from pydantic import BaseModel
+from typing import Optional
+
+class CreditAvroMapper(BaseModel):
+    identificacion_credito_entidad: str
+    tipo_identificacion: str
+    numero_identificacion: str
+    modalidad: str
+    codigo_producto: str
+    calidad_deudor: str
+    fecha_desembolso: int
+    fecha_vencimiento: Optional[int]
+    valor_desembolsado: float
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\entities\mapper\demographic_mapper.py
+/===============================================================================
+
+# src/entities/mapper/ruc/demografico_mapper.py
+
+from pydantic import BaseModel
+
+class DemograficoAvroMapper(BaseModel):
+    identificacion_credito_entidad: str
+    tipo_identificacion: str
+    numero_identificacion: str
+    clave_atributo: int
+    valor_atributo: str
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\entities\mapper\movement_mapper.py
+/===============================================================================
+
+# src/entities/mapper/ruc/movimiento_mapper.py
+
+from pydantic import BaseModel
+from typing import Optional
+
+class MovimientoAvroMapper(BaseModel):
+    identificacion_credito_entidad: str
+    tipo_identificacion: str
+    numero_identificacion: str
+    fecha_corte: int
+    calificacion_credito: str
+    estado: str
+    periodo_gracia: str
+    dias_mora: int
+    tasa_interes: float
+    spread_tasa_interes: float
+    saldo_capital: float
+    saldo_intereses: float
+    saldo_otros: float
+    modelo_provisiones: str
+    provision_prociclica: float
+    provision_contraciclica: float
+    provision_adicional_politica_entidad: float
+    provision_otros: float
+    provision_total: float
+    cuota_esperada_capital: float
+    cuota_esperada_intereses: float
+    cuota_recibida_capital: float
+    cuota_recibida_intereses: float
+    fecha_garantia: Optional[int]
+    valor_garantia: Optional[float]
+    probabilidad_incumplimiento_credito: float
+    perdida_dado_incumplimiento: float
+    estado_registro: str
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\interceptors\interceptor_custom.py
+/===============================================================================
+
+"""" This module contains the interceptor_custom used in the project """
+from functools import wraps
+from src.config.logger import logger
+
+
+def interceptor_custom(func):
+    """
+        Wrapper function to handle exceptions.
+
+        Args:
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+
+        Returns:
+            Any: The result of the wrapped function or a JSON response with a 500 status code if an exception is raised.
+        """
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        """
+        Wrapper function to handle exceptions.
+
+        Args:
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+
+        Returns:
+            Any: The result of the wrapped function or None if an exception is raised.
+        """
+
+        try:
+            return func(*args, **kwargs)
+        except Exception as ex:
+            logger.error(f'::{func.__name__}::except::')
+            logger.error(str(ex))
+            raise
+
+    return wrapper
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\interceptors\interceptor_http.py
+/===============================================================================
+
+"""" This module contains the interceptor_http used in the project """
+from functools import wraps
+from fastapi import status
+from src.config.logger import logger
+from fastapi.responses import JSONResponse
+
+
+def interceptor_http(func):
+    """
+    A decorator that wraps the passed in function and logs exceptions should one occur.
+    It returns a JSON response with a 500 status code if an exception is raised.
+
+    Args:
+        func (function): The function to be wrapped.
+
+    Returns:
+        function: The wrapped function.
+    """
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        """
+        Wrapper function to handle exceptions.
+
+        Args:
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+
+        Returns:
+            Any: The result of the wrapped function or a JSON response with a 500 status code if an exception is raised.
+        """
+        try:
+            result = func(*args, **kwargs)
+            return result
+        except Exception as ex:
+            logger.error(f'::{func.__name__}::except::')
+            logger.error(str(ex))
+            response = {'message': 'Ocurrió un error al procesar la solicitud'}
+            return JSONResponse(content=response, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    return wrapper
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\interfaces\resources\apis\api_authenticator_resource_interface.py
+/===============================================================================
+
+"""" This module contains the Authorization Interface used in the project. """
+
+from abc import ABC, abstractmethod
+
+class IApiAuthenticatorResource(ABC):
+    """
+    Abstract base class for authorization class.
+
+    This interface defines the methods that any authorization implementation must provide.
+
+    """
+
+    @abstractmethod
+    def get_token(self) -> str:
+       pass
+        
+        
+    @abstractmethod
+    def _is_token_expired(self) -> bool:
+        pass        
+    
+    
+    @abstractmethod
+    def _refresh_token(self):
+        pass
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\interfaces\resources\apis\api_consumer_interface.py
+/===============================================================================
+
+from abc import ABC, abstractmethod
+from typing import Optional
+
+class IApiConsumerResource(ABC):
+    @abstractmethod
+    def request(self, method: str, url: str, params: dict = {}, body: dict = {}) -> Optional[dict]:
+        pass
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\interfaces\services\dependencies\base_strategy.py
+/===============================================================================
+
+from abc import ABC, abstractmethod
+from src.interfaces.services.providers.report_data_provider import IReportDataProvider
+
+class IEntityDependencyStrategy(ABC):
+    @abstractmethod
+    def get_provider(self, params: dict) -> IReportDataProvider:
+        pass
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\interfaces\services\providers\report_data_provider.py
+/===============================================================================
+
+from abc import ABC, abstractmethod
+from typing import Any
+
+class IReportDataProvider(ABC):
+    @abstractmethod
+    def get_data(self, params: dict) -> Any:
+        pass
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\resources\apis\api_clients_resource_mock.py
+/===============================================================================
+
+"""
+This module contains a mock of the Clients API resource for local/test use.
+"""
+
+from src.interfaces.resources.apis.api_authenticator_resource_interface import IApiAuthenticatorResource
+from src.resources.api_consumer_resource import ApiConsumerResource
+
+
+class ApiClientsResourceMock(ApiConsumerResource):
+    """
+    Mock class to simulate client data response from Clients API.
+    """
+
+    def __init__(self, authenticator: IApiAuthenticatorResource = None):
+        super().__init__()
+
+    async def get_clients_data(self, client_type: str, document_type: str):
+        """
+        Returns mock client data.
+        """
+        return [
+            {
+                "id": "1",
+                "name": "Juan Pérez",
+                "documentNumber": "123456789",
+                "documentType": document_type,
+            },
+            {
+                "id": "2",
+                "name": "Ana Gómez",
+                "documentNumber": "987654321",
+                "documentType": document_type,
+            }
+        ]
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-reports\iac\terraform\micro_services\contrapartes\dev\backend.tf
+/===============================================================================
+
+terraform {
+  backend "s3" {
+    bucket = "btg.dev.analytics.terraform"
+    key    = "analytics/reports/contrapartes/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\resources\apis\api_clients_resource.py
+/===============================================================================
+
+from src.resources.api_graphql_consumer_resource import ApiGraphQLConsumerResource
+
+class ApiClientsResource:
+
+    def __init__(self, graphql_url: str):
+        self.consumer = ApiGraphQLConsumerResource(graphql_url)
+
+    def get_clients_by_cge_codes(self, cge_codes: list) -> list:
+        """
+        Consulta paginada a getClients filtrando por cgeCodes.
+        """
+        query = """
+        query GetClients($pagination: PaginationInput, $cgeCodes: [Int!]) {
+          getClients(pagination: $pagination, cgeCodes: $cgeCodes) {
+            clients {
+              uniqueCode
+              identificationNumber
+              documentType
+              cgeCode
+              firstName
+              middleName
+              lastName
+              companyName
+            }
+            pagination {
+              count
+              next
+              previous
+            }
+          }
+        }
+        """
+
+        all_clients = []
+        page = 0
+        records_per_page = 100
+
+        while True:
+            variables = {
+                "pagination": {
+                    "page": page,
+                    "records": records_per_page
+                },
+                "cgeCodes": cge_codes
+            }
+
+            data = self.consumer.execute_query(query=query, variables=variables)
+
+            clients_response = data.get("data", {}).get("getClients")
+            if not clients_response:
+                print(f"❌ Error en respuesta de API de clients: {data}")
+                break
+
+            clients_page = clients_response.get("clients", [])
+            all_clients.extend(clients_page)
+
+            if not clients_response.get("pagination", {}).get("next"):
+                break
+
+            page += 1
+
+        return all_clients
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\resources\apis\api_credits_resource_mock.py
+/===============================================================================
+
+"""Mock version of the Credits API resource for local/testing environments."""
+
+from src.interfaces.resources.apis.api_authenticator_resource_interface import IApiAuthenticatorResource
+from src.resources.api_consumer_resource import ApiConsumerResource
+from src.interceptors.interceptor_http import interceptor_http
+
+
+class ApiCreditsResourceMock(ApiConsumerResource):
+    """
+    Mocked resource class to simulate credit product data.
+    """
+    def __init__(self, authenticator: IApiAuthenticatorResource):
+        super().__init__(authenticator)
+
+    @interceptor_http
+    def get_products_by_position_date(self, position_date: str):
+        """
+        Returns mocked credit product data.
+        """
+        return [
+            {
+                "contractNumber": "123456",
+                "counterpartyId": "COP0001",
+                "productType": "LOAN",
+                "currency": "COP",
+                "positionDate": position_date,
+                "balance": 15000000
+            },
+            {
+                "contractNumber": "654321",
+                "counterpartyId": "COP0002",
+                "productType": "LEASING",
+                "currency": "USD",
+                "positionDate": position_date,
+                "balance": 4000000
+            }
+        ]
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\resources\apis\api_credits_resource.py
+/===============================================================================
+
+from src.resources.api_graphql_consumer_resource import ApiGraphQLConsumerResource
+from src.config.logger import logger
+
+class ApiCreditsResource:
+
+    def __init__(self, graphql_url: str):
+        self.consumer = ApiGraphQLConsumerResource(graphql_url)
+        print(f"🔗 Inicializando ApiCreditsResource con URL print: {graphql_url}")
+        logger.info(f"🔗 ApiCreditsResource inicializado con URL logger: {graphql_url}")
+
+    def get_products(self, fechas: list) -> list:
+        query = """
+        query GetProducts($positionDate: [String!], $pagination: PaginationInput) {
+          getProducts(positionDate: $positionDate, pagination: $pagination) {
+            products {
+              contractNumber
+              operationCurrency
+              disbursementDate
+              positionDate
+              counterpartyId
+            }
+            pagination {
+              count
+              next
+              previous
+            }
+          }
+        }
+        """
+
+        all_products = []
+        page = 0
+        records_per_page = 100
+
+        while True:
+            variables = {
+                "positionDate": fechas,
+                "pagination": {
+                    "page": page,
+                    "records": records_per_page
+                }
+            }
+
+            data = self.consumer.execute_query(query=query, variables=variables)
+            if not data or not data.get("data") or "getProducts" not in data["data"]:
+              print(f"❌ Respuesta inválida o vacía en créditos - page {page}: {data}")
+              break
+            products_response = data.get("data", {}).get("getProducts")
+            if not products_response:
+                break
+
+            products_page = products_response.get("products", [])
+            all_products.extend(products_page)
+
+            if not products_response.get("pagination", {}).get("next"):
+                break
+
+            page += 1
+
+        return all_products
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\resources\apis\api_unity_resource.py
+/===============================================================================
+
+
+from src.resources.api_consumer_resource import ApiConsumerResource
+from src.interceptors.interceptor_http import interceptor_http
+from src.config.settings import Settings
+
+class ApiUnityFactoringResource(ApiConsumerResource):
+    """
+    Recurso para consultar operaciones de factoring desde la API de Unity
+    utilizando autenticación OAuth2. Sin paginación.
+    """
+
+    def __init__(self, authenticator):
+        super().__init__(authenticator)
+        self.url = f"{Settings.INTEGRATION_URL}/unity/productos-financieros/v1/factoring-operations"
+
+    @interceptor_http
+    def get_factoring_operations(self, date: str):
+        """
+        Consulta todas las operaciones de factoring para una fecha dada.
+
+        :param date: Fecha de corte (formato YYYY-MM-DD)
+        :return: Lista de operaciones (dicts)
+        """
+        params = {
+            "date": date
+        }
+
+        response = self.simple_get(url=self.url, query_params=params)
+
+        if not response:
+            return []
+
+        # La API puede devolver directamente una lista, o un dict con items (por si acaso)
+        if isinstance(response, list):
+            return response
+        elif isinstance(response, dict) and "items" in response:
+            return response["items"]
+        else:
+            print("⚠️ Formato inesperado de respuesta:", response)
+            return []
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\resources\api_authenticator_resource.py
+/===============================================================================
+
+from datetime import datetime, timedelta
+import json
+import requests
+
+from src.interfaces.resources.apis.api_authenticator_resource_interface import IApiAuthenticatorResource
+from src.utils.constants import CONTENT_TYPE_AUTHENTICATOR, TOKEN_TYPE, GRANT_TYPE
+
+
+class ApiAuthenticatorResource(IApiAuthenticatorResource):
+    
+    def __init__(self, credentials: dict, auth_url: str = None):
+        
+        if not credentials:
+            raise ValueError(str("AuthorizationToken: Error al obtener las credenciales"))
+        
+        self.credentials = json.loads(credentials) if isinstance(credentials, str) else credentials
+        self.auth_url = auth_url
+        self.token = None
+        self.token_expiration = None
+        
+        
+    def get_token(self) -> str:
+        
+        if self._is_token_expired():
+            self._refresh_token()
+        
+        return self.token.get("access_token")    
+        
+        
+    def _is_token_expired(self) -> bool:
+        return not self.token or datetime.now() >= self.token_expiration
+    
+    
+    def _refresh_token(self):
+        headers = {
+            'Content-Type': CONTENT_TYPE_AUTHENTICATOR,
+            'grant_type': GRANT_TYPE
+        }
+    
+        payload = {
+            'client_id': self.credentials["client_id"],
+        'client_secret': self.credentials["client_secret"],
+        'resource': self.credentials["resource"],
+        'token_type': TOKEN_TYPE,
+        'grant_type': GRANT_TYPE,
+    }
+    
+        print("🔐 Enviando petición a:", self.auth_url)
+        print("📤 Payload:", payload)
+    
+        response = requests.post(self.auth_url, headers=headers, data=payload)
+    
+        # Agrega estas dos líneas para imprimir el error real
+        print("📥 Status Code:", response.status_code)
+        print("📥 Response Text:", response.text)
+    
+        if response.status_code != 200:
+            raise ValueError("Error al obtener el token de autenticación")
+    
+        self.token = response.json()
+    
+        expires_in = int(self.token.get("expires_in", 3600))
+        self.token_expiration = datetime.now() + timedelta(seconds=expires_in)
+    
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\resources\api_consumer_resource.py
+/===============================================================================
+
+import requests
+from typing import Optional
+
+from src.interfaces.resources.apis.api_consumer_interface import IApiConsumerResource
+from src.config.settings import Settings
+from src.resources.api_authenticator_resource import ApiAuthenticatorResource
+from src.utils.constants import CONTENT_TYPE_REQUEST
+
+
+class ApiConsumerResource(IApiConsumerResource):
+    def __init__(self, token: Optional[str] = None, authenticator: Optional[ApiAuthenticatorResource] = None):
+        self.auth_token = f"Bearer {token}" if token else None
+        self.authenticator = authenticator
+
+    def request(self, method: str, url: str, params: dict = {}, body: dict = {}) -> Optional[dict]:
+        headers = {
+            "Authorization": self.auth_token,
+            "Content-Type": CONTENT_TYPE_REQUEST,
+        }
+
+        try:
+            response = requests.request(
+                method=method,
+                url=url,
+                headers=headers,
+                params=params,
+                json=body,
+                timeout=10
+            )
+            response.raise_for_status()
+            return response.json()
+
+        except requests.exceptions.HTTPError as http_err:
+            print(f"HTTP error occurred: {http_err}")
+            print(f"📥 Response Text: {response.text}")
+        except requests.exceptions.RequestException as req_err:
+            print(f"Request error occurred: {req_err}")
+        except Exception as e:
+            print(f"Unexpected error occurred: {e}")
+
+        return None
+
+
+    def get_with_pagination(self, url: str, query_params: dict) -> list:
+        all_data = []
+        offset = query_params.get("offset", 0)
+        limit = query_params.get("limit", 100)
+    
+        while True:
+            query_params.update({"offset": offset, "limit": limit})
+    
+            try:
+                response = requests.get(
+                    url=url,
+                    headers={
+                        "Authorization": self.auth_token,
+                        "Content-Type": CONTENT_TYPE_REQUEST
+                    },
+                    params=query_params,
+                    timeout=10
+                )
+    
+                response.raise_for_status()
+                data = response.json()
+    
+                # Soporte para múltiples formatos de respuesta
+                if isinstance(data, list):
+                    items = data
+                elif isinstance(data, dict) and "items" in data:
+                    items = data["items"]
+                else:
+                    print("⚠️ Formato inesperado de respuesta:", data)
+                    break
+                
+                all_data.extend(items)
+    
+                if len(items) < limit:
+                    break
+                
+                offset += limit
+    
+            except requests.exceptions.HTTPError as http_err:
+                print(f"HTTP error occurred: {http_err}")
+                break
+            except requests.exceptions.RequestException as req_err:
+                print(f"Request error occurred: {req_err}")
+                break
+            except Exception as e:
+                print(f"Unexpected error occurred: {e}")
+                break
+            
+        return all_data
+    
+
+    # def simple_get(self, url: str, query_params: dict) -> Optional[dict]:
+    #     try:
+    #         response = requests.get(
+    #             url=url,
+    #             headers={
+    #                 "Authorization": self.auth_token,
+    #                 "Accept": CONTENT_TYPE_REQUEST
+    #             },
+    #             params=query_params,
+    #             timeout=10
+    #         )
+            
+    #         response.raise_for_status()
+    #         return response.json()
+
+    #     except requests.exceptions.HTTPError as http_err:
+    #         print(f"HTTP error occurred: {http_err}")
+    #         print(f"📥 Response Text: {response.text}")
+    #     except requests.exceptions.RequestException as req_err:
+    #         print(f"Request error occurred: {req_err}")
+    #     except Exception as e:
+    #         print(f"Unexpected error occurred: {e}")
+
+    #     return None
+
+    def simple_get(self, url: str, query_params: dict = {}) -> Optional[dict]:
+        headers = {
+            "Authorization": self.auth_token,
+            "Accept": "*/*",
+            "User-Agent": "PostmanRuntime/7.32.2",
+            "Origin": "https://www.postman.com"  # <- agrega esto para probar
+        }
+
+        try:
+            response = requests.get(
+                url=url,
+                headers=headers,
+                params=query_params,
+                timeout=10
+            )
+            print("🔎 URL Final:", response.request.url)
+            print("🔎 Headers enviados:", response.request.headers)
+            print("📥 Status Code:", response.status_code)
+            print("📥 Body:", response.text)
+
+            response.raise_for_status()
+            return response.json()
+
+        except requests.exceptions.HTTPError as http_err:
+            print(f"HTTP error occurred: {http_err}")
+        except requests.exceptions.RequestException as req_err:
+            print(f"Request error occurred: {req_err}")
+        except Exception as e:
+            print(f"Unexpected error occurred: {e}")
+
+        return None
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\resources\api_graphql_consumer_resource.py
+/===============================================================================
+
+# src/resources/api_graphql_consumer_resource.py
+
+import requests
+
+class ApiGraphQLConsumerResource:
+
+    def __init__(self, graphql_url: str):
+        self.graphql_url = graphql_url
+
+    def execute_query(self, query: str, variables: dict = None) -> dict:
+        payload = {
+            "query": query,
+            "variables": variables or {}
+        }
+
+        try:
+            response = requests.post(
+                url=self.graphql_url,
+                json=payload,
+                headers={
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                }
+            )
+
+            response.raise_for_status()
+            response_json = response.json()
+
+            # Nuevo: Log de la respuesta completa
+            #print(f"📥 Respuesta completa GraphQL: {response_json}")
+
+            return response_json
+
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Error en consulta GraphQL: {e}")
+            return {}
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\resources\s3_uploader_resource.py
+/===============================================================================
+
+# src/resources/s3_uploader_resource.py
+
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
+
+class S3UploaderResource:
+
+    def __init__(self, bucket_name: str, s3_client=None):
+        self.bucket_name = bucket_name
+        self.s3_client = s3_client or boto3.client("s3")
+
+    def upload_file(self, local_file_path: str, s3_key: str) -> bool:
+        """
+        Sube un archivo local a un bucket S3.
+        """
+        try:
+            print(f"🚀 Subiendo archivo a S3... Bucket: {self.bucket_name} | Key: {s3_key}")
+
+            self.s3_client.upload_file(local_file_path, self.bucket_name, s3_key)
+
+            print(f"✅ Archivo subido exitosamente a S3: s3://{self.bucket_name}/{s3_key}")
+            return True
+
+        except (BotoCoreError, ClientError) as e:
+            print(f"❌ Error al subir el archivo a S3: {e}")
+            return False
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\services\dependencies\dependency_container.py
+/===============================================================================
+
+from src.interfaces.services.dependencies.base_strategy import IEntityDependencyStrategy
+from src.services.dependencies.dependency_strategy_factory import DependencyStrategyFactory
+from src.services.dependencies.transversal_service import TransversalService
+
+class DependencyContainer:
+    def __init__(self, trans: TransversalService):
+        self.factory = DependencyStrategyFactory(trans)
+
+    def resolve(self, params: dict) -> IEntityDependencyStrategy:
+        return self.factory.get_strategy(params)
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\services\dependencies\dependency_strategy_factory.py
+/===============================================================================
+
+from src.interfaces.services.dependencies.base_strategy import IEntityDependencyStrategy
+from src.services.dependencies.muric_dependency_strategy import MuricDependencyStrategy
+from src.services.dependencies.transversal_service import TransversalService
+
+class DependencyStrategyFactory:
+    def __init__(self, trans: TransversalService):
+        self._strategies = {
+            "Banco": MuricDependencyStrategy(trans=trans)
+        }
+
+    def get_strategy(self, params: dict) -> IEntityDependencyStrategy:
+        entity = params["parameters"]["company"]
+        strategy = self._strategies.get(entity)
+
+        if not strategy:
+            raise ValueError(f"Estrategia no registrada para entidad: {entity}")
+
+        return strategy.get_provider(params)
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\services\dependencies\muric_dependency_strategy.py
+/===============================================================================
+
+from src.interfaces.services.dependencies.base_strategy import IEntityDependencyStrategy
+from src.services.dependencies.transversal_service import TransversalService
+from src.interfaces.services.providers.report_data_provider import IReportDataProvider
+from src.services.providers.muric_preliminary_data_provider import MuricPreliminaryDataProvider
+
+class MuricDependencyStrategy(IEntityDependencyStrategy):
+    def __init__(self, trans: TransversalService):
+        self.trans = trans
+
+    def get_provider(self, params: dict) -> IReportDataProvider:
+        return MuricPreliminaryDataProvider(self.trans)
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\services\dependencies\transversal_service.py
+/===============================================================================
+
+# src/services/dependencies/transversal_service.py
+
+from dataclasses import dataclass
+from src.resources.apis.api_unity_resource import ApiUnityFactoringResource
+from src.resources.apis.api_credits_resource import ApiCreditsResource
+from src.resources.api_authenticator_resource import ApiAuthenticatorResource
+from src.resources.api_graphql_consumer_resource import ApiGraphQLConsumerResource
+from src.resources.apis.api_clients_resource import ApiClientsResource
+from src.config.settings import Settings
+
+@dataclass(frozen=True)
+class TransversalService:
+    api_unity_factoring: ApiUnityFactoringResource
+    api_credits: ApiCreditsResource
+    api_clients: ApiClientsResource
+
+def build_transversal_services() -> TransversalService:
+    authenticator = ApiAuthenticatorResource(
+        credentials=Settings.UNITY_CREDENTIALS,
+        auth_url=Settings.UNITY_AUTH_URL
+    )
+    api_unity_factoring = ApiUnityFactoringResource(authenticator=authenticator)
+
+    # ApiCreditsResource NO requiere autenticador ahora
+    api_credits = ApiCreditsResource(graphql_url=Settings.CREDITS_GRAPHQL_URL)
+
+    api_clients = ApiClientsResource(graphql_url=Settings.CLIENTS_GRAPHQL_URL)
+
+    return TransversalService(
+        api_unity_factoring=api_unity_factoring,
+        api_credits=api_credits,
+        api_clients=api_clients
+    )
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\services\factories\services_root.py
+/===============================================================================
+
+from src.services.dependencies.dependency_container import DependencyContainer
+from src.services.dependencies.transversal_service import build_transversal_services
+from src.services.generic.generate_avro_report_service import GenerateAvroReportService
+from src.config.settings import Settings
+
+class ServiceRegistry:
+    def __init__(self):
+        self.transversal_services = build_transversal_services()
+        self.dependency_container = DependencyContainer(trans=self.transversal_services)
+
+    def get(self, params: dict) -> GenerateAvroReportService:
+        """
+        Returns the appropriate service for the given parameters.
+        """
+        provider = self.dependency_container.resolve(params)
+        schema_path = "src/entities/mapper/ruc.avsc" #Settings.MURIC_AVRO_SCHEMA_PATH  
+        return GenerateAvroReportService(avro_schema_path=schema_path, provider=provider)
+
+def configure_app():
+    return ServiceRegistry()
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\services\files\avro_manager_service.py
+/===============================================================================
+
+# src/services/files/avro_manager_service.py
+
+import requests
+from src.services.files.file_manager_service import FileManagerResource
+from src.utils.constants import POST_METHOD, TIME_URL_PRESIGNED
+
+class AvroManagerService:
+    """
+    A class to handle uploading Avro files to S3 using pre-signed URL.
+    """
+    def __init__(self):
+        self.file_manager_resource = FileManagerResource()
+
+    def generate_and_upload_report(self, file_name: str, avro_content: bytes):
+        """
+        Generates pre-signed URL and uploads Avro file.
+
+        Args:
+            file_name (str): The file name (S3 key).
+            avro_content (bytes): The Avro file content.
+        """
+        # 1️⃣ Get pre-signed URL
+        url_presigned = self.file_manager_resource.generate_presigned_url(file_name, POST_METHOD, TIME_URL_PRESIGNED)
+
+        # 2️⃣ Upload the Avro file
+        files = {
+            "file": (file_name, avro_content, "application/octet-stream")
+        }
+
+        response = requests.post(
+            url_presigned["url"],
+            data=url_presigned["fields"],
+            files=files
+        )
+
+        if response.status_code == 204:
+            print(f"✅ Avro file uploaded successfully to S3 as {file_name}")
+        else:
+            print(f"❌ Error uploading Avro file to S3. Status code: {response.status_code}")
+            print(f"Response content: {response.content}")
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\services\files\avro_report_builder.py
+/===============================================================================
+
+# src/services/files/avro_report_builder.py
+
+from src.services.files.avro_manager_service import AvroManagerService
+
+class AvroReportBuilderService:
+    """
+    A class to handle the generation and uploading of Avro reports.
+    """
+    def __init__(self):
+        self.avro_manager = AvroManagerService()
+
+    def generate_and_upload_report(self, params: dict, avro_local_path: str):
+        """
+        Generates and uploads the Avro report.
+
+        Args:
+            params (dict): The parameters of the report.
+            avro_local_path (str): The local path where the Avro was saved.
+        """
+        with open(avro_local_path, "rb") as f:
+            avro_content = f.read()
+
+        # Build S3 file path
+        fecha_corte = params["parameters"]["fecha_corte"]
+        file_name = f"muric/{fecha_corte[:4]}/reporte_{fecha_corte}.avro"
+
+        # Upload
+        self.avro_manager.generate_and_upload_report(file_name, avro_content)
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\services\files\avro_validator.py
+/===============================================================================
+
+import os
+from fastavro import reader
+from typing import Tuple, List, Dict
+
+
+class AvroValidator:
+    def __init__(self, max_size_mb: float = 5.0):
+        self.max_size_bytes = max_size_mb * 1024 * 1024
+
+    def validate_file_size(self, path: str) -> bool:
+        file_size = os.path.getsize(path)
+        return file_size <= self.max_size_bytes
+
+    def read_avro_records(self, path: str) -> List[Dict]:
+        with open(path, "rb") as f:
+            avro_reader = reader(f)
+            return [record for record in avro_reader]
+
+    def validate_avro(self, path: str) -> Tuple[bool, str]:
+        if not os.path.exists(path):
+            return False, "Archivo no encontrado."
+
+        if not self.validate_file_size(path):
+            return False, f"Archivo excede el tamaño permitido de {self.max_size_bytes / (1024 * 1024)} MB."
+
+        try:
+            self.read_avro_records(path)
+            return True, "Archivo válido y tamaño correcto."
+        except Exception as e:
+            return False, f"Error al leer el archivo Avro: {e}"
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\services\files\avro_writer.py
+/===============================================================================
+
+from pathlib import Path
+import json
+from fastavro import writer, parse_schema
+from typing import Dict, Any
+
+
+class AvroWriterService:
+    def __init__(self, schema_path: str):
+        self.schema_path = schema_path
+        self.schema = self._load_schema()
+
+    def _load_schema(self) -> Dict[str, Any]:
+        with open(self.schema_path, "r", encoding="utf-8") as f:
+            raw_schema = json.load(f)
+        return parse_schema(raw_schema)
+
+    def write_avro_file(self, data: Dict[str, Any], output_path: str) -> None:
+        
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+
+        with open(output_path, "wb") as out_file:
+            writer(out_file, self.schema, [data])
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\services\files\file_manager_service.py
+/===============================================================================
+
+# src/services/files/file_manager_service.py
+
+import boto3
+from src.config.settings import Settings
+from src.utils.constants import GET_METHOD, POST_METHOD, GET_OBJECT_ACTION
+
+class FileManagerResource:
+    def __init__(self):
+        self.client = boto3.client("s3")
+        self.bucket_name = Settings.REPORTS_BUCKET_NAME
+
+    def check_file_exists(self, file_name: str) -> bool:
+        result = self.client.list_objects_v2(Bucket=self.bucket_name, Prefix=file_name)
+        return 'Contents' in result
+
+    def generate_presigned_url(self, file_name: str, method: str, expiration_time: int):
+        if method == GET_METHOD and self.check_file_exists(file_name):
+            return self.client.generate_presigned_url(
+                GET_OBJECT_ACTION,
+                Params={
+                    'Bucket': self.bucket_name,
+                    'Key': file_name
+                },
+                ExpiresIn=expiration_time
+            )
+        elif method == POST_METHOD:
+            return self.client.generate_presigned_post(
+                Bucket=self.bucket_name,
+                Key=file_name,
+                Fields=None,
+                Conditions=[],
+                ExpiresIn=expiration_time
+            )
+        return None
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\services\generic\generate_avro_report_service.py
+/===============================================================================
+
+from src.services.files.avro_writer import AvroWriterService
+from src.utils.merge_final_data import merge_final_data
+
+class GenerateAvroReportService:
+
+    def __init__(self, avro_schema_path: str, provider):
+        self.avro_writer = AvroWriterService(schema_path=avro_schema_path)
+        self.provider = provider  # ya viene configurado
+
+    def generate_report(self, output_path: str, parameters: dict) -> None:
+        # Obtener los datos finales del reporte
+        data = self.provider.get_data(params=parameters)
+
+        # Desempaquetar arrays
+        creditos_data = data.get("creditos", [])
+        movimientos_data = data.get("movimientos", [])
+        demograficos_data = data.get("demograficos", [])
+
+        # Crear dict final
+        final_data = merge_final_data(
+            #tipo_entidad=parameters["parameters"]["tipo_entidad"],
+            #codigo_entidad=parameters["parameters"]["codigo_entidad"],
+            fecha_corte=parameters["parameters"]["fecha_corte"],
+            comentarios="Archivo generado en entorno local con datos mock",
+            firma="BTG_Pactual",
+            palabra_clave="PRUEBA123",
+            creditos=creditos_data,
+            movimientos=movimientos_data,
+            demograficos=demograficos_data
+        )
+
+        print("🚀 Iniciando generación de archivo AVRO...")
+        self.avro_writer.write_avro_file(final_data, output_path)
+        print(f"✅ Archivo generado exitosamente en: {output_path}")
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\services\generic\initialize_report_generation_service.py
+/===============================================================================
+
+# src/services/generic/initialize_report_generation_service.py
+
+from src.services.files.avro_report_builder import AvroReportBuilderService
+from src.services.factories.services_root import configure_app
+import json
+import os
+from datetime import datetime
+import tempfile
+
+class InitializeReportGeneration:
+    def __init__(self):
+        self.registry = configure_app()
+        self.avro_report_builder = AvroReportBuilderService()
+
+    def load_parameters(self):
+        json_parameters = os.getenv("REPORT_PARAMETERS", "{}")
+        return json.loads(json_parameters)
+
+    def build_report(self):
+        params = self.load_parameters()
+        print(f"Paremetros Reporte:",params)
+        # 🟡 Si viene report_date del front → generar fecha_corte
+        if "report_date" in params["parameters"]:
+            params["parameters"]["fecha_corte"] = self.extract_fecha_corte(params["parameters"]["report_date"])
+
+        service = self.registry.get(params)
+
+        # # 1️⃣ Generate local avro
+        # fecha_corte = params["parameters"]["fecha_corte"]
+        # output_path = f"output/reporte_{fecha_corte}.avro"
+        # ✅ Usar carpeta temporal para evitar errores de permisos
+        fecha_corte = params["parameters"]["fecha_corte"]
+        temp_dir = tempfile.gettempdir()
+        output_path = os.path.join(temp_dir, f"reporte_{fecha_corte}.avro")
+
+        print("🚀 Generando reporte...")
+        service.generate_report(output_path=output_path, parameters=params)
+
+        # 2️⃣ Upload avro via pre-signed URL
+        print("🚀 Subiendo Avro con pre-signed URL...")
+        self.avro_report_builder.generate_and_upload_report(params, output_path)
+
+        print("✅ Proceso completo finalizado.")
+
+    def extract_fecha_corte(self, iso_date_str: str) -> str:
+        """
+        Convierte '2025-05-31T05:00:00.000Z' → 'YYYY-MM-DD'
+        """
+        dt = datetime.fromisoformat(iso_date_str.replace("Z", ""))
+        return dt.strftime("%Y-%m-%d")
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\services\processors\factoring_processor.py
+/===============================================================================
+
+# src/services/processors/unity_factoring_processor.py
+
+from src.resources.api_authenticator_resource import ApiAuthenticatorResource
+from src.resources.api_consumer_resource import ApiConsumerResource
+from src.config.settings import Settings
+from typing import List, Dict
+from datetime import datetime
+
+def iso_to_avro_date(iso_date: str) -> int:
+    base = datetime(1970, 1, 1)
+    actual = datetime.strptime(iso_date, "%Y-%m-%d")
+    return (actual - base).days
+
+class UnityFactoringProcessor:
+    def __init__(self):
+        self.authenticator = ApiAuthenticatorResource(
+            credentials=Settings.UNITY_CREDENTIALS,
+            auth_url=Settings.UNITY_AUTH_URL
+        )
+        self.consumer = ApiConsumerResource(authenticator=self.authenticator)
+
+    def process_factoring_data(self, date: str) -> List[Dict]:
+        raw_data = self.consumer.get_with_pagination(
+            url=f"{Settings.INTEGRATION_URL}/unity/productos-financieros/v1/factoring-operations",
+            query_params={
+                "date": date,
+                "limit": 100,
+                "offset": 0
+            }
+        )
+
+        processed = []
+        for item in raw_data:
+            processed.append({
+                "identificacion_credito_entidad": item.get("idCredito", ""),
+                "tipo_identificacion": "_2",  # Asumido fijo por ahora
+                "numero_identificacion": item.get("nit", ""),
+                "modalidad": "_1",  # Dummy, ajustar si la API lo provee
+                "codigo_producto": "_201",  # Dummy, ajustar con negocio
+                "calidad_deudor": "_0",
+                "fecha_desembolso": iso_to_avro_date(item.get("fechaDesembolso", "2024-01-01")),
+                "fecha_vencimiento": iso_to_avro_date(item.get("fechaVencimiento", "2024-12-31")) if item.get("fechaVencimiento") else None,
+                "valor_desembolsado": float(item.get("valorOperacion", 0.0))
+            })
+
+        return processed
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\services\processors\mock_processor.py
+/===============================================================================
+
+# src/services/processors/mock_processor.py
+
+from src.entities.mapper.credit_mapper import CreditAvroMapper
+from src.entities.mapper.movement_mapper import MovimientoAvroMapper
+from src.entities.mapper.demographic_mapper import DemograficoAvroMapper
+
+from datetime import datetime
+from typing import List, Dict
+
+def iso_to_avro_date(iso_date: str) -> int:
+    """Convierte fecha YYYY-MM-DD a formato AVRO date (dias desde 1970-01-01)."""
+    base = datetime(1970, 1, 1)
+    actual = datetime.strptime(iso_date, "%Y-%m-%d")
+    return (actual - base).days
+
+class MockProcessor:
+
+    def process_credit_data(self) -> List[Dict]:
+        """Mock de datos para la sección 'creditos'."""
+        creditos = []
+
+        creditos.append(CreditAvroMapper(
+            identificacion_credito_entidad="CRED001",
+            tipo_identificacion="_1",
+            numero_identificacion="123456789",
+            modalidad="_1",
+            codigo_producto="_101",
+            calidad_deudor="_0",
+            fecha_desembolso=iso_to_avro_date("2024-01-15"),
+            fecha_vencimiento=iso_to_avro_date("2025-01-15"),
+            valor_desembolsado=1000000.0
+        ).dict())
+
+        creditos.append(CreditAvroMapper(
+            identificacion_credito_entidad="CRED002",
+            tipo_identificacion="_2",
+            numero_identificacion="987654321",
+            modalidad="_2",
+            codigo_producto="_202",
+            calidad_deudor="_0",
+            fecha_desembolso=iso_to_avro_date("2023-12-20"),
+            fecha_vencimiento=None,
+            valor_desembolsado=500000.0
+        ).dict())
+
+        return creditos
+
+    def process_movements_data(self) -> List[Dict]:
+        """Mock de datos para la sección 'movimientos'."""
+        movimientos = []
+
+        movimientos.append(MovimientoAvroMapper(
+            identificacion_credito_entidad="CRED001",
+            tipo_identificacion="_1",
+            numero_identificacion="123456789",
+            fecha_corte=iso_to_avro_date("2024-12-31"),
+            calificacion_credito="A",
+            estado="_1",
+            periodo_gracia="_0",
+            dias_mora=0,
+            tasa_interes=5.5,
+            spread_tasa_interes=1.0,
+            saldo_capital=800000.0,
+            saldo_intereses=20000.0,
+            saldo_otros=0.0,
+            modelo_provisiones="_1",
+            provision_prociclica=10000.0,
+            provision_contraciclica=5000.0,
+            provision_adicional_politica_entidad=2000.0,
+            provision_otros=1000.0,
+            provision_total=18000.0,
+            cuota_esperada_capital=50000.0,
+            cuota_esperada_intereses=3000.0,
+            cuota_recibida_capital=45000.0,
+            cuota_recibida_intereses=2800.0,
+            fecha_garantia=iso_to_avro_date("2024-06-01"),
+            valor_garantia=700000.0,
+            probabilidad_incumplimiento_credito=0.02,
+            perdida_dado_incumplimiento=0.4,
+            estado_registro="N000001"
+        ).dict())
+
+        return movimientos
+
+    def process_demographics_data(self) -> List[Dict]:
+        """Mock de datos para la sección 'demograficos'."""
+        demograficos = []
+
+        demograficos.append(DemograficoAvroMapper(
+            identificacion_credito_entidad="CRED001",
+            tipo_identificacion="_1",
+            numero_identificacion="123456789",
+            clave_atributo=101,
+            valor_atributo="Cliente VIP"
+        ).dict())
+
+        demograficos.append(DemograficoAvroMapper(
+            identificacion_credito_entidad="CRED002",
+            tipo_identificacion="_2",
+            numero_identificacion="987654321",
+            clave_atributo=102,
+            valor_atributo="Cliente Regular"
+        ).dict())
+
+        return demograficos
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\services\providers\muric_preliminary_data_provider.py
+/===============================================================================
+
+from src.interfaces.services.providers.report_data_provider import IReportDataProvider
+from src.services.dependencies.transversal_service import TransversalService
+from src.utils.merge_final_data import merge_final_data
+from src.utils.utils import utils
+
+class MuricPreliminaryDataProvider(IReportDataProvider):
+
+    def __init__(self, transversal_services: TransversalService):
+        self.api_factoring = transversal_services.api_unity_factoring
+        self.api_credits = transversal_services.api_credits
+        self.api_clients = transversal_services.api_clients  
+        self.mock_processor = utils  # temporal
+
+    def get_data(self, params: dict) -> dict:
+        report_date_str = params["parameters"]["report_date"]
+        fecha_corte = report_date_str.split("T")[0]
+
+        fechas_rango = utils.get_month_date_range(fecha_corte)
+
+        print(f"🟡 Consultando créditos entre fechas: {fechas_rango}")
+        products_data = self.api_credits.get_products(fechas=fechas_rango)
+        print(f"📊 Créditos obtenidos: {len(products_data)}")
+
+        # Extraer cgeCodes únicos
+        cge_codes = list({
+            prod.get("counterpartyId")
+            for prod in products_data
+            if prod.get("counterpartyId") is not None
+        })
+
+        print(f"🔍 CGE codes únicos encontrados: {len(cge_codes)}")
+
+        if not cge_codes:
+            print("⚠️ No se encontraron códigos únicos de clientes. Se omite consulta a la API de clientes.")
+            clients_data = []
+        else:
+            clients_data = self.api_clients.get_clients_by_cge_codes(cge_codes)
+            print(f"👥 Clientes obtenidos por cgeCode: {len(clients_data)}")
+
+            
+        factoring_data = self.api_factoring.get_factoring_operations(date=fecha_corte)
+        print(f"🏦 Factoring recibido: {len(factoring_data)}")
+
+        movimientos_mock = utils.get_mock_movements()
+        demograficos_mock = utils.get_mock_demographics()
+
+        merged_data = merge_final_data(
+            fecha_corte=fecha_corte,
+            comentarios="Archivo generado en entorno local con datos mock",
+            firma="BTG_Pactual",
+            palabra_clave="PRUEBA123",
+            creditos=products_data,
+            movimientos=movimientos_mock,
+            demograficos=demograficos_mock
+        )
+
+        return merged_data
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\services\clients_service.py
+/===============================================================================
+
+"""Service layer for fetching client data from the API."""
+
+from typing import List, Dict
+from src.resources.apis.api_clients_resource import ApiClientsResource
+from src.resources.apis.api_clients_resource_mock import ApiClientsResourceMock
+from src.config.settings import Settings
+
+
+class ClientsService:
+    """
+    Service to interact with the Clients API and process data.
+    """
+    def __init__(self, api_resource: ApiClientsResource = None):
+        self.api = api_resource or (
+            ApiClientsResourceMock(None) if Settings.USE_MOCK else ApiClientsResource(None)
+        )
+
+    def get_clients(self, client_type: str, document_type: str) -> List[Dict]:
+        """
+        Retrieves clients using filters for client type and document type.
+        """
+        return self.api.get_clients_data(client_type=client_type, document_type=document_type)
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\services\credits_service.py
+/===============================================================================
+
+"""Service layer for fetching credit products from the API."""
+
+from typing import List, Dict
+from src.resources.apis.api_credits_resource import ApiCreditsResource
+from src.resources.apis.api_credits_resource_mock import ApiCreditsResourceMock
+from src.config.settings import Settings
+
+
+class CreditsService:
+    """
+    Service to interact with the Credits API and process data.
+    """
+    def __init__(self, api_resource: ApiCreditsResource = None):
+        self.api = api_resource or (
+            ApiCreditsResourceMock(None) if Settings.USE_MOCK else ApiCreditsResource(None)
+        )
+
+    def get_products(self, position_date: str) -> List[Dict]:
+        """
+        Retrieves credit products for the given position date.
+        """
+        products = self.api.get_products_by_position_date(position_date=position_date)
+        return products
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\utils\constants.py
+/===============================================================================
+
+"""" This module contains the constant text used in the project. """
+
+from enum import Enum
+from typing import List
+
+CONTENT_TYPE_REQUEST = "application/json"
+CONTENT_TYPE_AUTHENTICATOR = "application/x-www-form-urlencoded"
+
+# Métodos HTTP
+GET_METHOD = "GET"
+POST_METHOD = "POST"
+
+# Acción de S3 para presigned URL GET
+GET_OBJECT_ACTION = "s3:GetObject"
+
+# Tiempo en segundos que dura la presigned URL (puedes ajustar si quieres)
+TIME_URL_PRESIGNED = 3600  # 1 hora (3600 segundos)
+
+# Ya deberían existir estas también, si no, agrégalas:
+TOKEN_TYPE = "Bearer"
+GRANT_TYPE = "client_credentials"
+
+class CreditsConstants:
+    API_QUERY = """
+        query getProducts($positionDate: Date!, $pagination: PaginationInput!) {
+            credits(positionDate: $positionDate, pagination: $pagination) {
+                products {
+                    contractNumber
+                    counterpartyId
+                    productType
+                    currency
+                    positionDate
+                    balance
+                }
+                pagination {
+                    next
+                }
+            }
+        }
+    """
+
+
+class ClientsConstants:
+    API_QUERY = """
+    query($clientType: String!, $documentType: String!, $pagination: PaginationInput!) {
+        report {
+            clients(clientType: $clientType, documentType: $documentType, pagination: $pagination) {
+                id
+                name
+                documentNumber
+                documentType
+            }
+            pagination {
+                next
+            }
+        }
+    }
+    """
+
+class MURICConstants:
+    class Entity:
+        BANCO = "BANCO"
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\utils\data_validator.py
+/===============================================================================
+
+# src/utils/data_validator.py
+
+def validate_required_fields(data_list, required_fields, context="registro"):
+    """
+    Valida que los campos requeridos no estén vacíos o None.
+
+    :param data_list: Lista de dicts a validar (creditos, movimientos, demograficos)
+    :param required_fields: Lista de nombres de campos requeridos
+    :param context: Nombre para mostrar en los logs (opcional)
+    :return: Lista de dicts con inconsistencias encontradas
+    """
+    inconsistencies = []
+
+    for index, item in enumerate(data_list):
+        for field in required_fields:
+            if field not in item or item[field] is None or (isinstance(item[field], str) and item[field].strip() == ""):
+                inconsistencies.append({
+                    "index": index,
+                    "field": field,
+                    "value": item.get(field),
+                    "context": context
+                })
+
+    if inconsistencies:
+        print(f"❌ Se encontraron inconsistencias en '{context}':")
+        for inc in inconsistencies:
+            print(f"  ➡️ {inc}")
+    else:
+        print(f"✅ Todos los campos requeridos presentes en '{context}'.")
+
+    return inconsistencies
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\utils\file_utils.py
+/===============================================================================
+
+# src/utils/file_utils.py
+
+import os
+
+def validate_file_size(local_file_path: str, max_size_bytes: int) -> bool:
+    """
+    Valida que el tamaño del archivo no supere el máximo permitido.
+    """
+    try:
+        file_size = os.path.getsize(local_file_path)
+        size_mb = round(file_size / (1024 * 1024), 2)
+
+        print(f"📏 Tamaño del archivo '{local_file_path}': {size_mb} MB")
+
+        if file_size <= max_size_bytes:
+            print(f"✅ Tamaño válido (máximo permitido: {round(max_size_bytes / (1024 * 1024), 2)} MB)")
+            return True
+        else:
+            print(f"❌ Tamaño excedido! Límite: {round(max_size_bytes / (1024 * 1024), 2)} MB | Actual: {size_mb} MB")
+            return False
+
+    except OSError as e:
+        print(f"❌ Error al obtener tamaño del archivo: {e}")
+        return False
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\utils\merge_final_data.py
+/===============================================================================
+
+# src/utils/merge_final_data.py
+
+from datetime import date, datetime
+from typing import List, Dict, Any
+from src.entities.mapper.credit_mapper import CreditAvroMapper
+from src.entities.mapper.movement_mapper import MovimientoAvroMapper
+from src.entities.mapper.demographic_mapper import DemograficoAvroMapper
+
+def iso_to_avro_date(iso_date: str) -> int:
+    """
+    Convierte una fecha en formato ISO 'YYYY-MM-DD' a un entero con días desde 1970-01-01.
+    """
+    base = datetime(1970, 1, 1)
+    actual = datetime.strptime(iso_date, "%Y-%m-%d")
+    return (actual - base).days
+
+def merge_final_data(
+    fecha_corte: str,
+    comentarios: str,
+    firma: str,
+    palabra_clave: str,
+    creditos: List[Dict[str, Any]],
+    movimientos: List[Dict[str, Any]],
+    demograficos: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """
+    Une los metadatos con los créditos, movimientos y demográficos procesados para formar el diccionario final Avro.
+    """
+    creditos_validados = []
+    for credito in creditos:
+        creditos_validados.append(
+            CreditAvroMapper(
+                identificacion_credito_entidad=credito.get("contractNumber", "UNKNOWN"),
+                tipo_identificacion="_1",
+                numero_identificacion="00000000",
+                modalidad=f"_{credito.get('modality_id')}" if credito.get('modality_id') else "_1",
+                codigo_producto="_101",
+                calidad_deudor="_0",
+                fecha_desembolso=iso_to_avro_date(credito.get("disbursementDate")[:10]) if credito.get("disbursementDate") else iso_to_avro_date("1970-01-01"),
+                fecha_vencimiento=iso_to_avro_date(credito.get("expirationDate")[:10]) if credito.get("expirationDate") else None,
+                valor_desembolsado=credito.get("disbursementValue", 0.0)
+            ).dict()
+        )
+
+    movimientos_validados = [MovimientoAvroMapper(**mov).dict() for mov in movimientos]
+    demograficos_validados = [DemograficoAvroMapper(**demo).dict() for demo in demograficos]
+
+    return {
+        "fecha_corte": iso_to_avro_date(fecha_corte),
+        "fecha_generacion": iso_to_avro_date(date.today().isoformat()),
+        "comentarios": comentarios,
+        "firma": firma,
+        "palabra_clave": palabra_clave,
+        "creditos": creditos_validados,
+        "movimientos": movimientos_validados,
+        "demograficos": demograficos_validados
+    }
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\utils\utils.py
+/===============================================================================
+
+# src/utils/utils.py
+
+from typing import Dict, Any
+from datetime import datetime
+import calendar
+from src.utils.merge_final_data import iso_to_avro_date
+
+class utils:
+    @staticmethod
+    def create_graphql_body(query: str, variables: Dict[str, Any] = None) -> Dict[str, Any]:
+        """
+        Creates a GraphQL request body.
+        """
+        return {
+            "query": query,
+            "variables": variables or {}
+        }
+
+    @staticmethod
+    def get_month_date_range(fecha_corte: str) -> list:
+        """
+        Devuelve el rango de fechas del mes en formato ["YYYY-MM-DD", "YYYY-MM-DD"]
+        para usarlo en positionDate.
+
+        :param fecha_corte: Fecha de corte en formato "YYYY-MM-DD"
+        :return: list ["YYYY-MM-01", "YYYY-MM-último-día"]
+        """
+        year, month = map(int, fecha_corte.split("-")[:2])
+        first_day = f"{year}-{month:02d}-01"
+        last_day_num = calendar.monthrange(year, month)[1]
+        last_day = f"{year}-{month:02d}-{last_day_num:02d}"
+
+        return [first_day, last_day]
+    
+    @staticmethod
+    def get_month_date_range_list(fecha_corte: str) -> list:
+        """
+        Devuelve el rango de fechas del mes en formato lista ["YYYY-MM-DD", "YYYY-MM-DD"]
+        """
+        year, month = map(int, fecha_corte.split("-")[:2])
+        first_day = f"{year}-{month:02d}-01"
+        last_day_num = calendar.monthrange(year, month)[1]
+        last_day = f"{year}-{month:02d}-{last_day_num:02d}"
+        return [first_day, last_day]
+    
+
+    # Mocks temporales:
+    @staticmethod
+    def get_mock_movements() -> list:
+        return [
+            {
+                "identificacion_credito_entidad": "CRED001",
+                "tipo_identificacion": "_1",
+                "numero_identificacion": "123456789",
+                "fecha_corte": iso_to_avro_date("2024-12-31"),  # ✅ convertir a int
+                "calificacion_credito": "A",
+                "estado": "_1",
+                "periodo_gracia": "_0",
+                "dias_mora": 0,
+                "tasa_interes": 5.5,
+                "spread_tasa_interes": 1.0,
+                "saldo_capital": 800000.0,
+                "saldo_intereses": 20000.0,
+                "saldo_otros": 0.0,
+                "modelo_provisiones": "_1",
+                "provision_prociclica": 10000.0,
+                "provision_contraciclica": 5000.0,
+                "provision_adicional_politica_entidad": 2000.0,
+                "provision_otros": 1000.0,
+                "provision_total": 18000.0,
+                "cuota_esperada_capital": 50000.0,
+                "cuota_esperada_intereses": 3000.0,
+                "cuota_recibida_capital": 45000.0,
+                "cuota_recibida_intereses": 2800.0,
+                "fecha_garantia": iso_to_avro_date("2024-06-01"),  # ✅ convertir a int
+                "valor_garantia": 700000.0,
+                "probabilidad_incumplimiento_credito": 0.02,
+                "perdida_dado_incumplimiento": 0.4,
+                "estado_registro": "N000001"
+            }
+        ]
+
+    @staticmethod
+    def get_mock_demographics() -> list:
+        return [
+            {
+                "identificacion_credito_entidad": "CRED001",
+                "tipo_identificacion": "_1",
+                "numero_identificacion": "123456789",
+                "clave_atributo": 101,
+                "valor_atributo": "Cliente VIP"
+            },
+            {
+                "identificacion_credito_entidad": "CRED002",
+                "tipo_identificacion": "_2",
+                "numero_identificacion": "987654321",
+                "clave_atributo": 102,
+                "valor_atributo": "Cliente Regular"
+            }
+        ]
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\src\main_batch.py
+/===============================================================================
+
+""" This module contains the main batch file to run the report generation process. """
+
+# import asyncio
+from src.services.generic.initialize_report_generation_service import InitializeReportGeneration
+from src.config.logger import logger
+
+def main():
+    """
+    Main function to run the report generation process.
+    """
+    try:
+        logger.info("📊 Inicia el main")
+        processor = InitializeReportGeneration()
+        logger.info("📊 Se está ejecutando el reporte")
+        processor.build_report()
+        logger.info("📊 Se está ejecutando build_report")
+    except Exception as e:
+        logger.error(f"❌ Error en el proceso de generación de reporte: {e}")
+        raise
+if __name__ == "__main__":
+    main()
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\.env
+/===============================================================================
+
+#Tags
+disponibility= "$(disponibility)"
+cell= "$(cell)"
+deployment= "$(deployment)"
+company= "$(company)"
+app= "$(app)"
+area= "$(area)"
+product= "$(product)"
+projectName= "$(projectName)"
+
+#Project
+stage="$(stage)"
+deploymentBucketName= "$(deploymentBucketName)"
+projectApigtwStackName="$(projectApigtwStackName)"
+infraApigtwStackName="$(infraApigtwStackName)"
+networkStackName="$(networkStackName)"
+mainProject="$(mainProject)"
+project="$(project)"
+region= "$(region)"
+
+#Specific
+layersStackName= "$(layersStackName)"
+basePath="$(basePath)"
+arnKmsDEV="$(arnKmsDEV)"
+arnKmsUAT="$(arnKmsUAT)"
+arnKmsPDN="$(arnKmsPDN)"
+
+muricResourcesStackName="$(env:muricResourcesStackName)"
+
+jobBatchTimeOut="$(jobBatchTimeOut)"
+jobBatchReqVcpu="$(jobBatchReqVcpu)"
+jobBatchReqMemory="$(jobBatchReqMemory)"
+
+# Variables GraphQL URLs
+clientsGraphqlUrlDEV="$(clientsGraphqlUrlDEV)"
+clientsGraphqlUrlUAT="$(clientsGraphqlUrlUAT)"
+clientsGraphqlUrlPDN="$(clientsGraphqlUrlPDN)"
+
+creditsGraphqlUrlDEV="$(creditsGraphqlUrlDEV)"
+creditsGraphqlUrlUAT="$(creditsGraphqlUrlUAT)"
+creditsGraphqlUrlPDN="$(creditsGraphqlUrlPDN)"
+
+#Host Integration
+
+#Hosts Apis
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\azure-pipelines.yml
+/===============================================================================
+
+trigger:
+  branches:
+    include:
+      - development
+      - release
+      - master
+  paths:
+    include:
+      - /*
+    exclude:
+      - azure-pipelines.yml
+
+resources:
+  repositories:
+    - repository: devops-templates
+      type: git
+      name: devops-templates
+      ref: master
+
+pool: "BTG Colombia - Azure DevOps"
+
+variables:
+  - name: stage
+    ${{ if eq(variables['Build.SourceBranchName'], 'development') }}:
+      value: dev
+    ${{ elseif eq(variables['Build.SourceBranchName'], 'release') }}:
+      value: uat
+    ${{ elseif eq(variables['Build.SourceBranchName'], 'master') }}:
+      value: pdn
+
+  - name: region
+    value: ${{ variables.region }}
+
+  - name: cell
+    value: ${{ variables.cell }}
+
+  - name: awsCredentials
+    value: OZONO-MULTIPROJECTS-${{upper(variables.stage)}}
+
+  - name: ecrImageUri
+    value: ${{ variables.ecrImageUri }}
+
+  - name: ecrRepoName
+    value: ${{ variables.ecrRepoName }}
+
+    #Grupo de variablese del proyecto
+  - group: ozono-chronos
+  - group: ozono-chronos-muric
+  - group: ozono-chronos-tags
+  - group: ozono-transversal
+
+  - name: deploymentBucketName
+    value: bucket-multiprojects-$(stage)-serverless
+
+  - name: pythonVersion
+    value: '3.11'
+
+    #Path al archivo .env 
+  - name: envPath
+    value: '$(System.DefaultWorkingDirectory)/.env'
+
+    #Path al archivo serverless.yml 
+  - name: serverlessPath
+    value: '$(System.DefaultWorkingDirectory)'
+
+  - name: serverlessVersion
+    value: '3'
+
+  - name: plugginsToInstall
+    value: 'serverless-python-requirements'
+
+stages:
+  - template: security/main.yml@devops-templates
+  - template: main.yml@devops-templates
+    parameters:
+      service: serverless
+      code: resources
+      type: code
+      workPath: $(System.DefaultWorkingDirectory)
+
+  - stage: CustomTasks
+    displayName: "Run Custom AWS Shell Commands"
+    jobs:
+      - job: CustomTasks
+        displayName: "Run AWS Shell Commands"
+        steps:
+            #RESUELVE PATH PARA EL BUILD
+          - script: |
+              case "$(Build.SourceBranchName)" in
+                "development") export ECR_IMAGE_ACCOUNT_ID=$(ecrImageAccountIdDEV) ;;
+                "release") export ECR_IMAGE_ACCOUNT_ID=$(ecrImageAccountIdUAT) ;;
+                "master") export ECR_IMAGE_ACCOUNT_ID=$(ecrImageAccountIdPDN) ;;
+                *) echo "Error: Branch no reconocido" && exit 1 ;;
+              esac
+
+              export ECR_IMAGE_URI="$ECR_IMAGE_ACCOUNT_ID$(ecrImageUri)"
+              export ECR_IMAGE_URI_BUILD="$ECR_IMAGE_ACCOUNT_ID$(ecrImageUriBuild)"
+
+              echo "##vso[task.setvariable variable=ECR_IMAGE_ACCOUNT_ID]$ECR_IMAGE_ACCOUNT_ID"
+              echo "##vso[task.setvariable variable=ECR_IMAGE_URI]$ECR_IMAGE_URI"
+              echo "##vso[task.setvariable variable=ECR_IMAGE_URI_BUILD]$ECR_IMAGE_URI_BUILD"
+            displayName: "Select Image Account Id & Build URI"
+            env:
+              ecrImageAccountIdDEV: $(ecrImageAccountIdDEV)
+              ecrImageAccountIdUAT: $(ecrImageAccountIdUAT)
+              ecrImageAccountIdPDN: $(ecrImageAccountIdPDN)
+
+          - task: AWSShellScript@1
+            displayName: "Login to ECR"
+            inputs:
+              awsCredentials: '$(awsCredentials)'
+              regionName: '$(region)'
+              scriptType: 'inline'
+              Inlinescript: |
+                aws ecr get-login-password --region $(region) | docker login --username AWS --password-stdin $(ECR_IMAGE_URI)
+
+          - task: AWSShellScript@1
+            displayName: "Build and Push Docker Images"
+            inputs:
+              awsCredentials: '$(awsCredentials)'
+              regionName: '$(region)'
+              scriptType: 'inline'
+              Inlinescript: |
+                docker build -t $(ECR_IMAGE_URI_BUILD) .
+                docker push $(ECR_IMAGE_URI_BUILD)
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\Dockerfile
+/===============================================================================
+
+FROM python:3.11
+WORKDIR /app
+COPY . /app/
+RUN pip install --no-cache-dir -r requirements.txt
+RUN mkdir -p /app/output && chmod 777 /app/output
+RUN adduser --disabled-password app
+USER app
+ENV PYTHONPATH=/app
+CMD ["python", "/app/src/main_batch.py"]
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\main_api_unity_test.py
+/===============================================================================
+
+# main_unity_test.py
+
+from src.config.settings import Settings
+from src.resources.api_authenticator_resource import ApiAuthenticatorResource
+from src.resources.api_consumer_resource import ApiConsumerResource
+
+def main():
+    print("🔐 Obteniendo token...")
+    
+    # 1️⃣ Autenticador
+    authenticator = ApiAuthenticatorResource(
+        credentials=Settings.UNITY_CREDENTIALS,
+        auth_url=Settings.UNITY_AUTH_URL
+    )
+    
+    token = authenticator.get_token()
+    print(f"✅ Token obtenido: {token[:10]}...")  # solo para no mostrar todo el token
+
+    # 2️⃣ Consumer usando el token (tu clase ApiConsumerResource ya permite recibir token)
+    consumer = ApiConsumerResource(token=token)
+
+    # 3️⃣ Endpoint de Factoring Operations
+    url = Settings.FACTORING_URL
+
+    # 4️⃣ Parámetros de prueba
+    query_params = {
+        "date": "2024-08-30"
+    }
+
+    print(f"\n🌐 Llamando a la API: {url}")
+    print(f"📤 Parámetros: {query_params}\n")
+
+    # 5️⃣ Llamada a la API usando tu método get_with_pagination
+    data = consumer.simple_get(url=url, query_params=query_params)
+
+
+
+    # 6️⃣ Verificar resultado
+    if not data:
+        print("⚠️ No se encontraron datos o hubo error en la llamada")
+    else:
+        print(f"✅ Datos obtenidos ({len(data)} registros)\n")
+        for i, item in enumerate(data[:5]):
+            print(f"Registro {i+1}: {item}\n")
+
+if __name__ == "__main__":
+    main()
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\main_avro_viewer.py
+/===============================================================================
+
+# main_avro_viewer.py
+
+import fastavro
+
+def main():
+    avro_path = "output/reporte_2024-12-31.avro"  # Cambia la ruta si tu output se llama diferente
+
+    print(f"🔍 Leyendo archivo AVRO: {avro_path}\n")
+
+    try:
+        with open(avro_path, "rb") as f:
+            reader = fastavro.reader(f)
+            for record in reader:
+                print("✅ Registro leído:\n")
+                print(record)
+                print("\n-----------------------------\n")
+    except Exception as e:
+        print(f"❌ Error leyendo archivo Avro: {e}")
+
+if __name__ == "__main__":
+    main()
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\main_local_test.py
+/===============================================================================
+
+"""
+Este main_local_test.py te permite probar el flujo completo del proceso de generación del reporte MURIC
+de forma local, usando la misma clase InitializeReportGeneration que se usará luego en producción (batch).
+
+Solo debes ejecutar:
+
+    python main_local_test.py
+
+y el reporte se generará, validará y subirá a S3.
+"""
+
+import os
+import json
+from src.services.generic.initialize_report_generation_service import InitializeReportGeneration
+
+def main():
+    print("🚀 MAIN LOCAL TEST MURIC 🚀")
+
+    # Simulamos el payload que mandará el FRONT de Chronos:
+    parameters = {
+        "user": "Felipe.Gomez@btgpactual.com",
+        "report_key": "Muric",
+        "parameters": {
+            "report_date": "2024-12-31T05:00:00.000Z",  # como viene de Chronos
+            "company": "Banco"  # este no se usa
+        }
+    }
+
+    # Seteamos el payload como variable de entorno
+    os.environ["REPORT_PARAMETERS"] = json.dumps(parameters)
+
+    # Ejecutar el proceso
+    processor = InitializeReportGeneration()
+    processor.build_report()
+
+    print("✅ MAIN LOCAL TEST COMPLETADO ✅")
+
+if __name__ == "__main__":
+    main()
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\main.py
+/===============================================================================
+
+from fastapi import FastAPI
+from src.services.controller import generate_avro_report
+
+app = FastAPI()
+
+@app.post("/generate-avro")
+def generate():
+    return generate_avro_report()
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\requirements.txt
+/===============================================================================
+
+# ========================
+# Core Framework & GraphQL
+# ========================
+fastapi[standard]
+uvicorn
+strawberry-graphql[fastapi]
+python-dotenv
+
+# ================
+# Database & ORM
+# ================
+sqlalchemy==1.4.41
+sqlmodel==0.0.8
+redshift-connector
+sqlalchemy-redshift
+psycopg2-binary
+asyncpg
+
+# ====================
+# AWS & Cloud Support
+# ====================
+boto3
+botocore
+
+# =================
+# Avro Serialization
+# =================
+fastavro
+
+# ====================
+# Testing & Test Utils
+# ====================
+pytest
+pytest-cov
+httpx
+anyio
+pytest-mock
+moto  # Para mockear servicios de AWS como S3
+python-multipart  # Necesario para algunos tests con FormData (por warning de Starlette)
+
+# ====================
+# Developer Utilities
+# ====================
+pip-check
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-back\serverless.yml
+/===============================================================================
+
+service: ${self:custom.projectFullName}-muric
+frameworkVersion: '3'
+useDotenv: true
+
+provider: ${file(./iac/general/provider.yml)}
+
+custom: ${file(./iac/general/custom.yml)}
+
+package:
+  individually: true
+  exclude:
+    - ./**
+
+plugins:
+  - serverless-python-requirements
+
+resources:
+  Resources:
+    # BATCH - Job Definition
+    genMuricReportJobDefinition: ${file(./iac/resources/awsBatch/jobDefinition/genMuricReportJobDefinition.yml)}
+
+    # ECR
+    muricReportImageRepository: ${file(./iac/resources/ecr/muricReportContainer.yml)}
+
+    # # IAM Roles
+    muricBatchExecutionRole: ${file(./iac/resources/iamRoles/muricBatchExecutionRole.yml)}
+
+    # # SSM - Parameter Store
+    muricConfigParameter: ${file(./iac/resources/ssmParameters/muricConfigParameter.yml)}
+
+  Outputs:
+
+    MuricBatchExecutionRoleArn:
+      Description: ARN of role for muricBatchExecutionRole
+      Value: !GetAtt muricBatchExecutionRole.Arn
+      Export:
+        Name: !Sub "${self:custom.projectFullName}-MuricBatchExecutionRoleArn"
+

@@ -1,0 +1,1853 @@
+// Last update transaction car: 2025-07-09 15:19:06.064004
+// Total files: 30
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\.azuredevops\azure-pipeline.yml
+/===============================================================================
+
+trigger:
+  branches:
+    include:
+      - master
+  paths:
+    include:
+      - '**/*'  # Monitor all files in this repository
+
+stages:
+  - stage: DEV
+    variables:
+      project: dya-reports
+      environment: dev
+      service_name: contrapartes
+      working_directory: '$(System.DefaultWorkingDirectory)'
+      docker_repository: '${{ variables.project }}/${{ variables.service_name }}'
+      build_context: $(System.DefaultWorkingDirectory)
+      aws_region: us-east-1
+    jobs:
+    - job: deploy_app
+      displayName: Deploy application
+      pool: 'BTG Colombia - Azure DevOps'
+      steps:
+      - task: Docker@2
+        displayName: Build Docker image
+        inputs:
+          command: build
+          dockerfile: '${{ variables.working_directory }}/Dockerfile'
+          buildContext: '${{ variables.build_context }}'
+          repository: '${{ variables.docker_repository }}'
+
+      - task: ECRPushImage@1
+        displayName: Push Docker image
+        inputs:
+          awsCredentials: 'TERRAFORMDEVOPS-ANALYTICS-DEV-AWS'
+          regionName: '${{ variables.aws_region }}'
+          imageSource: 'imagename'
+          sourceImageName: '${{ variables.docker_repository }}'
+          sourceImageTag: $(Build.BuildId)
+          pushTag: $(Build.BuildNumber)
+          repositoryName: '${{ variables.docker_repository }}'
+
+  - stage: UAT
+    variables:
+      project: dya-reports
+      environment: uat
+      service_name: contrapartes
+      working_directory: '$(System.DefaultWorkingDirectory)'
+      docker_repository: '${{ variables.project }}/${{ variables.service_name }}'
+      build_context: $(System.DefaultWorkingDirectory)
+      aws_region: us-east-1
+    jobs:
+    - job: deploy_app
+      displayName: Deploy application
+      pool: 'BTG Colombia - Azure DevOps'
+      steps:
+      - task: Docker@2
+        displayName: Build Docker image
+        inputs:
+          command: build
+          dockerfile: '${{ variables.working_directory }}/Dockerfile'
+          buildContext: '${{ variables.build_context }}'
+          repository: '${{ variables.docker_repository }}'
+
+      - task: ECRPushImage@1
+        displayName: Push Docker image
+        inputs:
+          awsCredentials: 'TERRAFORMDEVOPS-ANALYTICS-UAT-AWS'
+          regionName: '${{ variables.aws_region }}'
+          imageSource: 'imagename'
+          sourceImageName: '${{ variables.docker_repository }}'
+          sourceImageTag: $(Build.BuildId)
+          pushTag: $(Build.BuildNumber)
+          repositoryName: '${{ variables.docker_repository }}'
+  
+  - stage: PDN
+    variables:
+      project: dya-reports
+      environment: pdn
+      service_name: contrapartes
+      working_directory: '$(System.DefaultWorkingDirectory)'
+      docker_repository: '${{ variables.project }}/${{ variables.service_name }}'
+      build_context: $(System.DefaultWorkingDirectory)
+      aws_region: us-east-1
+    jobs:
+    - job: deploy_app
+      displayName: Deploy application
+      pool: 'BTG Colombia - Azure DevOps'
+      steps:
+      - task: Docker@2
+        displayName: Build Docker image
+        inputs:
+          command: build
+          dockerfile: '${{ variables.working_directory }}/Dockerfile'
+          buildContext: '${{ variables.build_context }}'
+          repository: '${{ variables.docker_repository }}'
+
+      - task: ECRPushImage@1
+        displayName: Push Docker image
+        inputs:
+          awsCredentials: 'TERRAFORMDEVOPS-ANALYTICS-PDN-AWS'
+          regionName: '${{ variables.aws_region }}'
+          imageSource: 'imagename'
+          sourceImageName: '${{ variables.docker_repository }}'
+          sourceImageTag: $(Build.BuildId)
+          pushTag: $(Build.BuildNumber)
+          repositoryName: '${{ variables.docker_repository }}'
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\common\config\constants.py
+/===============================================================================
+
+"""
+This module defines constants used for database configurations.
+Classes:
+    DataBaseConstants (Enum): An enumeration that contains constants for database configurations.
+Attributes:
+    SQLALCHEMY_REDSHIFT_DRIVER (str): The driver string used for connecting to Redshift using SQLAlchemy.
+"""
+from enum import Enum
+
+class DataBaseConstants(Enum):
+    """
+    An enumeration that contains constants for database configurations.
+    Attributes:
+        SQLALCHEMY_REDSHIFT_DRIVER (str): The driver string used for connecting to Redshift using SQLAlchemy.
+    """
+    SQLALCHEMY_REDSHIFT_DRIVER='redshift+redshift_connector'
+
+class CloudConstants(Enum):
+    """
+    An enumeration that contains constants for cloud configurations.
+    Attributes:
+        SECRET_ERROR_MESSAGE (str): The error message displayed when the secret string is not found.
+    """
+    SECRET_ERROR_MESSAGE = "No SecretString"
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\common\config\env.py
+/===============================================================================
+
+"""
+This module defines the SessionEnv enumeration for managing environment-based session credentials.
+Classes:
+    SessionEnv (Enum): An enumeration that contains session credentials retrieved from environment variables.
+"""
+import os
+from enum import Enum
+
+class SessionEnv(Enum):
+    """
+    An enumeration that contains session credentials retrieved from environment variables.
+    Attributes:
+        DWH_USER (str): The username for the session, retrieved from the 'DWH_USER' environment variable.
+    """
+    DWH_SECRET=os.environ.get('DWH_SECRET_ARN', '')
+
+    @classmethod
+    def validate_env_vars(cls):
+        """Valida que las variables de entorno requeridas estén configuradas"""
+        missing_vars = []
+       
+        if not cls.DWH_SECRET.value or cls.DWH_SECRET.value.strip() == "":
+            missing_vars.append("DWH_SECRET_ARN")
+       
+        if missing_vars:
+            raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
+       
+        # Log de confirmación (opcional)
+        print(f"Environment variables validated successfully. DWH_SECRET_ARN configured.")
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\common\config\logger.py
+/===============================================================================
+
+"""
+This module configures the logging settings for the application.
+
+It sets up a logger instance with the INFO logging level.
+
+Attributes:
+    logger (logging.Logger): The logger instance used for logging messages.
+"""
+import logging
+logging.basicConfig(
+    level=logging.INFO
+)
+logger = logging.getLogger()
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\common\containers\database\session.py
+/===============================================================================
+
+"""
+This module defines the SessionDependencyContainer class for managing database sessions and credentials.
+
+Classes
+-------
+
+SessionDependencyContainer
+    A container class that manages the dependencies for database sessions, including credentials management.
+    It initializes the credentials manager and session, and provides a method to retrieve the session.
+"""
+
+#Interfaces
+from common.interfaces.resources.database.session import ISession
+from common.interfaces.resources.cloud.credentials import ICredentials
+
+#Resources
+from common.resources.database.session import Session
+from common.resources.cloud.credentials import Credentials
+from common.config.env import SessionEnv
+
+
+class SessionDependencyContainer(object):
+    """
+    SessionDependencyContainer is responsible for managing session dependencies.
+    This class initializes and provides access to a session object, which is created using credentials managed by the credentials manager.
+    
+    Attributes
+    ----------
+    
+    credentials_manager : ICredentials
+        An instance of the credentials manager used to handle credentials.
+    session : ISession
+        An instance of the session created using the credentials manager.
+    
+    Methods
+    -------
+    
+    __init__()
+        Initializes the SessionDependencyContainer with a credentials manager and a session.
+    get_session() -> ISession
+        Returns the session instance.
+    """
+
+    credentials_manager: ICredentials
+    session: ISession
+
+    def __init__(self):
+        """
+        Initialize the session with credentials.
+        """
+        SessionEnv.validate_env_vars()
+        self.credentials_manager = Credentials()
+        self.session=Session(self.credentials_manager)
+
+    def get_session(self):
+        """
+        Return the session instance.
+        """
+        return self.session
+    
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\common\decorators\decorators.py
+/===============================================================================
+
+"""
+This module contains decorators for logging and exception handling.
+Decorators:
+    log_decorator(func):
+        Logs the start and successful completion of the decorated function's execution.
+    try_catch_decorator(func):
+        Catches and logs any exceptions raised during the execution of the decorated function.
+Functions:
+    get_parameters_as_message(args):
+        Constructs a message string from the provided keyword arguments.
+"""
+
+
+import functools
+# from venv import logger
+from common.config.logger import logger
+
+def log_decorator(func):
+    """
+    A decorator that logs the start and end of the execution of a function.
+    This decorator logs a message before the execution of the decorated function,
+    indicating the function's name and its parameters. After the function executes,
+    it logs another message indicating that the function has completed successfully.
+    Args:
+        func (Callable): The function to be decorated.
+    Returns:
+        Callable: The wrapped function with logging functionality.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        """
+        Wrapper function that logs the start and successful completion of the execution of the decorated function.
+        Args:
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+        Returns:
+            The result of the decorated function.
+        """
+        
+        logger.info(f"# Comienza la ejecución de la función logger {func.__name__}{get_parameters_as_message(kwargs)}")
+        print(f"# Comienza la ejecución de la función print {func.__name__}{get_parameters_as_message(kwargs)}")
+        result = func(*args, **kwargs)
+        logger.info(f"# Finaliza la ejecución de la función logger {func.__name__}")
+        print(f"# Finaliza la ejecución de la función print {func.__name__}")
+        return result
+    
+    return wrapper
+
+def get_parameters_as_message(args):
+    """
+    Constructs a message string based on the provided dictionary of arguments.
+    Args:
+        args (dict): A dictionary containing key-value pairs of parameters.
+    Returns:
+        str: A formatted string indicating the presence of parameters if the dictionary is not empty,
+             otherwise an empty string.
+    """
+    
+    if len(args.keys())>0:
+        return f" con parámetros {args}"
+    else:
+        return ""
+
+def try_catch_decorator(func):
+    """
+    A decorator that wraps the passed in function and logs exceptions should one occur.
+    """
+    @functools.wraps(func)
+    def exception_handler(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            # Intentar hacer rollback si hay una sesión
+            instance = args[0] if args else None
+            if instance and hasattr(instance, "session"):
+                session = getattr(instance, "session", None)
+                if session and hasattr(session, "session") and hasattr(session.session, "rollback"):
+                    try:
+                        session.session.rollback()
+                        logger.warning(f"[ROLLBACK] ejecutado para {func.__name__} tras excepción logger: {str(e)}")
+                        print(f"[ROLLBACK] ejecutado para {func.__name__} tras excepción print: {str(e)}")
+                    except Exception as rollback_error:
+                        logger.error(f"[ERROR] al intentar rollback en logger {func.__name__}: {rollback_error}")
+                        print(f"[ERROR] al intentar rollback en print {func.__name__}: {rollback_error}")
+
+            logger.error(f"[ERROR] en la función logger {func.__name__}: {str(e)}")
+            print(f"[ERROR] en la función print {func.__name__}: {str(e)}")
+            logger.error(f"[ERROR] Argumentos de la función logger: args={len(args) if args else 0}, kwargs={list(kwargs.keys()) if kwargs else []}")
+            print(f"[ERROR] Argumentos de la función print: args={len(args) if args else 0}, kwargs={list(kwargs.keys()) if kwargs else []}")
+            
+            # ✅ SOLUCIÓN: Re-lanzar la excepción en lugar de retornar None
+            raise e
+
+    return exception_handler
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\common\entities\models\base.py
+/===============================================================================
+
+"""
+This module defines the base model for the project using SQLAlchemy's declarative base.
+
+Classes:
+-------
+    Base: A base class for all ORM models in the project.
+    metadata: Contains the metadata for the base class.
+
+Usage:
+-------
+    Import this module to use the Base class for defining ORM models.
+
+Example:
+-------
+    class MyModel(Base):
+        __tablename__ = 'my_model'
+        id = Column(Integer, primary_key=True)
+        name = Column(String)
+"""
+from sqlalchemy.orm import declarative_base
+
+Base = declarative_base()
+metadata = Base.metadata
+
+class BaseModel(Base):
+    """
+    Base class for all ORM models in the project.
+    """
+    __abstract__ = True
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\common\interfaces\resources\cloud\credentials.py
+/===============================================================================
+
+"""
+This module defines the ICredentials abstract base class for credentials management.
+
+Classes
+-------
+
+ICredentials
+    Abstract base class for credentials management, providing an interface for retrieving secret values as a dictionary.
+"""
+from abc import ABC, abstractmethod
+
+class ICredentials(ABC):
+    """
+    Interface for credentials management.
+    This interface defines a method for retrieving secret values as a dictionary.
+    
+    Methods
+    -------
+    
+    get_as_dict(secret_id: str) -> str
+        Retrieve the secret value associated with the given secret ID.
+    """
+
+    @abstractmethod
+    def get_as_dict(self, secret_id: str) -> dict:
+        """
+        Retrieve the secret as a dictionary using the provided secret ID.
+
+        Parameters
+        ----------
+        secret_id : str
+            The ID of the secret to retrieve.
+
+        Returns
+        -------
+        dict
+            The secret data in dictionary format.
+        """
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\common\interfaces\resources\database\session.py
+/===============================================================================
+
+"""
+This module defines the ISession abstract base class for database session operations.
+
+Classes
+-------
+
+ISession
+    Abstract base class for database session operations, providing an interface for retrieving rows from a database table.
+
+"""
+from abc import ABC
+from abc import abstractmethod
+
+class ISession(ABC):
+    """
+    Abstract base class for database session operations.
+
+    Methods
+    -------
+
+    get_all(table, joins=None, where=None, order_by=None, pagination=None, options=None) -> list
+        Retrieve all rows from the specified table with optional filtering, ordering, pagination, and additional options.
+    Parameters
+    """
+
+    @abstractmethod
+    def get_all(
+        self, 
+        table: object, 
+        joins: list = None, 
+        where: list = None, 
+        order_by: list = None, 
+        pagination: dict = None, 
+        options: list = None,
+        distinct: bool = False
+    ) -> list:
+        """
+        Retrieve all rows from the specified table with optional filtering, ordering, pagination, and additional options.
+
+        Parameters
+        ----------
+
+        table : object
+            The table from which to retrieve rows.
+        joins : list, optional
+            List of join conditions to apply (default is None).
+        where : list, optional
+            List of conditions to filter the rows (default is None).
+        order_by : list, optional
+            List of columns to order the results by (default is None).
+        pagination : dict, optional
+            Dictionary containing pagination information such as 'limit' and 'offset' (default is None).
+        options : list, optional
+            Additional options for the query (default is None).
+        distinct : bool, optional
+            Whether to return distinct rows (default is False).
+
+        Returns
+        -------
+        
+        list
+            A list of rows retrieved from the table.
+    """
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\common\resources\cloud\credentials.py
+/===============================================================================
+
+"""
+This module defines the CredentialsResource class for handling AWS Secrets Manager credentials.
+
+Classes
+-------
+
+CredentialsResource
+    A resource class to handle AWS Secrets Manager credentials, providing methods to retrieve secrets from AWS Secrets Manager and return them as a dictionary.
+"""    
+import json
+import boto3
+import boto3.session
+import time
+from botocore.exceptions import ClientError, BotoCoreError
+from common.config.constants import CloudConstants
+from common.decorators.decorators import try_catch_decorator
+from common.interfaces.resources.cloud.credentials import ICredentials
+from common.config.env import SessionEnv
+from common.config.logger import logger
+
+class Credentials(ICredentials):
+    """
+    Manages credentials using AWS Secrets Manager.
+    This class provides methods to retrieve secret values from AWS Secrets Manager as dictionaries.
+    
+    Methods
+    -------
+    
+    get_as_dict(secret_id: str) -> dict
+        Retrieve the secret value associated with the given secret ID.
+    """
+    
+    def __init__(self):
+        """
+        Initializes the credentials class.
+        This constructor sets up a client for AWS Secrets Manager using boto3.
+        Attributes:
+            client (boto3.client): A low-level client representing AWS Secrets Manager.
+        """
+        SessionEnv.validate_env_vars()
+        self.client = boto3.client(
+            'secretsmanager', 
+            region_name='us-east-1',
+            config=boto3.session.Config(
+                retries={'max_attempts': 3, 'mode': 'adaptive'},
+                read_timeout=60,
+                connect_timeout=60
+            )
+        )
+
+    def get_as_dict(self, secret_id: str, max_retries: int = 3, retry_delay: float = 1.0):
+        """
+        Retrieve the secret as a dictionary with retry logic.
+        """
+        if not secret_id or secret_id.strip() == "":
+            raise ValueError("Secret ID is empty or None")
+
+        last_exception = None
+        
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Attempting to retrieve secret (attempt logger {attempt + 1}/{max_retries})")
+                print(f"Attempting to retrieve secret (attempt print{attempt + 1}/{max_retries})")
+                
+                response = self.client.get_secret_value(SecretId=secret_id)
+                
+                if "SecretString" not in response:
+                    raise ValueError(CloudConstants.SECRET_ERROR_MESSAGE.value)
+                    
+                secret_string = response.get('SecretString')
+                if not secret_string:
+                    raise ValueError("SecretString is None or empty")
+                
+                logger.info("Secret retrieved successfully logger")
+                print("Secret retrieved successfully print")
+                return json.loads(secret_string)
+                
+            except (ClientError, BotoCoreError) as e:
+                last_exception = e
+                logger.warning(f"AWS error on attempt logger{attempt + 1}: {str(e)}")
+                print(f"AWS error on attempt print{attempt + 1}: {str(e)}")
+                
+                if attempt < max_retries - 1:
+                    sleep_time = retry_delay * (2 ** attempt)  # Exponential backoff
+                    logger.info(f"Retrying in {sleep_time} seconds... logger")
+                    print(f"Retrying in {sleep_time} seconds... print")
+                    time.sleep(sleep_time)
+                else:
+                    logger.error(f"Failed to retrieve secret after {max_retries} attempts logger")
+                    print(f"Failed to retrieve secret after {max_retries} attempts print")
+                    raise e
+                    
+            except json.JSONDecodeError as e:
+                logger.error(f"Invalid JSON in secret logger: {str(e)}")
+                print(f"Invalid JSON in secret print: {str(e)}")
+                raise ValueError(f"Invalid JSON in secret: {str(e)}")
+                
+            except Exception as e:
+                logger.error(f"Unexpected error retrieving secret logger: {str(e)}")
+                print(f"Unexpected error retrieving secret print: {str(e)}")
+                raise e
+        
+        # Si llegamos aquí, todos los reintentos fallaron
+        raise last_exception
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\common\resources\database\session.py
+/===============================================================================
+
+"""
+This module provides a singleton class `Session` to manage database connections using SQLAlchemy.
+It includes methods to create and manage a unique database session, and to retrieve records from the database.
+
+Classes:
+-------
+    Session: A singleton class to handle database connections and queries.
+
+Usage:
+-------
+    session = Session()
+    records = session.get_all(table=SomeTable, where=[SomeTable.column == value])
+"""
+
+from sqlalchemy.engine import URL
+from sqlalchemy.orm import sessionmaker, contains_eager
+from sqlalchemy.pool import NullPool
+from sqlalchemy import create_engine, select, text
+import time
+# Project Imports
+from common.config.env import SessionEnv
+from common.config.constants import DataBaseConstants
+from common.interfaces.resources.cloud.credentials import ICredentials
+from common.interfaces.resources.database.session import ISession
+from common.config.logger import logger
+
+class Session(ISession):
+    """
+    Singleton class to manage the SQLAlchemy session for database interactions.
+
+    Attributes:
+    -------
+        driver_name (str): The name of the database driver.
+        __instance (Session): The unique instance of the Session class.
+        session (Session): The SQLAlchemy session object.
+
+    Methods:
+    -------
+        __new__(cls, *args, **kwargs): Creates the unique instance of the database.
+        __init__(): Initializes the SQLAlchemy session URL.
+        __create_session(url: URL) -> object: Creates the SQLAlchemy session.
+        __del__(): Deletes the SQLAlchemy session.
+        get_all(table: object, joins: list = None, where: list = None, order_by: list = None, pagination: dict = None, options: list = None) -> list:
+            Retrieves all records from the database based on the provided parameters.
+    """
+
+    driver_name: str = DataBaseConstants.SQLALCHEMY_REDSHIFT_DRIVER.value
+    __instance = None
+    session = None
+    
+    def __new__(cls, *args, **kwargs):
+        """
+        Creates and returns the unique instance of the Session class.
+        This method ensures that only one instance of the Session class is created
+        (Singleton pattern). If an instance already exists, it returns the existing
+        instance; otherwise, it creates a new one.
+
+        Args:
+        -------
+            *args: Variable length argument list.
+            **kwargs: Arbitrary keyword arguments.
+        
+        Returns:
+        -------
+            Session: The unique instance of the Session class.
+        """
+        if Session.__instance is None:
+            Session.__instance = object.__new__(cls)
+        return Session.__instance
+
+    def __init__(self, credentials_manager: ICredentials, max_retries: int = 3):
+        if self.session is None:
+            logger.info("Initializing database session... logger")
+            print("Initializing database session... print")
+            
+            # ✅ Obtener credenciales con reintentos
+            credentials = credentials_manager.get_as_dict(
+                SessionEnv.DWH_SECRET.value, 
+                max_retries=max_retries
+            )
+            
+            # ✅ Validar credenciales
+            required_keys = ['username', 'password', 'host', 'database']
+            missing_keys = [key for key in required_keys if key not in credentials or not credentials[key]]
+            if missing_keys:
+                raise ValueError(f"Missing required credential keys: {missing_keys}")
+            
+            url = URL.create(
+                drivername=self.driver_name,
+                username=credentials['username'],
+                password=credentials['password'],
+                host=credentials['host'],
+                database=credentials['database']
+            )
+            
+            self.session = self._create_session(url, max_retries=max_retries)
+            logger.info("Database session initialized successfully logger")
+            print("Database session initialized successfully print")
+
+    def _create_session(self, url: URL, max_retries: int = 3) -> object:
+        """Creates a SQLAlchemy session with retry logic."""
+        
+        # ✅ Configurar engine con timeouts
+        engine = create_engine(
+            url, 
+            poolclass=NullPool,
+            connect_args={
+                "sslmode": "require",  # ✅ AGREGAR: Forzar SSL
+                "application_name": "contrapartes-graphql-api"
+            
+            }
+        )
+        
+        # ✅ Probar la conexión con reintentos
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Testing database connection (attempt logger {attempt + 1}/{max_retries})")
+                print(f"Testing database connection (attempt print {attempt + 1}/{max_retries})")
+                
+                # Crear sesión
+                Session_class = sessionmaker(bind=engine)
+                session = Session_class()
+                
+                # ✅ SIMPLIFICAR: Prueba de conexión más simple
+                result = session.execute(text("SELECT 1 as test_column"))
+                row = result.fetchone()
+            
+                if not row or row[0] != 1:
+                    raise ValueError("Database health check failed - invalid response")
+            
+                # ✅ AGREGAR: Confirmar conexión exitosa
+                logger.info("Database connection test successful logger")
+                print("Database connection test successful print")
+                self.engine = engine
+                return session
+                
+            except Exception as e:
+                logger.warning(f"Database connection failed on attempt logger {attempt + 1}: {str(e)}")
+                print(f"Database connection failed on attempt print {attempt + 1}: {str(e)}")
+                
+                # Cerrar sesión fallida
+                if 'session' in locals():
+                    try:
+                        session.close()
+                    except:
+                        pass
+                
+                if attempt < max_retries - 1:
+                    sleep_time = 2 ** attempt  # Exponential backoff
+                    logger.info(f"Retrying database connection in logger {sleep_time} seconds...")
+                    print(f"Retrying database connection in print {sleep_time} seconds...")
+                    time.sleep(sleep_time)
+                else:
+                    logger.error(f"Failed to create database session after logger {max_retries} attempts")
+                    print(f"Failed to create database session after print {max_retries} attempts")
+                    raise e
+                
+    def __del__(self) -> None:
+        if self.session:
+            try:
+                self.session.close()
+            except:
+                pass
+
+    def get_all(
+            self, 
+            columns: list, 
+            joins: list = None, 
+            where: list = None, 
+            order_by: list = None, 
+            pagination: dict = None, 
+            options: list = None,
+            distinct: bool = False
+        ) -> list:
+        """
+        Retrieve all records from the database based on the provided parameters.
+
+        Args:
+        -------
+            columns: List of columns to query.
+            joins: List of join conditions.
+            where: List of filter conditions.
+            order_by: List of order by conditions.
+            pagination: Dictionary with 'limit' and 'offset' for pagination.
+            options: List of options for the query.
+            distinct: Boolean to return distinct records.
+
+        Returns:
+        -------
+            List of records matching the query.
+        """
+        try:
+            query = select(*columns)
+            if distinct:
+                query = query.distinct()
+            if joins:
+                for join_info in joins:
+                    query = query.join(
+                        join_info["table"],
+                        join_info["condition"]
+                    )
+            if where:
+                query = query.filter(*where)
+            if order_by:
+                query = query.order_by(*order_by)
+            if pagination:
+                query = query.limit(pagination["limit"]).offset(
+                    pagination["offset"])
+            if options:
+                for option in options:
+                    query = query.options(contains_eager(option))
+            return self.session.execute(query).mappings().all()
+        except Exception as e:
+        # ✅ ROLLBACK SEGURO: Verificar que session existe antes de hacer rollback
+            if self.session:
+                try:
+                    self.session.rollback()
+                except:
+                    pass
+            raise e
+
+    @property
+    def db(self):
+        return self.session
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\commons\settings.py
+/===============================================================================
+
+import os
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+class Settings:    
+    RUN_WITH_DOCKER: str = os.getenv("run_with_docker", "false")
+    DWH_SECRET_ARN: str = os.getenv("DWH_SECRET_ARN", "")
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\src\config\constants.py
+/===============================================================================
+
+from enum import Enum
+
+class DataBaseConstants(Enum):
+    """
+    DataBaseConstants is an enumeration that defines constants related to the database schema and table names.
+    Attributes:
+        SCHEMA (str): The name of the database schema used for the application.
+        TBL_CLIENTS (str): The name of the table that stores client information.
+    """
+
+    SCHEMA = 'clientes'
+    TBL_CLIENTS = 'tblclientes'
+
+class ApiConstants(Enum):
+    """
+    ApiConstants is an enumeration that defines constants used throughout the API.
+    Attributes:
+        TITLE (str): The title or name of the API, describing its purpose.
+        DESCRIPTION (str): A brief description of the API and its functionality.
+        ENDPOINTS (dict): A dictionary containing the API's endpoint paths.
+            - 'health': Path for the health check endpoint.
+            - 'graphql': Path for the GraphQL endpoint.
+        HEALTH_CHECK_RESPONSE (dict): A predefined response for the health check endpoint.
+            - 'status': Indicates the health status of the API (e.g., "ok").
+    """
+
+    TITLE='Informacion de clientes en RedShift'
+    DESCRIPTION='API que proporciona informacion de clientes existentes en el Data LakeHouse de BTG Pactual'
+    ENDPOINTS={
+        'health': '/health',
+        'graphql': '/graphql'
+    }
+    CLIENT_ENDPOINT = '/graphql'
+    HEALTH_ENDPOINT = '/health'
+    CLIENT_ROUTER_TAG = 'graphql'
+    HEALTH_ROUTER_TAG = 'Healthcheck'
+    HEALTH_CHECK_RESPONSE={"status": "ok"}
+    SWAGGER_JSON = '/swagger.json'
+    SWAGGER_JSON_PATH = 'swagger.json'
+    SWAGGER_JSON_MEDIA_TYPE = 'application/json'
+
+
+class ClientConstants(Enum):
+    """
+    ClientConstants is an enumeration that defines constant values used for validation and error messages 
+    within the application.
+    Attributes:
+        PERSON_TYPE_ALLOWED (list): A list of allowed person types, where 'N' represents natural persons 
+            and 'J' represents legal entities.
+        PERSON_TYPE_ERROR (str): An error message indicating that the customer type must be one of the 
+            allowed person types.
+        PAGINATION_ERROR (str): An error message indicating that pagination must include both 'pagina' 
+            (page) and 'registros' (records).
+        CUSTOMER_TYPE_ERROR (str): An error message indicating that the provided customer type is invalid.
+    """
+
+    PERSON_TYPE_ALLOWED=['N', 'J']
+    PERSON_TYPE_ERROR=f'customerType must be either {PERSON_TYPE_ALLOWED}'
+    PAGINATION_ERROR='pagination must contain both pagina and registros'
+    CUSTOMER_TYPE_ERROR='Invalid customer type'
+    DEFAULT_PAGINATION_RECORDS=10
+    DEFAULT_PAGINATION_PAGE=0
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\src\config\lifespan.py
+/===============================================================================
+
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+
+from common.containers.database.session import SessionDependencyContainer  
+from src.resolvers.client.client_resolver import ClientResolver
+from src.data_access.models.base import BaseModel
+from common.config.env import SessionEnv
+
+"""
+Defines an asynchronous context manager for the lifespan of a FastAPI application.
+
+This function is used to manage the setup and teardown of resources required by the application.
+It initializes a database session, loads the machine learning model, and sets up a user service
+for the application. Upon exiting the context, it ensures proper cleanup of resources.
+
+Args:
+    app (FastAPI): The FastAPI application instance.
+
+Yields:
+    None: This function yields control back to the application during its lifespan.
+
+Raises:
+    Exception: If any error occurs during the setup or teardown process, it is logged and re-raised.
+"""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        SessionEnv.validate_env_vars()
+        session = SessionDependencyContainer().get_session()
+        # Load the ML model
+        BaseModel.metadata.create_all(session.engine)
+        app.state.user_service = ClientResolver()
+        yield
+        # Clean up the ML models and release the resources
+        session.session.close()
+    except Exception as e:
+        print(f"Error during application startup: {e}")
+        raise
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\src\data_access\models\base.py
+/===============================================================================
+
+from sqlalchemy.orm import declarative_base
+
+Base = declarative_base()
+metadata = Base.metadata
+
+class BaseModel(Base):
+    """
+    BaseModel serves as an abstract base class for all ORM models in the application.
+    Attributes:
+        __abstract__ (bool): Indicates that this class is abstract and should not be instantiated directly.
+    """
+    
+    __abstract__ = True
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\src\data_access\models\clients.py
+/===============================================================================
+
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, distinct, func
+from sqlalchemy.sql import cast
+from sqlalchemy.types import String
+from src.data_access.models.base import BaseModel
+from src.config.constants import DataBaseConstants
+
+
+class TblClients(BaseModel):
+    __tablename__ = DataBaseConstants.TBL_CLIENTS.value
+    __table_args__ = {'schema': DataBaseConstants.SCHEMA.value}
+
+    client_id = Column("id_persona", Integer, primary_key=True)
+    unique_code = Column("codigo_unico", String)
+    identification_number = Column("numero_identificacion", String)
+    document_type = Column("tipo_identificacion", String)
+    first_name = Column("primer_nombre", String)
+    middle_name = Column("segundo_nombre", String)
+    last_name = Column("primer_apellido", String)
+    second_last_name = Column("segundo_apellido", String)
+    company_name = Column("nombre_empresa", String)
+
+    address = Column("direccion", String)
+    city = Column("ciudad", String)
+    department = Column("departamento", String)
+    country = Column("pais", String)
+    phone = Column("telefono", String)
+    email = Column("correo_opcional", String)
+
+    person_type = Column("tipo_persona", String)
+    client_state = Column("estado_cliente", String)
+    active_last_year = Column("estuvo_activo_ano_anterior", Boolean)
+    is_identity_validated = Column("validacion_identidad", Boolean)
+    created_at = Column("fecha_vinculacion", DateTime)
+
+    client_segment = Column("segmento", String)
+    commercial_name = Column("nombre_comercial_rm", String)
+
+    account_btg = Column("cuenta_corriente_btg", String)
+    foreign_account = Column("cuenta_otra_entidad", String)
+
+    ciiu_code = Column("cod_ciiu", String)
+    active = Column("activo", Integer)
+    society_class = Column("clase_sociedad", String)
+    monthly_income = Column("ingreso_mensual", String)
+    total_income = Column("total_ingresos", String)
+    city_code = Column("cod_ciudad", String)
+    country_code = Column("cod_pais", String)
+    entity_type = Column("tipo_entidad", String)
+    economic_group = Column("grupo_economico", String)
+    cge_code = Column("codigo_cge", Integer)
+
+    @classmethod
+    def get_records_size(cls):
+        """
+        get_records_size (cls): Generates a list of SQLAlchemy column expressions for counting customer records.
+        Returns:
+            list: A list of SQLAlchemy column expressions for counting customer records.
+        """
+        return [
+            (func.count(distinct(cls.client_id))).label('records')
+        ]
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\src\data_access\repositories\client_repo.py
+/===============================================================================
+
+from typing import List, Optional, Dict, Any
+from sqlalchemy import func, text
+from common.decorators.decorators import log_decorator, try_catch_decorator
+from common.interfaces.resources.database.session import ISession
+from src.data_access.models.clients import TblClients
+from src.data_access.repositories.iclient_repo import IClientRepository
+from src.config.constants import ClientConstants
+import time
+from common.config.logger import logger
+
+class ClientRepository(IClientRepository):
+    """
+    Repository class for managing client data access.
+    Methods:
+        __init__(session: ISession):
+            Initializes the repository with a session object.
+        get_clients(
+            identification_numbers: Optional[List[str]] = None
+        ) -> dict:
+            Retrieves a list of clients based on the provided filters and pagination.
+            Args:
+                pagination (Optional[dict]): A dictionary containing pagination details
+                    with keys "records" (number of records per page) and "page" (page number).
+                person_type (Optional[str]): The type of person to filter clients by.
+                unique_codes (Optional[List[str]]): A list of unique codes to filter clients by.
+                identification_numbers (Optional[List[str]]): A list of identification numbers
+                    to filter clients by.
+            Returns:
+                dict: A dictionary containing:
+                    - "clients": A list of TblClients objects matching the filters.
+                    - "total_count": The total number of clients matching the filters.
+    """
+    def __init__(self, session: ISession):
+        self.session = session
+
+    @try_catch_decorator
+    @log_decorator
+    def get_clients(
+        self,
+        pagination: Optional[dict] = None,
+        person_type: Optional[str] = None,
+        unique_codes: Optional[List[str]] = None,
+        identification_numbers: Optional[List[str]] = None,
+        document_types: Optional[List[str]] = None,
+        cge_codes: Optional[List[int]] = None
+    ) -> Dict[str, Any]:
+        
+        # ✅ VALIDACIONES BÁSICAS
+        if not self.session:
+            raise ValueError("Database session is None - ClientRepository not properly initialized")
+        
+        if not hasattr(self.session, 'session') or not self.session.session:
+            raise ValueError("Database session.session is None - Database connection not established")
+        
+        # ✅ NUEVO: Manejo robusto de conexión con reintentos
+        max_retries = 3
+        last_exception = None
+        
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Consultando clientes con filtros (intento {attempt + 1}/{max_retries}): pagination={pagination}, person_type={person_type}")
+                print(f"Consultando clientes con filtros (intento {attempt + 1}/{max_retries}): pagination={pagination}, person_type={person_type}")
+                
+                # ✅ NUEVO: Verificar conexión de forma más robusta
+                try:
+                    test_result = self.session.session.execute(text("SELECT 1 as test"))
+                    test_row = test_result.fetchone()
+                    if not test_row or test_row[0] != 1:
+                        raise ValueError("Connection test failed")
+                    logger.info(f"Connection test successful (attempt {attempt + 1})")
+                    print(f"Connection test successful (attempt {attempt + 1})")
+                except Exception as conn_error:
+                    logger.warning(f"Connection test failed (attempt {attempt + 1}): {str(conn_error)}")
+                    print(f"Connection test failed (attempt {attempt + 1}): {str(conn_error)}")
+                    
+                    # Si no es el último intento, recrear la sesión
+                    if attempt < max_retries - 1:
+                        logger.info(f"Recreating database session (attempt {attempt + 1})")
+                        print(f"Recreating database session (attempt {attempt + 1})")
+                        self._recreate_session()
+                        time.sleep(1 * (2 ** attempt))  # Backoff exponencial
+                        continue
+                    else:
+                        raise ValueError(f"Database connection is not active after {max_retries} attempts: {str(conn_error)}")
+                
+                # ✅ PROCEDER CON LA CONSULTA PRINCIPAL
+                query = self.session.session.query(TblClients)
+
+                # Aplicar filtros
+                filters = {
+                    TblClients.unique_code: unique_codes,
+                    TblClients.identification_number: identification_numbers,
+                    TblClients.document_type: document_types,
+                    TblClients.cge_code: cge_codes,
+                }
+
+                for column, value in filters.items():
+                    if value:
+                        query = query.filter(column.in_(value))
+
+                if person_type:
+                    query = query.filter(TblClients.person_type == person_type)
+
+                # ✅ EJECUTAR CONTEO CON MANEJO DE ERRORES
+                try:
+                    total_count: int = query.count()
+                    logger.info(f"Total de registros encontrados: {total_count}")
+                    print(f"Total de registros encontrados: {total_count}")
+                except Exception as count_error:
+                    logger.error(f"Error al contar registros: {str(count_error)}")
+                    print(f"Error al contar registros: {str(count_error)}")
+                    raise count_error
+
+                # Aplicar paginación
+                if pagination:
+                    limit = pagination.get("records", ClientConstants.DEFAULT_PAGINATION_RECORDS.value)
+                    page = pagination.get("page", ClientConstants.DEFAULT_PAGINATION_PAGE.value)
+                    if page < 1:
+                        logger.info(f"Página inválida recibida: {page}, usando página 1")
+                        page = 1
+                    if limit <= 0:
+                        logger.info(f"Records inválido recibido: {limit}, usando valor por defecto")
+                        limit = ClientConstants.DEFAULT_PAGINATION_RECORDS.value
+                    
+                    offset = (page - 1) * limit
+                    logger.info(f"Aplicando paginación: page={page}, limit={limit}, offset={offset}")
+                    print(f"Aplicando paginación: page={page}, limit={limit}, offset={offset}")
+                    query = query.limit(limit).offset(offset)
+                else:
+                    query = query.limit(ClientConstants.DEFAULT_PAGINATION_RECORDS.value)
+
+                # ✅ EJECUTAR CONSULTA PRINCIPAL CON MANEJO DE ERRORES
+                try:
+                    clients = query.all()
+                    logger.info(f"Registros obtenidos: {len(clients)}")
+                    print(f"Registros obtenidos: {len(clients)}")
+                except Exception as query_error:
+                    logger.error(f"Error al ejecutar consulta principal: {str(query_error)}")
+                    print(f"Error al ejecutar consulta principal: {str(query_error)}")
+                    raise query_error
+
+                # ✅ ÉXITO: Retornar resultados
+                return {
+                    "clients": clients,
+                    "total_count": total_count
+                }
+                
+            except Exception as e:
+                last_exception = e
+                logger.warning(f"Error en intento {attempt + 1}: {str(e)}")
+                print(f"Error en intento {attempt + 1}: {str(e)}")
+                
+                if attempt < max_retries - 1:
+                    sleep_time = 2 ** attempt
+                    logger.info(f"Reintentando en {sleep_time} segundos...")
+                    print(f"Reintentando en {sleep_time} segundos...")
+                    time.sleep(sleep_time)
+                else:
+                    logger.error(f"Falló después de {max_retries} intentos")
+                    print(f"Falló después de {max_retries} intentos")
+                    raise e
+
+    def _recreate_session(self):
+        """Recrear la sesión de base de datos en caso de pérdida de conexión"""
+        try:
+            logger.info("Recreating database session logger...")
+            print("Recreating database session print...")
+            
+            # Cerrar sesión actual si existe
+            if hasattr(self.session, 'session') and self.session.session:
+                try:
+                    self.session.session.close()
+                except:
+                    pass
+            
+            # Obtener nueva sesión del container
+            from common.containers.database.session import SessionDependencyContainer
+            session_container = SessionDependencyContainer()
+            self.session = session_container.get_session()
+            
+            logger.info("Database session recreated successfully")
+            print("Database session recreated successfully")
+            
+        except Exception as e:
+            logger.error(f"Error recreating session: {str(e)}")
+            print(f"Error recreating session: {str(e)}")
+            raise e
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\src\data_access\repositories\iclient_repo.py
+/===============================================================================
+
+from abc import ABC, abstractmethod
+from typing import List, Optional
+
+
+class IClientRepository(ABC):
+    """
+    Interface for the client repository that defines the contract for accessing client data.
+
+    Methods:
+        get_clients(pagination: dict, person_type: Optional[str] = None, unique_codes: Optional[List[str]] = None, identification_numbers: Optional[List[str]] = None) -> dict:
+            Abstract method to retrieve a list of clients based on the provided filters and pagination.
+
+            Args:
+                pagination (dict): A dictionary containing pagination details such as page number and page size.
+                person_type (Optional[str]): An optional filter to specify the type of person (e.g., individual, company).
+                unique_codes (Optional[List[str]]): An optional list of unique client codes to filter the results.
+                identification_numbers (Optional[List[str]]): An optional list of identification numbers to filter the results.
+
+            Returns:
+                dict: A dictionary containing the paginated list of clients and any additional metadata.
+    """
+    @abstractmethod
+    def get_clients(
+        self,
+        pagination: Optional[dict] = None,
+        person_type: Optional[str] = None,
+        unique_codes: Optional[List[str]] = None,
+        identification_numbers: Optional[List[str]] = None,
+        document_types: Optional[List[str]] = None,
+        cge_codes: Optional[List[int]] = None
+    ) -> dict:
+        pass
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\src\Graphql\queries\client\client_query.py
+/===============================================================================
+
+import strawberry
+from typing import List, Optional
+from src.Graphql.schemas.client import ClientSchema
+from src.Graphql.schemas.pagination import PaginationInput
+from src.Graphql.schemas.client import ResponseClients
+from src.resolvers.client.client_resolver import ClientResolver
+from src.resolvers.client.iclient_resolver import IClientResolver
+
+
+"""
+ClientQuery class containing GraphQL query fields for client-related operations.
+Methods:
+    get_clients(pagination: PaginationInput, person_type: Optional[str] = None, 
+                identification_numbers: Optional[List[str]] = None) -> ResponseClients:
+        Retrieves a list of clients based on the provided filters and pagination.
+        Args:
+            pagination (PaginationInput): Pagination details for the query.
+            person_type (Optional[str]): Filter by the type of person (e.g., individual, company).
+            unique_codes (Optional[List[str]]): List of unique codes to filter clients.
+            identification_numbers (Optional[List[str]]): List of identification numbers to filter clients.
+        Returns:
+            ResponseClients: A response object containing the list of clients and related metadata.
+"""
+@strawberry.type
+class ClientQuery:
+
+    @strawberry.field
+    def get_clients(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        person_type: Optional[str] = None,
+        unique_codes: Optional[List[str]] = None,
+        identification_numbers: Optional[List[str]] = None,
+        document_types: Optional[List[str]] = None,
+        cge_codes: Optional[List[int]] = None
+    ) -> ResponseClients:
+        resolver = ClientResolver()
+        return resolver.get_clients(
+            pagination=pagination,
+            person_type=person_type,
+            unique_codes=unique_codes,
+            identification_numbers=identification_numbers,
+            document_types=document_types,
+            cge_codes=cge_codes
+        )
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\src\Graphql\router\client.py
+/===============================================================================
+
+from fastapi import APIRouter
+
+from strawberry.fastapi import GraphQLRouter
+from src.Graphql.queries.client.client_query import ClientQuery 
+from src.config.constants import ApiConstants
+import strawberry
+
+"""
+This module defines the FastAPI router for handling GraphQL requests related to clients.
+Modules:
+    - fastapi.APIRouter: Used to create a FastAPI router instance.
+    - strawberry.fastapi.GraphQLRouter: Provides integration of Strawberry GraphQL with FastAPI.
+    - src.Graphql.queries.client.client_query.ClientQuery: Defines the GraphQL query schema for client-related operations.
+Attributes:
+    schema (strawberry.Schema): The GraphQL schema defined using the `ClientQuery` class.
+    graphql_app (GraphQLRouter): The Strawberry GraphQL router configured with the defined schema.
+    router (APIRouter): The FastAPI router that includes the GraphQL router with a prefix of "/graphql".
+Usage:
+    This module sets up the routing for GraphQL queries related to clients. The `router` object can be included in the main FastAPI application to enable GraphQL functionality.
+"""
+
+schema = strawberry.Schema(query=ClientQuery)
+graphql_app = GraphQLRouter(schema=schema)
+
+router = APIRouter()
+router.include_router(graphql_app, prefix=ApiConstants.CLIENT_ENDPOINT.value)
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\src\Graphql\router\health.py
+/===============================================================================
+
+import json
+from fastapi import APIRouter, Response, status
+from src.config.constants import ApiConstants
+
+"""
+Endpoint to perform a health check for the API.
+
+Returns:
+    Response: A JSON response with the health check status and details.
+"""
+
+health_check_router = APIRouter()
+
+@health_check_router.get(ApiConstants.HEALTH_ENDPOINT.value, status_code=status.HTTP_200_OK)
+async def health_check():
+    return Response(
+        content=json.dumps(ApiConstants.HEALTH_CHECK_RESPONSE.value),
+        media_type=ApiConstants.SWAGGER_JSON_MEDIA_TYPE.value,
+    )
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\src\Graphql\schemas\client.py
+/===============================================================================
+
+import strawberry
+from typing import Optional
+from src.Graphql.schemas.pagination import PaginationOutput
+from typing import List
+
+@strawberry.type
+class ClientSchema:
+    id: int
+    unique_code: str
+    identification_number: Optional[str]
+    document_type: Optional[str]
+
+    first_name: Optional[str]
+    middle_name: Optional[str]
+    last_name: Optional[str]
+    second_last_name: Optional[str]
+    company_name: Optional[str]
+
+    address: Optional[str]
+    city: Optional[str]
+    department: Optional[str]
+    country: Optional[str]
+    phone: Optional[str]
+    email: Optional[str]
+
+    person_type: Optional[str]
+    client_state: Optional[str]
+    active_last_year: Optional[bool]
+    is_identity_validated: Optional[bool]
+    created_at: Optional[str] 
+
+    client_segment: Optional[str]
+    commercial_name: Optional[str]
+    account_btg: Optional[str]
+    foreign_account: Optional[str]
+
+    ciiu_code: Optional[str]
+    active: Optional[float]
+    society_class: Optional[str]
+    monthly_income: Optional[float]
+    total_income: Optional[float]
+    city_code: Optional[str]
+    country_code: Optional[str]
+    entity_type: Optional[str]
+    economic_group: Optional[str]
+    cge_code: Optional[int]
+
+
+@strawberry.type
+class ResponseClients:
+    """
+    ResponseClients: GraphQL response class for handling client-related queries.
+    Attributes:
+        clients (List[ClientSchema]): A list of client schema objects representing the clients.
+        pagination (Optional[PaginationOutput]): An object containing pagination information for the response.
+    """
+    clients: List[ClientSchema]
+    pagination: Optional[PaginationOutput] = None
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\src\Graphql\schemas\pagination.py
+/===============================================================================
+
+"""
+This module defines the input and output types for pagination and responses related to clients in a GraphQL schema.
+Classes:
+    PaginationInput: Defines the input type for pagination parameters.
+    PaginationOutput: Defines the output type for pagination details.
+"""
+import strawberry
+from typing import List, Optional
+
+@strawberry.input
+class PaginationInput:
+    """
+    PaginationInput: Class for handling pagination input parameters.
+    Attributes:
+        page (int): The current page number.
+        records (int): The number of records per page.
+    """
+    page: int
+    records: int
+
+@strawberry.type
+class PaginationOutput:
+    """
+    PaginationOutput: Class for handling pagination output.
+    Attributes:
+        count (int): The total number of items.
+        next (Optional[int]): The next page number, if available.
+        previous (Optional[int]): The previous page number, if available.
+    """
+    count: int
+    next: Optional[int] = None
+    previous: Optional[int] = None
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\src\resolvers\client\client_resolver.py
+/===============================================================================
+
+from typing import List, Optional
+from src.resolvers.client.iclient_resolver import IClientResolver
+from src.data_access.repositories.client_repo import ClientRepository
+from src.Graphql.schemas.client import ClientSchema
+from src.Graphql.schemas.pagination import PaginationInput, PaginationOutput
+from src.Graphql.schemas.client import ResponseClients
+from src.utils.mapper import map_client_model_to_schema
+from common.containers.database.session import SessionDependencyContainer
+from src.config.constants import ClientConstants
+from common.config.logger import logger
+
+
+class ClientResolver(IClientResolver):
+    """
+    A resolver class for handling client-related operations.
+    Methods:
+        __init__():
+            Initializes the ClientResolver with a session and client repository.
+        get_clients(pagination: PaginationInput, person_type: Optional[str] = None, 
+                    identification_numbers: Optional[List[str]] = None) -> ResponseClients:
+            Retrieves a paginated list of clients based on the provided filters.
+            Args:
+                pagination (PaginationInput): Pagination details including records per page and page number.
+                person_type (Optional[str]): Filter for the type of person (e.g., individual, company).
+                unique_codes (Optional[List[str]]): List of unique client codes to filter by.
+                identification_numbers (Optional[List[str]]): List of identification numbers to filter by.
+            Returns:
+                ResponseClients: A response object containing the list of clients and pagination details.
+    """
+    def __init__(self):
+        try: 
+            print("Initializing ClientsResolver print")
+            logger.info("Initializing ClientsResolver logger")
+            self.session = SessionDependencyContainer().get_session()
+            # Validar que la sesión se haya obtenido correctamente
+            if not self.session:
+                raise ValueError("Failed to obtain database session from SessionDependencyContainer")
+            print("Session obteined successfully")
+            self.client_repo = ClientRepository(session=self.session)
+            print("ClientsRepository initialized successfully print")
+            logger.info("ClientsRepository initialized successfully logger")
+        except Exception as e:
+            logger.error(f"Error inicializando ClientResolver: {str(e)}")
+            # Re-lanzar la excepción para que el error sea visible
+            raise ValueError(f"ClientResolver initialization failed: {str(e)}")
+        
+    def get_clients(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        person_type: Optional[str] = None,
+        unique_codes: Optional[List[str]] = None,
+        identification_numbers: Optional[List[str]] = None,
+        document_types: Optional[List[str]] = None,
+        cge_codes: Optional[List[int]] = None
+    ) -> ResponseClients:
+        try:
+            if not self.client_repo:
+                raise ValueError("ClientRepository is not initialized")
+          
+            if pagination is None:
+                pagination = PaginationInput(records=ClientConstants.DEFAULT_PAGINATION_RECORDS.value, 
+                                             page=ClientConstants.DEFAULT_PAGINATION_PAGE.value)
+            normalized_page = max(1, pagination.page)
+            if pagination.page != normalized_page:
+                print(f"Página normalizada print: {pagination.page} → {normalized_page}")
+                logger.info(f"Página normalizada logger: {pagination.page} → {normalized_page}")
+                
+            pagination_dict = {
+                'page': normalized_page,     
+                'records': pagination.records
+            } 
+            print(f"Consultando con paginación print: {pagination_dict}")
+            logger.info(f"Consultando créditos con paginación logger: {pagination_dict}")
+            
+            result = self.client_repo.get_clients(
+                pagination=pagination_dict,
+                person_type=person_type,
+                unique_codes=unique_codes,
+                identification_numbers=identification_numbers,
+                document_types=document_types,
+                cge_codes=cge_codes
+            )
+            if not result:
+                raise ValueError("Repository returned None result")
+
+            if "clients" not in result:
+                raise ValueError("Repository result missing 'clients' key")
+
+            mapped_clients = [map_client_model_to_schema(client) for client in result["clients"]]
+            count = result["total_count"]
+
+            current_page = pagination.page
+            records_per_page = pagination.records
+
+            # Calcular páginas
+            total_pages = (count + records_per_page - 1) // records_per_page
+
+            next_page = current_page + 1 if current_page < total_pages else None
+            previous_page = current_page - 1 if current_page > 1 else None
+
+            # next_page = (pagination.page + 1) if (pagination.page + 1) * pagination.records < count else None
+            # previous_page = (pagination.page - 1) if pagination.page > 0 else None
+
+            pagination_output = PaginationOutput(
+                count=count,
+                next=next_page,
+                previous=previous_page
+            )
+
+            response = ResponseClients(
+                clients=mapped_clients,
+                pagination=pagination_output
+            )
+
+            return response
+        
+        except Exception as e:
+            logger.error(f"Error en get_clients: {str(e)}")
+            raise
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\src\resolvers\client\iclient_resolver.py
+/===============================================================================
+
+from abc import ABC, abstractmethod
+from typing import List, Optional
+from src.Graphql.schemas.pagination import PaginationInput
+from src.Graphql.schemas.client import ResponseClients
+
+
+class IClientResolver(ABC):
+    """
+    Abstract base class for resolving client-related operations.
+
+    Methods:
+        get_clients(pagination: PaginationInput, person_type: Optional[str] = None, 
+                    identification_numbers: Optional[List[str]] = None) -> ResponseClients:
+            Abstract method to retrieve a list of clients based on the provided filters 
+            and pagination parameters.
+
+            Args:
+                pagination (PaginationInput): The pagination parameters for the query.
+                person_type (Optional[str]): The type of person (e.g., individual, company) to filter clients.
+                unique_codes (Optional[List[str]]): A list of unique codes to filter clients.
+                identification_numbers (Optional[List[str]]): A list of identification numbers to filter clients.
+
+            Returns:
+                ResponseClients: A response object containing the list of clients and related metadata.
+    """
+    @abstractmethod
+    def get_clients(
+        self,
+        pagination: Optional[PaginationInput] = None,
+        person_type: Optional[str] = None,
+        unique_codes: Optional[List[str]] = None,
+        identification_numbers: Optional[List[str]] = None,
+        document_types: Optional[List[str]] = None,
+        cge_codes: Optional[List[int]] = None
+    ) -> ResponseClients:
+        pass
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\src\utils\mapper.py
+/===============================================================================
+
+from src.Graphql.schemas.client import ClientSchema
+from src.data_access.models.clients import TblClients
+
+def map_client_model_to_schema(client: TblClients) -> ClientSchema:
+    """
+    Maps a TblClients database model instance to a ClientSchema instance.
+    Args:
+        client (TblClients): The client model instance to be mapped.
+    Returns:
+        ClientSchema: The mapped schema instance containing client data.
+    """
+    return ClientSchema(
+        id=client.client_id,
+        unique_code=client.unique_code,
+        identification_number=client.identification_number,
+        document_type=client.document_type,
+
+        first_name=client.first_name,
+        middle_name=client.middle_name,
+        last_name=client.last_name,
+        second_last_name=client.second_last_name,
+        company_name=client.company_name,
+
+        address=client.address,
+        city=client.city,
+        department=client.department,
+        country=client.country,
+        phone=client.phone,
+        email=client.email,
+
+        person_type=client.person_type,
+        client_state=client.client_state,
+        active_last_year=client.active_last_year,
+        is_identity_validated=client.is_identity_validated,
+        created_at=client.created_at.isoformat() if client.created_at else None,
+
+        client_segment=client.client_segment,
+        commercial_name=client.commercial_name,
+        account_btg=client.account_btg,
+        foreign_account=client.foreign_account,
+        
+        ciiu_code=client.ciiu_code,
+        active=client.active,
+        society_class=client.society_class,
+        monthly_income=client.monthly_income,
+        total_income=client.total_income,
+        city_code=client.city_code,
+        country_code=client.country_code,
+        entity_type=client.entity_type,
+        economic_group=client.economic_group,
+        cge_code=client.cge_code
+    )
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\.env
+/===============================================================================
+
+run_with_docker=""
+ 
+DWH_SECRET_ARN=""
+AWS_ACCESS_KEY_ID=""
+AWS_SECRET_ACCESS_KEY=""
+AWS_SESSION_TOKEN=""
+AWS_DEFAULT_REGION=""
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\Dockerfile
+/===============================================================================
+
+FROM python:3.12-alpine@sha256:54bec49592c8455de8d5983d984efff76b6417a6af9b5dcc8d0237bf6ad3bd20
+
+WORKDIR /app
+
+COPY /requirements.txt /app/requirements.txt
+
+# Actualiza los índices de los paquetes y agrega las dependencias necesarias:
+# - gcc: el compilador de C
+# - musl-dev: las bibliotecas de desarrollo de musl
+# - postgresql-dev: las bibliotecas de desarrollo de PostgreSQL 
+# - python3-dev: las bibliotecas de desarrollo de Python 3
+# Luego, elimina la caché de apk para reducir el tamaño de la imagen.
+# Finalmente, instala las dependencias de Python listadas en requirements.txt sin usar la caché de pip.
+RUN apk add --no-cache gcc musl-dev postgresql-dev python3-dev && \
+    pip install --no-cache-dir --upgrade -r /app/requirements.txt
+
+COPY  /commons /app/commons
+COPY  /common /app/common
+COPY  /src /app/src
+COPY  /main.py /app/main.py
+
+
+ARG RUN_WITH_DOCKER=true
+
+RUN adduser \
+  --disabled-password \
+  "app"
+USER app
+
+EXPOSE 3002
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "3002"]
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\main.py
+/===============================================================================
+
+import os
+import uvicorn
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
+from src.config.lifespan import lifespan
+from src.Graphql.router.health import health_check_router
+from src.Graphql.router.client import graphql_app
+from src.config.constants import ApiConstants
+
+def init_app():
+    """
+    Initializes and configures the FastAPI application.
+    This function sets up the FastAPI application with the following:
+    - Title, description, and version metadata.
+    - Lifespan configuration for application lifecycle events.
+    - Inclusion of the GraphQL router under the "/graphql" prefix with the "graphql" tag.
+    - Inclusion of the health check router with the "Healthcheck" tag.
+    Returns:
+        FastAPI: The configured FastAPI application instance.
+    """
+    app = FastAPI(
+        title="Clients API",
+        description="API GraphQL de clientes con FastAPI",
+        version="0.1",
+        lifespan=lifespan
+    )
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"], 
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    app.include_router(graphql_app, prefix=ApiConstants.CLIENT_ENDPOINT.value, tags=[ApiConstants.CLIENT_ROUTER_TAG.value])
+    app.include_router(health_check_router, tags=[ApiConstants.HEALTH_ROUTER_TAG.value])
+
+    @app.get(ApiConstants.SWAGGER_JSON.value, include_in_schema=False)
+    def get_swagger_json():
+        return FileResponse(ApiConstants.SWAGGER_JSON_PATH.value, media_type=ApiConstants.SWAGGER_JSON_MEDIA_TYPE.value)
+
+    return app
+
+app = init_app()
+
+if __name__ == "__main__" and os.getenv("RUN_WITH_DOCKER") != "true":
+    uvicorn.run("main:app", host="localhost", port=8000, reload=True)
+
+
+
+
+// File: C:\Proyectos_software\Work\btg\Terraform\MURIC\analytics-contrapartes-api-graph-back\requirements.txt
+/===============================================================================
+
+# Core
+fastapi[standard]
+uvicorn
+strawberry-graphql[fastapi]
+python-dotenv
+sqlalchemy==1.4.41
+sqlmodel==0.0.8
+redshift-connector
+sqlalchemy-redshift
+
+# PostgreSQL / Redshift
+psycopg2-binary
+asyncpg
+
+# AWS
+boto3
+
+# Testing
+pytest
+pytest-cov
+httpx
+anyio
+
+# Dev utils
+pip-check
+
+

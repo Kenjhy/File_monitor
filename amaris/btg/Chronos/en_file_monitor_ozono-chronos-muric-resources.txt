@@ -1,0 +1,289 @@
+// Last update transaction car: 2025-07-16 15:14:21.216468
+// Total files: 10
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-resources\serverless-files\general\custom.yml
+/===============================================================================
+
+# Projects
+deploymentBucketName:   ${env:deploymentBucketName}
+projectApigtwStackName: ${env:projectApigtwStackName}
+mainProject:            ${env:mainProject}    # Ozono
+networkStackName:       ${env:networkStackName}
+project:                ${env:project}        # chronos
+projectFullName:        ${self:custom.mainProject}-${self:custom.project}
+stage:                  ${opt:stage}
+region:                 ${env:region}
+stackName:              ${self:custom.projectFullName}-resources-${self:custom.stage}
+backStackName:          ${self:custom.projectFullName}-${self:custom.stage}
+
+kmsARNStage:
+  dev:                       ${env:arnKmsDEV}
+  uat:                       ${env:arnKmsUAT}
+  pdn:                       ${env:arnKmsPDN}
+arnKms:                      ${self:custom.kmsARNStage.${self:custom.stage}}
+
+urlFrontStage:
+  dev:                      ${env:urlFrontDEV}
+  uat:                      ${env:urlFrontUAT}
+  pdn:                      ${env:urlFrontPDN}
+urlFront:                   ${self:custom.urlFrontStage.${self:custom.stage}}
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-resources\serverless-files\general\tags.yml
+/===============================================================================
+
+Ambiente:           ${self:custom.stage}
+Aplicativo:         ${env:tagAplicativo}
+Area:               ${env:tagArea}
+Celula:             ${env:tagCelula}
+Compania:           ${env:tagCompania}
+Disponibilidad:     ${env:tagDisponibilidad}
+Producto:           ${env:tagProducto}
+Proyecto:           ${env:tagProyecto}
+Despliegue:         ServerlessFramework
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-resources\serverless-files\resources\buckets\muricReportBucket.yml
+/===============================================================================
+
+Resources:
+  MuricReportBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: s3-${self:custom.projectFullName}-reports-${self:custom.stage}
+      CorsConfiguration:
+        CorsRules:
+        - AllowedHeaders:
+          - "*"
+          AllowedMethods:
+            - GET
+            - POST
+            - HEAD
+          AllowedOrigins:
+            - ${self:custom.urlFront}
+    
+      VersioningConfiguration:
+        Status: !If [IsProd, Enabled, Suspended]
+        
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: "AES256"
+
+Outputs:
+  
+  MuricReportBucketQualifiedArn:
+    Description: ARN of bucket s3 chronos reports
+    Value: !GetAtt MuricReportBucket.Arn
+    Export:
+      Name: !Sub "${self:custom.projectFullName}-MuricReportsS3ARN"
+
+  MuricReportBucketName:
+    Description: Name of bucket s3 to chronos reports
+    Value: s3-${self:custom.projectFullName}-reports-${self:custom.stage}
+    Export:
+      Name: !Sub "${self:custom.projectFullName}-MuricReportsS3Name"
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-resources\serverless-files\resources\conditions\conditions.yml
+/===============================================================================
+
+Conditions:
+    IsProd: !Equals ['${self:custom.stage}', pdn]
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-resources\serverless-files\resources\secrets\apisDLHCredentials.yml
+/===============================================================================
+
+Resources:
+
+  apisDLHCredentials:
+      Type: AWS::SecretsManager::Secret
+      Properties:
+        Description: Secreto que almacena las credenciales para la relación de confianza de las microservicios de clientes y creditos de apis del DLH para el proceso de MURIC
+        Name: scm-${self:custom.projectFullName}-reports-${self:custom.stage}-apisDLHCredentials
+        KmsKeyId: ${self:custom.arnKms}
+        SecretString: '{"clientid": "to_change", "resource": "to_change", "client_secret" : "to_change"}'
+        Tags:
+          - Key: Name
+            Value: scm-${self:custom.projectFullName}-reports-${self:custom.stage}-apisDLHCredentials
+
+Outputs:
+  apisDLHCredentials:
+    Description: ARN of secret apisDLHCredentials
+    Value: !Ref apisDLHCredentials
+    Export:
+      Name: !Sub "${self:custom.projectFullName}-apisDLHCredentials"
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-resources\serverless-files\resources\secrets\apiUnityCredentials.yml
+/===============================================================================
+
+Resources:
+
+  apiUnityCredentials:
+      Type: AWS::SecretsManager::Secret
+      Properties:
+        Description: Secreto que almacena las credenciales para la relación de confianza de Unity para el proceso de MURIC
+        Name: scm-${self:custom.projectFullName}-reports-${self:custom.stage}-apiUnityCredentials
+        KmsKeyId: ${self:custom.arnKms}
+        SecretString: '{"clientid": "to_change", "resource": "to_change", "client_secret" : "to_change"}'
+        Tags:
+          - Key: Name
+            Value: scm-${self:custom.projectFullName}-reports-${self:custom.stage}-apiUnityCredentials
+
+Outputs:
+  apiUnityCredentials:
+    Description: ARN of secret apiUnityCredentials
+    Value: !Ref apiUnityCredentials
+    Export:
+      Name: !Sub "${self:custom.projectFullName}-apiUnityCredentials"
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-resources\serverless-files\resources\secrets\dbOzonoCredentials.yml
+/===============================================================================
+
+Resources:
+
+  dbOzonoCredentials:
+      Type: AWS::SecretsManager::Secret
+      Properties:
+        Description: Secreto que almacena las credenciales de la base de datos de Ozono para el proceso de MURIC
+        Name: scm-${self:custom.projectFullName}-reports-${self:custom.stage}-dbOzonoCredentials
+        KmsKeyId: ${self:custom.arnKms}
+        SecretString: '
+          {
+            "host": "toChange",
+            "port": "toChange",
+            "database": "toChange",
+            "username": "toChange",
+            "password": "toChange"          
+          } 
+        '
+        Tags:
+          - Key: Name
+            Value: scm-${self:custom.projectFullName}-reports-${self:custom.stage}-dbOzonoCredentials
+
+Outputs:
+  dbOzonoCredentials:
+    Description: ARN of secret dbOzonoCredentials
+    Value: !Ref dbOzonoCredentials
+    Export:
+      Name: !Sub "${self:custom.projectFullName}-dbOzonoCredentials"
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-resources\.env
+/===============================================================================
+
+# Tags
+tagDisponibilidad="$(disponibility)"
+tagCelula="$(cell)"
+tagAplicativo="$(app)"
+tagCompania="$(company)"
+tagArea="$(area)"
+tagProducto="$(product)"
+tagProyecto="$(projectName)"
+
+# Projects
+stage="$(stage)"
+region="$(region)"
+networkStackName="$(networkStackName)"
+deploymentBucketName="$(deploymentBucketName)"
+projectApigtwStackName="$(projectApigtwStackName)"
+mainProject="$(mainProject)"
+project="$(project)"
+arnKmsDEV="$(arnKmsDEV)"
+arnKmsUAT="$(arnKmsUAT)"
+arnKmsPDN="$(arnKmsPDN)"
+urlFrontDEV="$(urlFrontDEV)"
+urlFrontUAT="$(urlFrontUAT)"
+urlFrontPDN="$(urlFrontPDN)"
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-resources\azure-pipelines.yml
+/===============================================================================
+
+trigger:
+  branches:
+    include:
+      - development
+      - release
+      - master
+  paths:
+    include:
+      - '*'
+    exclude:
+      - azure-pipelines.yml
+
+resources:
+  repositories:
+    - repository: devops-templates
+      type: git
+      name: devops-templates
+      ref: master
+
+pool: "BTG Colombia - Azure DevOPS"
+
+variables:
+  - ${{ if eq(variables['Build.SourceBranchName'], 'development') }}:
+      - name: stage
+        value: dev
+  - ${{ if eq(variables['Build.SourceBranchName'], 'release') }}:
+      - name: stage
+        value: uat
+  - ${{ if eq(variables['Build.SourceBranchName'], 'master') }}:
+      - name: stage
+        value: pdn
+  - name: region
+    value: us-east-1
+  - name: awsCredentials
+    value: OZONO-MULTIPROJECTS-${{upper(variables.stage)}}
+  - group: ozono-chronos-muric
+  - group: ozono-chronos-muric-tags
+  - group: ozono-transversal
+  - name: deploymentBucketName
+    value: bucket-multiprojects-$(stage)-serverless
+  - name: serverlessVersion
+    value: '3'
+stages:
+
+  - template: main.yml@devops-templates
+    parameters:
+      service: serverless
+      type: code
+      code: resources
+      workPath: $(System.DefaultWorkingDirectory)
+
+
+
+// File: C:\Proyectos_software\Work\btg\Serverless\CHRONOS\ozono-chronos-muric-resources\serverless.yml
+/===============================================================================
+
+service: ${self:custom.projectFullName}-resources
+frameworkVersion: '3'
+useDotenv: true
+
+provider:
+  name: aws
+  stage: ${self:custom.stage}
+  deploymentBucket:
+    name: ${self:custom.deploymentBucketName}
+    maxPreviousDeploymentArtifacts: 10
+  stackTags: ${file(./serverless-files/general/tags.yml)}
+   
+custom: ${file(./serverless-files/general/custom.yml)}
+
+resources:
+  #Conditions
+  - ${file(./serverless-files/resources/conditions/conditions.yml)}
+
+  # Secrets
+  - ${file(./serverless-files/resources/secrets/dbOzonoCredentials.yml)}
+  - ${file(./serverless-files/resources/secrets/apiUnityCredentials.yml)}
+  - ${file(./serverless-files/resources/secrets/apisDLHCredentials.yml)}
+
+  # Buckets
+  - ${file(./serverless-files/resources/buckets/muricReportBucket.yml)}
+
